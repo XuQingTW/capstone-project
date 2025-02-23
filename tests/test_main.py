@@ -4,9 +4,10 @@ import openai
 from linebot.models import TextSendMessage
 
 # 讀取 API 金鑰
-openai.api_key = os.getenv("OPENAI_API_KEY")
-if not openai.api_key:
-    raise ValueError("OPENAI_API_KEY 未設定或為空值。請先設置環境變數。")
+with open("key.json", "r") as f:
+    key = json.load(f)
+
+openai.api_key = key["openai_key"]
 
 # 將系統提示文字獨立為常數，避免內嵌長字串使程式碼難以維護
 SYSTEM_PROMPT = (

@@ -9,14 +9,10 @@ from linebot.models import MessageEvent, TextMessage
 # 從 main.py 匯入我們寫好的回覆函式
 from main import reply_message
 
-# ==============================
-# 從環境變數取得 LINE Bot 金鑰
-# ==============================
-channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-channel_secret = os.getenv("LINE_CHANNEL_SECRET")
-
-if not channel_access_token or not channel_secret:
-    raise ValueError("LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。")
+# 讀取 key.json
+key_path = os.getenv("KEY_JSON_PATH", "key.json")
+with open(key_path, "r") as f:
+    key = json.load(f)
 
 app = Flask(__name__)
 

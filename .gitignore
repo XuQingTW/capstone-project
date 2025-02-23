@@ -1,5 +1,9 @@
 key.json
 
+# Docker 相關
+*.pid
+docker-compose.override.yml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
