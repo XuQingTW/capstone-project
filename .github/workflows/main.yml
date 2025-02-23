@@ -25,9 +25,6 @@ jobs:
       - name: Create key.json
         run: echo '${{ secrets.KEY_JSON }}' > key.json
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
       - name: Run pytest tests
         run: pytest tests/
 
