@@ -25,7 +25,7 @@ jobs:
       - name: Create key.json
         run: echo '${{ secrets.KEY_JSON }}' > key.json
 
-      - name: Run pytest tests
+      - name: Run pytest on tests directory
         run: pytest tests/
 
       - name: Login to Docker Hub
