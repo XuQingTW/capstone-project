@@ -28,17 +28,17 @@ handler = WebhookHandler(channel_secret)
 
 @app.route("/callback", methods=['POST'])
 def callback():
-    """處理來自 LINE 平台的 Webhook 請求."""
-    # 取得 X-Line-Signature
-    signature = request.headers.get('X-Line-Signature')
-
-    # 取得請求內容（body）
+    signature = request.headers.get("X-Line-Signature")
     body = request.get_data(as_text=True)
 
+    # 若完全沒有傳 signature，直接回傳 400
+    if signature is None:
+        abort(400)
+
     try:
-        # 驗證簽名並處理訊息
         handler.handle(body, signature)
     except InvalidSignatureError:
+        # 如果 signature 無效或驗簽失敗，也回傳 400
         abort(400)
 
     return 'OK'
