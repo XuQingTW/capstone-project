@@ -8,7 +8,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage
 
 # 從 main.py 匯入我們寫好的回覆函式
-from main import reply_message
+from src.main import reply_message
 
 # ==============================
 # 從環境變數取得 LINE Bot 金鑰
