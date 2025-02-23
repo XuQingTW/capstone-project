@@ -1,4 +1,5 @@
 import json
+import os
 
 import openai
 from linebot.models import TextSendMessage
