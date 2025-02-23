@@ -2,7 +2,7 @@ import json
 import os
 
 from flask import Flask, request, abort
-from linebot import LineBotApi
+from linebot.v3.messaging import MessagingApi
 from linebot.v3 import WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage
@@ -23,7 +23,7 @@ app = Flask(__name__)
 
 #登入https://developers.line.biz/zh-hant/
 # 初始化 LINE Bot
-line_bot_api = LineBotApi(channel_access_token)
+line_bot_api = MessagingApi(channel_access_token)
 handler = WebhookHandler(channel_secret)
 
 @app.route("/callback", methods=['POST'])
