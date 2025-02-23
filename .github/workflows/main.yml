@@ -1,0 +1,2 @@
+- name: Create key.json
+  run: echo '${{ secrets.KEY_JSON }}' > key.json
