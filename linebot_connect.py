@@ -2,7 +2,7 @@ import json
 import os
 
 from flask import Flask, request, abort
-from linebot.v3.messaging import LineBotApi
+from linebot.v3 import LineBotApi
 from linebot.v3.webhook import WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage
