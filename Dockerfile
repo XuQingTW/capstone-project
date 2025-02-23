@@ -6,10 +6,12 @@ WORKDIR /app
 
 # 複製專案檔案到容器
 COPY . .
-COPY key.json /app/key.json
 
 # 安裝專案所需的 Python 套件
 RUN pip install -r requirements.txt
 
 # 指定容器啟動時執行的指令
 CMD ["python", "linebot_connect.py"]
+
+# 設定 `key.json` 作為環境變數
+ENV KEY_JSON_PATH=/app/key.json
