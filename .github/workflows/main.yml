@@ -23,9 +23,6 @@ jobs:
           pip install --upgrade pip
           pip install pytest
 
-      - name: Create key.json
-        run: echo '${{ secrets.KEY_JSON }}' > key.json
-
       - name: Run pytest on tests directory
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
