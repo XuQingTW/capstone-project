@@ -1,6 +1,5 @@
-<<<<<<< HEAD
 key.json
-=======
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -172,4 +171,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
->>>>>>> 2a2e9c016f63d2c01be16a52fdd8f1cb65928fe0
+2a2e9c016f63d2c01be16a52fdd8f1cb65928fe0
