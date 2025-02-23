@@ -1,4 +1,5 @@
 import json
+import os
 
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
@@ -9,7 +10,8 @@ from linebot.models import MessageEvent, TextMessage
 from main import reply_message
 
 # 讀取 key.json
-with open('key.json', 'r') as f:
+key_path = os.getenv("KEY_JSON_PATH", "key.json")
+with open(key_path, "r") as f:
     key = json.load(f)
 
 app = Flask(__name__)
