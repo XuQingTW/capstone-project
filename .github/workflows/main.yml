@@ -1,2 +1,19 @@
-- name: Create key.json
-  run: echo '${{ secrets.KEY_JSON }}' > key.json
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Create key.json
+        run: echo '${{ secrets.KEY_JSON }}' > key.json
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t your-dockerhub-username/capstone-project:latest .
+          docker push your-dockerhub-username/capstone-project:latest
