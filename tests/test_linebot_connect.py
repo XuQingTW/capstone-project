@@ -22,8 +22,8 @@ app = Flask(__name__)
 
 #登入https://developers.line.biz/zh-hant/
 # 初始化 LINE Bot
-line_bot_api = LineBotApi(key["line_Channel_access_token"])
-handler = WebhookHandler(key["line_Channel_secret"])
+line_bot_api = LineBotApi(channel_access_token)
+handler = WebhookHandler(channel_secret)
 
 @app.route("/callback", methods=['POST'])
 def callback():
