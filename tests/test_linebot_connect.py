@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from linebot.exceptions import InvalidSignatureError
-from src.linebot_connect import app, handler
+
 
 # 從 linebot_connect.py 匯入 Flask app 與 handler
-from linebot_connect import app, handler
+from src.linebot_connect import app, handler
 
 
 @pytest.fixture
