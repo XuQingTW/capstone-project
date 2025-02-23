@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from src.main import reply_message, OpenAIService, UserData
 
 # 匯入要測試的對象
 from main import reply_message, OpenAIService, UserData
