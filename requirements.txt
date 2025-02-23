@@ -1,0 +1,4 @@
+flask
+requests
+line-bot-sdk
+openai
