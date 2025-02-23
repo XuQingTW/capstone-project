@@ -1,7 +1,3 @@
-下面是一個重寫後的 README.md 範本，您可以依照需求進一步調整：
-
----
-
 # Capstone Project: LINE Bot 與 ChatGPT 整合
 
 本專案整合了 LINE 官方帳號與 ChatGPT 的 API，提供工程相關技術支援與諮詢服務。透過 Flask、LINE Bot SDK 與 OpenAI API，使用者可以直接在 LINE 上與智慧助手進行互動。
@@ -55,7 +51,3 @@
 
 - **ChatGPT API 金鑰**  
   本專案未內建 ChatGPT 的 API 金鑰設定，請依需求自行配置。未來版本將進一步完善此部分。
-
----
-
-此 README.md 範本提供了專案的基本資訊與使用指南，可作為後續擴充與修改的依據。
