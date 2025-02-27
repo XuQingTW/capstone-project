@@ -33,6 +33,8 @@
 │   ├── test_main.py            # 測試 OpenAI 服務及回覆函式
 │   ├── test_linebot_connect.py # 測試 LINE Bot 事件處理與簽名驗證
 │   └── test_powerbi_integration.py # 測試 PowerBI 整合模組
+├── templates/
+│   └── powerbi.html            #HTML 模板
 ├── requirements.txt            # Python 套件相依列表
 ├── main.yml                    # GitHub Actions CI/CD 設定檔
 ├── Dockerfile                  # Docker 部署設定檔（選用）
