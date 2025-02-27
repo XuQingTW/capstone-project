@@ -1,21 +1,31 @@
-以下提供一個完整的範例，示範如何在現有的 Flask 專案中整合 PowerBI。基本流程如下：
-	1.	申請與設定 PowerBI API 所需參數
-	•	在 Azure AD 中註冊應用，取得 client_id、client_secret 與 tenant_id。
-	•	在 PowerBI 中準備好要嵌入的報表，記錄其 workspace（group）ID 及 report ID。
-	•	將上述參數設定為環境變數：
+本文件說明如何在現有的 Flask 專案中整合 PowerBI，主要步驟包括：
+	1.	環境設定與參數準備
+在 Azure AD 中註冊應用以取得下列參數，並設定為環境變數：
 	•	POWERBI_CLIENT_ID
 	•	POWERBI_CLIENT_SECRET
 	•	POWERBI_TENANT_ID
 	•	POWERBI_WORKSPACE_ID
 	•	POWERBI_REPORT_ID
-	2.	撰寫 PowerBI 整合模組
-使用 Python 的 requests 呼叫 Microsoft 的 OAuth2 服務取得存取權杖，再進一步呼叫 PowerBI API 產生嵌入用的 token 與 URL。
-	3.	建立 PowerBI 展示頁面
-在 Flask 中新增一個路由（例如 /powerbi），透過剛剛撰寫的模組取得 embed token 與 embed URL，並利用 PowerBI Client JavaScript SDK 將報表嵌入頁面中。
+	2.	建立 PowerBI 整合模組
+使用 Python 撰寫一個模組，透過 OAuth2 客戶端憑證流程取得存取權杖，並呼叫 PowerBI API 生成嵌入所需的 Token 與 Embed URL。
+	3.	修改 Flask 路由
+新增 /powerbi 路由，呼叫上述模組取得 PowerBI 報表嵌入設定，再使用前端 PowerBI Client SDK 將報表嵌入頁面中。
+	4.	建立 HTML 模板
+在 templates 資料夾中建立 HTML 模板，利用 PowerBI Client SDK 將報表呈現在網頁中。
 
-下面提供完整的程式碼範例：
+1. 環境設定
 
-1. 新增模組：src/powerbi_integration.py
+請在部署前確保設定下列環境變數，例如使用 .env 檔或直接在 Shell 中設定：
+
+export POWERBI_CLIENT_ID="your_client_id"
+export POWERBI_CLIENT_SECRET="your_client_secret"
+export POWERBI_TENANT_ID="your_tenant_id"
+export POWERBI_WORKSPACE_ID="your_workspace_id"
+export POWERBI_REPORT_ID="your_report_id"
+
+2. PowerBI 整合模組 (src/powerbi_integration.py)
+
+建立一個新的 Python 檔案 src/powerbi_integration.py，內容如下：
 
 import os
 import requests
@@ -77,21 +87,17 @@ def get_powerbi_embed_config() -> dict:
         "workspaceId": POWERBI_WORKSPACE_ID
     }
 
-2. 修改 Flask 專案，新增 PowerBI 路由
-在原有的 src/linebot_connect.py 中（或依需求另外建立一個模組），新增一個 /powerbi 路由。
-此範例使用 Flask 的 render_template，需在專案根目錄建立 templates 資料夾，並新增 HTML 模板檔案。
+3. 修改 Flask 路由
 
-修改後的部分範例如下：
+在原有的 Flask 專案中（例如 src/linebot_connect.py），新增一個 /powerbi 路由來展示 PowerBI 報表。修改後的範例如下：
 
-# 其他引用保持不變
 from flask import Flask, request, abort, render_template
-# 新增 PowerBI 模組引用
+# 引入原有 LINE Bot 相關模組...
 from src.powerbi_integration import get_powerbi_embed_config
 
 app = Flask(__name__)
 
-# 原有 /callback 路由等保留
-# ...
+# ...原有 /callback 路由等
 
 # 新增 /powerbi 路由，提供 PowerBI 報表嵌入頁面
 @app.route("/powerbi")
@@ -105,9 +111,9 @@ def powerbi():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
 
-3. 建立 HTML 模板：templates/powerbi.html
+4. 建立 HTML 模板 (templates/powerbi.html)
 
-建立一個新的資料夾 templates，並在其中建立檔案 powerbi.html。內容如下：
+在專案根目錄下建立 templates 資料夾，並新增檔案 powerbi.html，內容如下：
 
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -141,27 +147,19 @@ if __name__ == "__main__":
 </body>
 </html>
 
-整合步驟說明：
+整合步驟總結
 	1.	環境變數設定
-請在部署前設定以下環境變數（例如透過 .env 檔案或直接在 Shell 中設定）：
+設定 PowerBI 所需參數：
 	•	POWERBI_CLIENT_ID
 	•	POWERBI_CLIENT_SECRET
 	•	POWERBI_TENANT_ID
 	•	POWERBI_WORKSPACE_ID
 	•	POWERBI_REPORT_ID
-	2.	安裝相依套件
-若尚未安裝 requests、Flask 等相依套件，可執行：
+	2.	建立 PowerBI 整合模組
+在 src/powerbi_integration.py 中撰寫取得存取權杖與生成 Embed Token 的功能。
+	3.	新增 Flask 路由
+修改專案（如 src/linebot_connect.py），新增 /powerbi 路由並利用 render_template 載入 powerbi.html 模板。
+	4.	建立 HTML 模板
+在 templates 資料夾中建立 powerbi.html，並使用 PowerBI Client SDK 將報表嵌入頁面中。
 
-pip install flask requests
-
-
-	3.	啟動專案
-執行修改後的 Flask 專案：
-
-python src/linebot_connect.py
-
-確認 /powerbi 路徑能正確載入 PowerBI 報表。
-
-此範例展示如何利用 PowerBI API 取得嵌入用 token 與 URL，並在 Flask 應用中建立報表展示頁面。根據實際需求，你可能還需要調整權限設定或加入前端更多互動功能。
-
-以上即為將 PowerBI 整合到你現有專案中的完整實作範例。
+完成上述步驟後，啟動 Flask 專案，並透過瀏覽器存取 http://<your_host>:5000/powerbi，即可看到 PowerBI 報表嵌入展示的頁面。
