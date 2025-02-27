@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>PowerBI 整合完整步驟</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 2rem;
+      background-color: #f9f9f9;
+    }
+    h1, h2, h3 {
+      color: #333;
+    }
+    .step {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      border-radius: 4px;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      overflow-x: auto;
+    }
+    code {
+      font-family: Consolas, monospace;
+    }
+    a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>PowerBI 整合到專案的完整步驟</h1>
+  
+  <!-- Step 1 -->
+  <div class="step">
+    <h2>步驟 1：申請與設定 PowerBI API 所需參數</h2>
+    <p>
+      1. 到 <a href="https://portal.azure.com/" target="_blank">Azure AD</a> 註冊你的應用，取得以下參數：
+      <code>POWERBI_CLIENT_ID</code>、<code>POWERBI_CLIENT_SECRET</code> 與 <code>POWERBI_TENANT_ID</code>。
+    </p>
+    <p>
+      2. 在 PowerBI 中準備好你要嵌入的報表，記下報表的 <code>workspace (group) ID</code> 與 <code>report ID</code>。
+    </p>
+    <p>3. 將上述參數設定為環境變數：</p>
+    <pre><code>
+POWERBI_CLIENT_ID
+POWERBI_CLIENT_SECRET
+POWERBI_TENANT_ID
+POWERBI_WORKSPACE_ID
+POWERBI_REPORT_ID
+    </code></pre>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <h2>步驟 2：撰寫 PowerBI 整合模組</h2>
+    <p>建立檔案 <code>src/powerbi_integration.py</code>，內容如下：</p>
+    <pre><code>import os
+import requests
+
+# 從環境變數讀取 PowerBI API 所需參數
+POWERBI_CLIENT_ID = os.getenv("POWERBI_CLIENT_ID")
+POWERBI_CLIENT_SECRET = os.getenv("POWERBI_CLIENT_SECRET")
+POWERBI_TENANT_ID = os.getenv("POWERBI_TENANT_ID")
+POWERBI_WORKSPACE_ID = os.getenv("POWERBI_WORKSPACE_ID")
+POWERBI_REPORT_ID = os.getenv("POWERBI_REPORT_ID")
+
+if not all([POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET, POWERBI_TENANT_ID, POWERBI_WORKSPACE_ID, POWERBI_REPORT_ID]):
+    raise ValueError("請確保已設置所有 PowerBI 所需的環境變數：POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET, POWERBI_TENANT_ID, POWERBI_WORKSPACE_ID, POWERBI_REPORT_ID。")
+
+def get_powerbi_access_token() -> str:
+    """
+    透過 OAuth2 客戶端憑證流程取得 PowerBI API 存取權杖
+    """
+    url = f"https://login.microsoftonline.com/{POWERBI_TENANT_ID}/oauth2/v2.0/token"
+    payload = {
+        'grant_type': 'client_credentials',
+        'client_id': POWERBI_CLIENT_ID,
+        'client_secret': POWERBI_CLIENT_SECRET,
+        'scope': 'https://analysis.windows.net/powerbi/api/.default'
+    }
+    response = requests.post(url, data=payload)
+    if response.status_code != 200:
+        raise Exception("無法取得 PowerBI 存取權杖，請檢查憑證設定。")
+    access_token = response.json().get("access_token")
+    return access_token
+
+def get_powerbi_embed_token(access_token: str) -> str:
+    """
+    呼叫 PowerBI API 產生報表的 Embed Token
+    """
+    url = f"https://api.powerbi.com/v1.0/myorg/groups/{POWERBI_WORKSPACE_ID}/reports/{POWERBI_REPORT_ID}/GenerateToken"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {access_token}"
+    }
+    payload = {"accessLevel": "view"}
+    response = requests.post(url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception("無法取得 PowerBI Embed Token")
+    embed_token = response.json().get("token")
+    return embed_token
+
+def get_powerbi_embed_config() -> dict:
+    """
+    組合 PowerBI 嵌入所需的設定，包含 embed URL 與 token
+    """
+    access_token = get_powerbi_access_token()
+    embed_token = get_powerbi_embed_token(access_token)
+    embed_url = f"https://app.powerbi.com/reportEmbed?reportId={POWERBI_REPORT_ID}&groupId={POWERBI_WORKSPACE_ID}"
+    return {
+        "embedUrl": embed_url,
+        "accessToken": embed_token,
+        "reportId": POWERBI_REPORT_ID,
+        "workspaceId": POWERBI_WORKSPACE_ID
+    }
+    </code></pre>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <h2>步驟 3：修改 Flask 專案，新增 PowerBI 路由</h2>
+    <p>在原有的 Flask 專案（例如 <code>src/linebot_connect.py</code>）中，新增一個 <code>/powerbi</code> 路由：</p>
+    <pre><code>from flask import Flask, request, abort, render_template
+from src.powerbi_integration import get_powerbi_embed_config
+
+app = Flask(__name__)
+
+# ... 其他路由與設定 ...
+
+@app.route("/powerbi")
+def powerbi():
+    try:
+        config = get_powerbi_embed_config()
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+    return render_template("powerbi.html", config=config)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+    </code></pre>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step">
+    <h2>步驟 4：建立 HTML 模板展示 PowerBI 報表</h2>
+    <p>在專案根目錄下建立 <code>templates</code> 資料夾，並新增 <code>powerbi.html</code>，內容如下：</p>
+    <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="zh-Hant"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;PowerBI 報表展示&lt;/title&gt;
+    &lt;!-- 載入 PowerBI Client SDK --&gt;
+    &lt;script src="https://cdn.powerbi.com/libs/powerbi-client/latest/powerbi.min.js"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h2&gt;PowerBI 報表展示&lt;/h2&gt;
+    &lt;div id="reportContainer" style="height:800px;"&gt;&lt;/div&gt;
+    &lt;script&gt;
+        // 取得後端傳入的嵌入設定
+        var embedConfig = {
+            type: 'report',
+            tokenType: powerbi.models.TokenType.Embed,
+            accessToken: "{{ config.accessToken }}",
+            embedUrl: "{{ config.embedUrl }}",
+            id: "{{ config.reportId }}",
+            settings: {
+                filterPaneEnabled: false,
+                navContentPaneEnabled: true
+            }
+        };
+
+        // 將報表嵌入到網頁中
+        var reportContainer = document.getElementById('reportContainer');
+        powerbi.embed(reportContainer, embedConfig);
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+    </code></pre>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step">
+    <h2>步驟 5：環境設定與啟動專案</h2>
+    <p>
+      1. 確保已安裝相依套件（例如 <code>Flask</code> 與 <code>requests</code>）：
+    </p>
+    <pre><code>pip install flask requests</code></pre>
+    <p>2. 設定所有 PowerBI 相關的環境變數。</p>
+    <p>3. 啟動 Flask 專案：</p>
+    <pre><code>python src/linebot_connect.py</code></pre>
+    <p>
+      4. 開啟瀏覽器，存取 <code>http://localhost:5000/powerbi</code> 以檢視嵌入的 PowerBI 報表。
+    </p>
+  </div>
+  
+  <h3>結語</h3>
+  <p>
+    以上即為如何在現有專案中整合 PowerBI 的完整步驟與範例程式碼。依據實際需求，你可進一步調整權限設定或前端互動功能。
+  </p>
+</body>
+</html>
