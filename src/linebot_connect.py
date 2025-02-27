@@ -6,6 +6,7 @@ from linebot.v3.messaging import MessagingApi
 from linebot.v3 import WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage
+from src.powerbi_integration import get_powerbi_embed_config
 
 # 從 main.py 匯入我們寫好的回覆函式
 from src.main import reply_message
@@ -50,6 +51,13 @@ def handle_message(event: MessageEvent):
     message = reply_message(event)
     # 透過 line_bot_api 回覆訊息
     line_bot_api.reply_message(event.reply_token, message)
+
+def powerbi():
+    try:
+        config = get_powerbi_embed_config()
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+    return render_template("powerbi.html", config=config)
 
 if __name__ == "__main__":
     # 在 Docker 容器中執行時，host 要設成 "0.0.0.0"
