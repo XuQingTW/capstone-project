@@ -1,129 +1,132 @@
-# 專案文件 (Documentary)
+# 專案文件
 
-## 專案簡介
-這個專案為一個整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat) 的機器人應用。使用者透過 LINE Bot 傳遞訊息，後端會透過 OpenAI API 生成回覆內容，並由機器人自動回覆到使用者的 LINE 介面中。
+## 專案概述
+
+本專案致力於整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat)，打造一個能夠在 LINE 平台上即時提供技術支援與諮詢的智能助理。專案核心包含智能對話生成，並進一步擴展為 PowerBI 報表嵌入功能，方便用戶在網頁上直觀地展示與分析數據。
 
 ## 主要功能
-1. **接收 LINE 訊息**：以 `/callback` 路徑作為 Webhook 端點，接收並驗證 LINE 所傳來的事件。
-2. **訊息處理與回覆**：對於文字訊息，呼叫 OpenAI ChatCompletion 生成回應，再使用 LINE API 回覆給用戶。
-3. **串接測試 (Test)**：以 `pytest` 配合 `unittest.mock` 進行單元測試，模擬 LINE 事件與 OpenAI 回應。
 
-## 專案結構
-以下為主要程式檔與目錄說明：
+1. **LINE 訊息處理**  
+   - 利用 `/callback` Webhook 接收並驗證 LINE 傳來的事件。
+   - 針對使用者的文字訊息，調用 OpenAI ChatCompletion API 生成專業回覆，並透過 LINE Bot API 回傳結果。
+
+2. **智能對話生成**  
+   - 根據預先定義的系統提示，結合使用者輸入生成邏輯嚴謹且具體建議的回應，滿足工程技術諮詢需求。
+
+3. **PowerBI 報表整合**  
+   - 完成 PowerBI API 的存取與報表嵌入，透過 OAuth2 認證流程獲取存取權杖與嵌入 Token。
+   - 提供一個網頁介面（例如 `/powerbi` 路由）以展示 PowerBI 報表，便於用戶進行數據分析與監控。
+
+4. **測試與持續整合**  
+   - 利用 `pytest` 與 `unittest.mock` 進行單元測試，確保 LINE Bot、OpenAI 服務與 PowerBI 整合模組的功能穩定。
+   - 透過 GitHub Actions 自動化測試與 Docker 映像檔建置，實現 CI/CD 流程。
+
+## 專案架構
 
 ```
 .
 ├── src/
-│   ├── main.py              # 主要邏輯與 OpenAI 服務封裝
-│   └── linebot_connect.py   # Flask + LINE Bot 啟動與接收事件處理
+│   ├── main.py                 # 核心業務邏輯與 OpenAI 服務封裝
+│   ├── linebot_connect.py      # Flask 應用與 LINE Bot 事件處理
+│   └── powerbi_integration.py  # PowerBI API 整合與報表嵌入模組
 ├── tests/
-│   ├── test_main.py         # 測試 main.py 中的功能
-│   └── test_linebot_connect.py  # 測試 linebot_connect.py 中的功能
-├── requirements.txt         # Python 相依套件列表
-├── main.yml                 # GitHub Actions CI/CD 設定檔
-├── README.md                # 簡易專案說明 (原始檔)
-├── .gitignore
-└── Dockerfile (若有)
+│   ├── test_main.py            # 測試 OpenAI 服務及回覆函式
+│   ├── test_linebot_connect.py # 測試 LINE Bot 事件處理與簽名驗證
+│   └── test_powerbi_integration.py # 測試 PowerBI 整合模組
+├── requirements.txt            # Python 套件相依列表
+├── main.yml                    # GitHub Actions CI/CD 設定檔
+├── Dockerfile                  # Docker 部署設定檔（選用）
+├── README.md                   # 專案簡介與快速上手指南
+├── Documentary.md              # 專案詳細文件（本文件）
+└── .gitignore                  # 忽略檔案清單
 ```
 
-- **`src/main.py`**
-  - `SYSTEM_PROMPT`: 預設提供給 OpenAI 的系統提示字串，方便管理與維護。
-  - `OpenAIService`: 包裝了呼叫 OpenAI ChatCompletion 的功能，供其他模組使用。
-  - `UserData`: (示範用) 用於儲存使用者資訊與訊息。
-  - `reply_message(event)`: 主要對外呼叫的函式，接收 LINE 事件物件，抽取文字後傳給 OpenAIService，並回傳最終回覆文字。
+## 環境設定
 
-- **`src/linebot_connect.py`**
-  - 建立 Flask app，並設定 `/callback` 路徑作為 LINE Webhook 的接收點。
-  - `handler = WebhookHandler(channel_secret)`: 用於驗證 LINE 傳遞事件的簽名。
-  - `callback()` 函式: 接收事件與 `X-Line-Signature` 驗證；若驗證正確則交由 `handler.handle` 處理。
-  - `handle_message(event)`: 針對文字訊息，呼叫 `reply_message()` 取得 ChatGPT 回覆，再使用 `line_bot_api.reply_message()` 回傳。
+請依照以下步驟配置執行環境：
 
-- **`tests/test_main.py` & `tests/test_linebot_connect.py`**
-  - 使用 `pytest` 與 `unittest.mock` 實現單元測試。
-  - 模擬 LINE 事件、環境變數與 OpenAI 回傳，測試是否能正確取得回覆並回傳預期結果。
-  - `test_main.py` 主要測試 `main.py` 的 `OpenAIService` 與 `reply_message()`。
-  - `test_linebot_connect.py` 主要測試 Flask 路由與事件處理的行為。
+1. **環境變數設定**  
+   下列環境變數需正確設定，才能保證各模組順利運作：
+   - **OpenAI 相關：**
+     - `OPENAI_API_KEY`：你的 OpenAI API 金鑰。
+   - **LINE Bot 相關：**
+     - `LINE_CHANNEL_ACCESS_TOKEN`：LINE Bot 存取金鑰。
+     - `LINE_CHANNEL_SECRET`：LINE Bot 密鑰。
+   - **PowerBI 相關：**
+     - `POWERBI_CLIENT_ID`
+     - `POWERBI_CLIENT_SECRET`
+     - `POWERBI_TENANT_ID`
+     - `POWERBI_WORKSPACE_ID`
+     - `POWERBI_REPORT_ID`
 
-- **`requirements.txt`**
-  - 專案所需的 Python 套件：
-    - `Flask`, `requests`, `line-bot-sdk>=3.0.0`, `openai`, `pytest` 等。
-
-- **`main.yml` (GitHub Actions)**
-  - 定義自動化測試與 CI/CD 流程：
-    1. 安裝相依套件並執行 `pytest`。
-    2. 以 Docker 建置並推送映像檔至 Docker Hub 或其他容器託管服務。
-
-## 安裝與環境設定
-
-1. **安裝 Python (>=3.7)**  
-   建議使用 [pyenv](https://github.com/pyenv/pyenv) 或 [virtualenv](https://docs.python.org/3/library/venv.html) 等方式建立虛擬環境，避免套件衝突。
-
-2. **安裝相依套件**  
+2. **安裝依賴套件**  
+   使用下列指令安裝所需套件：
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **設定環境變數**  
-   以下環境變數必須設定才能正常運作：
-   - `OPENAI_API_KEY`: 你的 OpenAI API 金鑰
-   - `LINE_CHANNEL_ACCESS_TOKEN`: LINE Bot 的 Channel Access Token
-   - `LINE_CHANNEL_SECRET`: LINE Bot 的 Channel Secret
+## 執行應用
 
-   可以在本機使用 `.env` 檔案或直接於 Shell 中進行設定：
-   ```bash
-   export OPENAI_API_KEY="sk-xxxxxx"
-   export LINE_CHANNEL_ACCESS_TOKEN="xxxxx"
-   export LINE_CHANNEL_SECRET="xxxxx"
-   ```
-
-4. **執行 Flask (本機測試)**  
+1. **本地執行**  
+   啟動 Flask 應用：
    ```bash
    python src/linebot_connect.py
    ```
-   服務預設於 `http://127.0.0.1:5000` 啟動，Webhook callback 位於 `http://127.0.0.1:5000/callback`。
+   - LINE Webhook 接收端點為 `/callback`。
+   - 如需查看 PowerBI 報表嵌入頁面，請存取類似 `http://localhost:5000/powerbi` 的 URL。
 
-## 使用方法
-1. **部署 LINE Bot**  
-   - 前往 [LINE 官方帳號後台](https://manager.line.biz/) 或 [LINE Developers](https://developers.line.biz/zh-hant/) 設定你的 Webhook URL 為 `https://YOUR_DOMAIN/callback`，並啟用訊息接收。
-2. **傳送訊息測試**  
-   - 加入 LINE Bot 為好友後，於對話視窗中輸入文字訊息。
-   - Bot 會將訊息轉送至後端，呼叫 OpenAI 生成回覆，並用 LINE API 回覆給你。
-
-## 測試
-本專案使用 [pytest](https://docs.pytest.org/en/stable/) 進行測試：
-```bash
-pytest
-```
-- `tests/test_main.py`: 測試 `OpenAIService` 與 `reply_message`。
-- `tests/test_linebot_connect.py`: 測試 Flask 路由的事件處理邏輯與簽名驗證。
-
-## Docker 部署 (選擇性)
-若需要容器化，參考專案中的 `Dockerfile` (若有) 與 `.github/workflows/main.yml`：
-1. **建置容器**  
+2. **Docker 部署**  
+   若選用 Docker 部署，請依照以下步驟：
    ```bash
    docker build -t your-image-name .
-   ```
-2. **執行容器**  
-   ```bash
    docker run -p 5000:5000 \
-     -e OPENAI_API_KEY="sk-xxxxxx" \
-     -e LINE_CHANNEL_ACCESS_TOKEN="xxxxxx" \
-     -e LINE_CHANNEL_SECRET="xxxxxx" \
+     -e OPENAI_API_KEY="your_openai_api_key" \
+     -e LINE_CHANNEL_ACCESS_TOKEN="your_line_access_token" \
+     -e LINE_CHANNEL_SECRET="your_line_channel_secret" \
+     -e POWERBI_CLIENT_ID="your_powerbi_client_id" \
+     -e POWERBI_CLIENT_SECRET="your_powerbi_client_secret" \
+     -e POWERBI_TENANT_ID="your_powerbi_tenant_id" \
+     -e POWERBI_WORKSPACE_ID="your_powerbi_workspace_id" \
+     -e POWERBI_REPORT_ID="your_powerbi_report_id" \
      your-image-name
    ```
-   服務同樣在容器內部執行 `0.0.0.0:5000`，並對外映射至主機的 5000 埠。
 
-## 常見問題與排錯
-1. **簽名驗證失敗 (400 Bad Request)**  
-   - 確認 `LINE_CHANNEL_SECRET` 與 LINE 後台設定相符。
-2. **OpenAI 回覆為空或錯誤**  
-   - 檢查 `OPENAI_API_KEY` 是否正確且有可用額度。
-   - 檢查網路狀況或 OpenAI API 服務是否暫時不可用。
-3. **Docker 部署失敗**  
-   - 確認 Dockerfile 配置與環境變數設定是否正確。
-   - 確認網路連線及 Docker Hub 帳號、金鑰是否正確無誤。
+## 測試與 CI/CD
 
-## 結論
-本專案透過 Flask 結合 LINE Bot SDK 與 OpenAI API，構建了一個簡單又易於擴充的聊天機器人架構。若有需要擴充更多功能（如資料庫紀錄、其他多媒體訊息處理），可在現有結構上進行模組化開發。希望此文件能幫助你快速上手並維護此專案。
+1. **單元測試**  
+   使用 pytest 執行測試，確保各模組功能正常：
+   ```bash
+   pytest
+   ```
+   測試範圍包括：
+   - LINE Bot 事件處理與簽名驗證。
+   - OpenAI 回覆生成服務。
+   - PowerBI API 整合功能。
 
-如需更多協助或有任何疑問，請於專案 issue 或 PR 中提出。
+2. **持續整合**  
+   GitHub Actions 透過 `main.yml` 定義以下流程：
+   - 套件安裝與環境變數設定。
+   - 自動執行所有單元測試。
+   - 建置並推送 Docker 映像檔至容器託管平台。
+
+## 常見問題與疑難排解
+
+1. **簽名驗證失敗**  
+   - 請確認 `LINE_CHANNEL_SECRET` 與 LINE 後台設定保持一致。
+
+2. **API 回覆異常**  
+   - 驗證 `OPENAI_API_KEY` 是否正確，並檢查 API 調用是否超出使用配額。
+
+3. **PowerBI 嵌入報表失敗**  
+   - 請檢查所有 PowerBI 相關環境變數是否配置正確，並確認 Azure AD 註冊與權限設置無誤。
+
+## 未來發展方向
+
+- **功能擴充**：支持圖片與多媒體訊息處理，提升對話的豐富度。
+- **錯誤處理優化**：增強各模組的錯誤捕捉與回應機制，提高系統穩定性。
+- **數據管理**：加入使用者資料庫管理功能，記錄與分析互動歷史。
+- **報表展示**：擴展 PowerBI 報表功能，結合更多數據來源進行多角度分析。
+
+## 結語
+
+本專案通過結合先進的對話 AI 與實時數據展示技術，致力於為工程師與技術團隊提供一個高效、專業的解決方案。藉由清晰的系統架構與完善的測試流程，專案具備良好的擴展性與維護性。歡迎有興趣的開發者參與進一步的改進，共同推動智能工程助理的創新應用。
