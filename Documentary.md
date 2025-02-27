@@ -34,12 +34,12 @@
 │   ├── test_linebot_connect.py # 測試 LINE Bot 事件處理與簽名驗證
 │   └── test_powerbi_integration.py # 測試 PowerBI 整合模組
 ├── templates/
-│   └── powerbi.html            #HTML 模板
+│   └── powerbi.html            # PowerBI 報表展示頁面
 ├── requirements.txt            # Python 套件相依列表
 ├── main.yml                    # GitHub Actions CI/CD 設定檔
 ├── Dockerfile                  # Docker 部署設定檔（選用）
 ├── README.md                   # 專案簡介與快速上手指南
-├── Documentary.md              # 專案詳細文件（本文件）
+├── Documentary.md              # 專案詳細文件
 └── .gitignore                  # 忽略檔案清單
 ```
 
