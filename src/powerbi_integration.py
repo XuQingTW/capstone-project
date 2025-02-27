@@ -1,5 +1,8 @@
 import os
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 從環境變數讀取 PowerBI API 所需參數
 POWERBI_CLIENT_ID = os.getenv("POWERBI_CLIENT_ID")
@@ -24,8 +27,13 @@ def get_powerbi_access_token() -> str:
     }
     response = requests.post(url, data=payload)
     if response.status_code != 200:
+        logger.error(f"取得 access token 失敗：{response.text}")
         raise Exception("無法取得 PowerBI 存取權杖，請檢查憑證設定。")
-    access_token = response.json().get("access_token")
+    json_resp = response.json()
+    access_token = json_resp.get("access_token")
+    if not access_token:
+        logger.error(f"回應中未包含 access_token：{json_resp}")
+        raise Exception("PowerBI 回應中未包含 access_token")
     return access_token
 
 def get_powerbi_embed_token(access_token: str) -> str:
@@ -40,8 +48,13 @@ def get_powerbi_embed_token(access_token: str) -> str:
     payload = {"accessLevel": "view"}
     response = requests.post(url, json=payload, headers=headers)
     if response.status_code != 200:
+        logger.error(f"取得 embed token 失敗：{response.text}")
         raise Exception("無法取得 PowerBI Embed Token")
-    embed_token = response.json().get("token")
+    json_resp = response.json()
+    embed_token = json_resp.get("token")
+    if not embed_token:
+        logger.error(f"回應中未包含 embed token：{json_resp}")
+        raise Exception("PowerBI 回應中未包含 embed token")
     return embed_token
 
 def get_powerbi_embed_config() -> dict:
