@@ -5,7 +5,7 @@ from flask import Flask, request, abort, render_template
 from linebot.v3.messaging import MessagingApi
 from linebot.v3 import WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from src.powerbi_integration import get_powerbi_embed_config
 from src.main import reply_message
 
@@ -41,8 +41,22 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event: MessageEvent):
-    message = reply_message(event)
-    line_bot_api.reply_message(event.reply_token, message)
+    text = event.message.text.strip().lower()
+    # 當使用者輸入 "powerbi" 或 "報表" 時，回覆 PowerBI 報表連結
+    if text in ["powerbi", "報表", "powerbi報表"]:
+        try:
+            config = get_powerbi_embed_config()
+            embed_url = config["embedUrl"]
+            reply_text = f"請點選下方連結查看 PowerBI 報表：{embed_url}"
+        except Exception as e:
+            logger.error(f"取得 PowerBI 資訊失敗：{e}")
+            reply_text = f"取得 PowerBI 報表資訊失敗：{str(e)}"
+        reply = TextSendMessage(text=reply_text)
+    else:
+        # 其他情況仍由 ChatGPT 處理
+        response_text = reply_message(event)
+        reply = TextSendMessage(text=response_text)
+    line_bot_api.reply_message(event.reply_token, reply)
 
 @app.route("/powerbi")
 def powerbi():
