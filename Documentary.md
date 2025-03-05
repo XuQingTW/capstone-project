@@ -2,7 +2,7 @@
 
 ## 專案概述
 
-本專案致力於整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat)（ChatGPT）功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案擴展為 PowerBI 報表嵌入功能，使得用戶可以在網頁上直觀地展示與分析數據。詳細的 PowerBI 整合步驟請參考專案中的 [整合PowerBI.html](整合PowerBI.html) 文件。
+本專案的目的是整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat)（ChatGPT）的功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案擴展為 PowerBI 報表嵌入功能，讓使用者可以在網頁上直觀地展示與分析數據。詳細的 PowerBI 整合步驟請參考專案中的 [整合PowerBI.html](整合PowerBI.html) 文件。
 
 ## 技術棧
 
