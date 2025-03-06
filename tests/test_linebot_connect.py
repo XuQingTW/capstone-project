@@ -2,7 +2,13 @@ import pytest
 from unittest.mock import patch, MagicMock
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, Source
-from linebot.v3.messaging import TextMessage, ReplyMessageRequest
+from linebot.v3.messaging import (
+    TextMessage, 
+    ReplyMessageRequest, 
+    TemplateMessage,
+    ButtonsTemplate,
+    URIAction
+)
 
 from src.linebot_connect import app, handler, handle_message, line_bot_api
 
@@ -62,21 +68,39 @@ def test_handle_message_powerbi(mock_reply_message, mock_get_embed_config):
     }
     mock_get_embed_config.return_value = fake_config
     
-    # 傳入 "powerbi" 指令（不區分大小寫）
+    # 傳入 "powerbi" 指令
     event = DummyEvent("powerbi")
     handle_message(event)
     
-    # 預期回覆文字包含 PowerBI 報表連結
-    expected_text = f"請點選下方連結查看 PowerBI 報表：{fake_config['embedUrl']}"
+    # 驗證 reply_message_with_http_info 被調用
     mock_reply_message.assert_called_once()
     
     # 檢查 ReplyMessageRequest 參數
     args, _ = mock_reply_message.call_args
     reply_request = args[0]
+    
+    # 驗證基本結構
     assert isinstance(reply_request, ReplyMessageRequest)
     assert reply_request.reply_token == event.reply_token
     assert len(reply_request.messages) == 1
-    assert reply_request.messages[0].text == expected_text
+    
+    # 驗證訊息類型為 TemplateMessage
+    message = reply_request.messages[0]
+    assert isinstance(message, TemplateMessage)
+    assert message.alt_text == "PowerBI 報表連結"
+    
+    # 驗證模板類型為 ButtonsTemplate
+    template = message.template
+    assert isinstance(template, ButtonsTemplate)
+    assert template.title == "PowerBI 報表"
+    assert template.text == "點擊下方按鈕查看我們的數據報表"
+    
+    # 驗證按鈕動作
+    assert len(template.actions) == 1
+    action = template.actions[0]
+    assert isinstance(action, URIAction)
+    assert action.label == "查看報表"
+    assert action.uri == fake_config["embedUrl"]
 
 @patch.object(line_bot_api, 'reply_message_with_http_info')
 @patch('src.main.reply_message', return_value="Fake ChatGPT response")
