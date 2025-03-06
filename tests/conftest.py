@@ -8,12 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 @pytest.fixture(autouse=True)
 def set_test_env(monkeypatch):
     """Set environment variables for testing."""
-    # 現有的環境變數設置...
-    monkeypatch.setenv("TESTING", "true")  # 新增此行
-    
-@pytest.fixture(autouse=True)
-def set_test_env(monkeypatch):
-    """Set environment variables for testing."""
+    monkeypatch.setenv("TESTING", "true")  # 確保設置測試環境
     monkeypatch.setenv("OPENAI_API_KEY", "test_openai_key")
     monkeypatch.setenv("LINE_CHANNEL_ACCESS_TOKEN", "test_line_token")
     monkeypatch.setenv("LINE_CHANNEL_SECRET", "test_line_secret")

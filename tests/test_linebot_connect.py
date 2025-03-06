@@ -9,6 +9,7 @@ from src.linebot_connect import app, handler, handle_message, line_bot_api
 @pytest.fixture
 def client():
     with app.test_client() as client:
+        client.follow_redirects = False  # 禁用重定向跟踪
         yield client
 
 @patch.object(handler, 'handle')
