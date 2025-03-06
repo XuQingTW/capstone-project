@@ -15,126 +15,126 @@ class Database:
         self._initialize_db()
     
     def _initialize_db(self):
-    """Create necessary tables if they don't exist"""
-    try:
-        # Ensure the directory exists
-        db_dir = os.path.dirname(self.db_path)
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-            
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Create conversations table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-            
-            # Create user preferences table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_preferences (
-                user_id TEXT PRIMARY KEY,
-                language TEXT DEFAULT "zh-Hant",
-                last_active DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-            
-            # 建立設備表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS equipment (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                equipment_id TEXT NOT NULL UNIQUE,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                location TEXT,
-                status TEXT DEFAULT "normal",
-                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-            
-            # 建立設備監測指標表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS equipment_metrics (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                equipment_id TEXT NOT NULL,
-                metric_type TEXT NOT NULL,
-                value REAL NOT NULL,
-                threshold_min REAL,
-                threshold_max REAL,
-                unit TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-            )
-            ''')
-            
-            # 建立設備運轉紀錄表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS equipment_operation_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                equipment_id TEXT NOT NULL,
-                operation_type TEXT NOT NULL,
-                start_time DATETIME,
-                end_time DATETIME,
-                lot_id TEXT,
-                product_id TEXT,
-                yield_rate REAL,
-                operator_id TEXT,
-                notes TEXT,
-                FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-            )
-            ''')
-            
-            # 建立警報記錄表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS alert_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                equipment_id TEXT NOT NULL,
-                alert_type TEXT NOT NULL,
-                severity TEXT NOT NULL,
-                message TEXT NOT NULL,
-                is_resolved INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                resolved_at DATETIME,
-                resolved_by TEXT,
-                resolution_notes TEXT,
-                FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-            )
-            ''')
-            
-            # 建立使用者訂閱設備表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_equipment_subscriptions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                equipment_id TEXT NOT NULL,
-                notification_level TEXT DEFAULT "all",
-                subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, equipment_id)
-            )
-            ''')
-            
-            # 在使用者偏好表中加入管理員與負責區域欄位
-            try:
-                cursor.execute("SELECT is_admin FROM user_preferences LIMIT 1")
-            except sqlite3.OperationalError:
-                cursor.execute("ALTER TABLE user_preferences ADD COLUMN is_admin INTEGER DEFAULT 0")
+        """Create necessary tables if they don't exist"""
+        try:
+            # Ensure the directory exists
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir)
                 
-            try:
-                cursor.execute("SELECT responsible_area FROM user_preferences LIMIT 1")
-            except sqlite3.OperationalError:
-                cursor.execute("ALTER TABLE user_preferences ADD COLUMN responsible_area TEXT")
-            
-            conn.commit()
-            logger.info("資料庫初始化成功，包含設備監控相關資料表")
-    except Exception as e:
-        logger.error(f"Database initialization error: {e}")
-        raise
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Create conversations table
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                ''')
+                
+                # Create user preferences table
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    user_id TEXT PRIMARY KEY,
+                    language TEXT DEFAULT "zh-Hant",
+                    last_active DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                ''')
+                
+                # 建立設備表
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS equipment (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    equipment_id TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    location TEXT,
+                    status TEXT DEFAULT "normal",
+                    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                ''')
+                
+                # 建立設備監測指標表
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS equipment_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    equipment_id TEXT NOT NULL,
+                    metric_type TEXT NOT NULL,
+                    value REAL NOT NULL,
+                    threshold_min REAL,
+                    threshold_max REAL,
+                    unit TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+                )
+                ''')
+                
+                # 建立設備運轉紀錄表
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS equipment_operation_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    equipment_id TEXT NOT NULL,
+                    operation_type TEXT NOT NULL,
+                    start_time DATETIME,
+                    end_time DATETIME,
+                    lot_id TEXT,
+                    product_id TEXT,
+                    yield_rate REAL,
+                    operator_id TEXT,
+                    notes TEXT,
+                    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+                )
+                ''')
+                
+                # 建立警報記錄表
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS alert_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    equipment_id TEXT NOT NULL,
+                    alert_type TEXT NOT NULL,
+                    severity TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    is_resolved INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at DATETIME,
+                    resolved_by TEXT,
+                    resolution_notes TEXT,
+                    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+                )
+                ''')
+                
+                # 建立使用者訂閱設備表
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_equipment_subscriptions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    equipment_id TEXT NOT NULL,
+                    notification_level TEXT DEFAULT "all",
+                    subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, equipment_id)
+                )
+                ''')
+                
+                # 在使用者偏好表中加入管理員與負責區域欄位
+                try:
+                    cursor.execute("SELECT is_admin FROM user_preferences LIMIT 1")
+                except sqlite3.OperationalError:
+                    cursor.execute("ALTER TABLE user_preferences ADD COLUMN is_admin INTEGER DEFAULT 0")
+                    
+                try:
+                    cursor.execute("SELECT responsible_area FROM user_preferences LIMIT 1")
+                except sqlite3.OperationalError:
+                    cursor.execute("ALTER TABLE user_preferences ADD COLUMN responsible_area TEXT")
+                
+                conn.commit()
+                logger.info("資料庫初始化成功，包含設備監控相關資料表")
+        except Exception as e:
+            logger.error(f"Database initialization error: {e}")
+            raise
     
     def add_message(self, user_id, role, content):
         """Add a new message to the conversation history"""

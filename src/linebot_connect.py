@@ -3,6 +3,7 @@ import logging
 import time
 import datetime
 import functools
+import sqlite3
 from flask import Flask, request, abort, render_template, session, redirect, url_for, flash
 from linebot.v3.webhook import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
@@ -576,195 +577,29 @@ def handle_message(event):
     
     # 預設：從 ChatGPT 取得回應
     else:
-        # 從 ChatGPT 取得回應
-        from src.main import reply_message
-        response_text = reply_message(event)
-        
-        # 創建訊息
-        message = TextMessage(text=response_text)
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
+        try:
+            # 從 ChatGPT 取得回應
+            from src.main import reply_message
+            response_text = reply_message(event)
             
+            # 創建訊息
+            message = TextMessage(text=response_text)
+            reply_request = ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[message]
+            )
+            
+            line_bot_api.reply_message_with_http_info(reply_request)
         except Exception as e:
-            logger.error(f"取得 PowerBI 資訊失敗：{e}")
+            logger.error(f"取得 AI 回應失敗：{e}")
             
             # 若失敗則使用文字訊息回覆
-            message = TextMessage(text=f"取得 PowerBI 報表資訊失敗，請稍後再試。")
+            message = TextMessage(text=f"處理訊息時發生錯誤，請稍後再試。")
             reply_request = ReplyMessageRequest(
                 reply_token=event.reply_token,
                 messages=[message]
             )
             line_bot_api.reply_message_with_http_info(reply_request)
-    
-    # 幫助命令
-    elif text_lower in ["help", "幫助", "選單", "menu"]:
-        # 創建快速回覆按鈕
-        quick_reply = QuickReply(items=[
-            QuickReplyItem(
-                action=MessageAction(label="查看報表", text="powerbi")
-            ),
-            QuickReplyItem(
-                action=MessageAction(label="使用說明", text="使用說明")
-            ),
-            QuickReplyItem(
-                action=MessageAction(label="關於", text="關於")
-            )
-        ])
-        
-        message = TextMessage(
-            text="您可以選擇以下選項或直接輸入您的問題：",
-            quick_reply=quick_reply
-        )
-        
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
-    
-    # 使用說明
-    elif text_lower in ["使用說明", "說明", "教學", "指南", "guide"]:
-        carousel_template = CarouselTemplate(
-            columns=[
-                CarouselColumn(
-                    title="如何使用聊天機器人",
-                    text="直接輸入您的問題，AI 將為您提供解答。",
-                    actions=[
-                        MessageAction(
-                            label="試試問問題",
-                            text="如何建立一個簡單的網頁？"
-                        )
-                    ]
-                ),
-                CarouselColumn(
-                    title="查看 PowerBI 報表",
-                    text="輸入 'powerbi' 查看數據報表。",
-                    actions=[
-                        MessageAction(
-                            label="查看報表",
-                            text="powerbi"
-                        )
-                    ]
-                ),
-                CarouselColumn(
-                    title="語言設定",
-                    text="輸入 'language:語言代碼' 更改語言。",
-                    actions=[
-                        MessageAction(
-                            label="查看語言選項",
-                            text="language"
-                        )
-                    ]
-                )
-            ]
-        )
-        
-        template_message = TemplateMessage(
-            alt_text="使用說明",
-            template=carousel_template
-        )
-        
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[template_message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
-    
-    # 關於命令
-    elif text_lower in ["關於", "about"]:
-        message = TextMessage(
-            text="這是一個整合 LINE Bot、OpenAI 與 PowerBI 的智能助理，可以回答您的技術問題並展示 PowerBI 報表。您可以輸入 'help' 查看更多功能。"
-        )
-        
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
-    
-    # 語言選項
-    elif text_lower == "language":
-        message = TextMessage(
-            text="您可以通過輸入以下命令設置語言：\n\n"
-                 "language:zh-Hant - 繁體中文\n"
-                 "language:zh-Hans - 简体中文\n"
-                 "language:en - English\n"
-                 "language:ja - 日本語\n"
-                 "language:ko - 한국어"
-        )
-        
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
-    
-    # 語言設定
-    elif text_lower.startswith("language:") or text.startswith("語言:"):
-        # 提取語言代碼
-        lang_code = text.split(":", 1)[1].strip().lower()
-        
-        # 驗證語言代碼
-        valid_langs = {
-            "zh": "zh-Hant",
-            "zh-hant": "zh-Hant",
-            "zh-hans": "zh-Hans",
-            "en": "en",
-            "ja": "ja",
-            "ko": "ko"
-        }
-        
-        if lang_code in valid_langs:
-            # 保存使用者偏好
-            lang = valid_langs[lang_code]
-            db.set_user_preference(event.source.user_id, language=lang)
-            
-            # 確認語言變更
-            lang_names = {
-                "zh-Hant": "繁體中文",
-                "zh-Hans": "简体中文",
-                "en": "English",
-                "ja": "日本語",
-                "ko": "한국어"
-            }
-            
-            message = TextMessage(
-                text=f"語言已設置為 {lang_names[lang]}"
-            )
-        else:
-            message = TextMessage(
-                text="不支援的語言。支援的語言有：繁體中文 (zh-Hant)、简体中文 (zh-Hans)、English (en)、日本語 (ja)、한국어 (ko)"
-            )
-        
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
-    
-    # 預設：從 ChatGPT 取得回應
-    else:
-        # 從 ChatGPT 取得回應
-        from src.main import reply_message
-        response_text = reply_message(event)
-        
-        # 創建訊息
-        message = TextMessage(text=response_text)
-        reply_request = ReplyMessageRequest(
-            reply_token=event.reply_token,
-            messages=[message]
-        )
-        
-        line_bot_api.reply_message_with_http_info(reply_request)
 
 @app.route("/powerbi")
 def powerbi():
