@@ -38,7 +38,11 @@ def test_callback_invalid_signature(mock_handle, client):
 
 class DummyEvent:
     def __init__(self, text, reply_token="dummy_token", user_id="user123"):
-        self.message = TextMessageContent(text=text, id="message123")
+        self.message = TextMessageContent(
+            text=text, 
+            id="message123", 
+            quoteToken="dummy_quote_token"  # 添加 quoteToken
+        )
         self.reply_token = reply_token
         self.source = MagicMock(spec=Source)
         self.source.user_id = user_id

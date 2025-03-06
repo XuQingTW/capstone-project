@@ -7,13 +7,12 @@ from src.main import reply_message, OpenAIService, UserData
 
 
 class MockEvent:
-    """
-    模擬 LINE 傳來的 event 物件:
-    - event.message.text 為用戶的文字
-    - event.source.user_id 為用戶 ID
-    """
     def __init__(self, user_message, user_id):
-        self.message = TextMessageContent(text=user_message, id="message123")
+        self.message = TextMessageContent(
+            text=user_message, 
+            id="message123", 
+            quoteToken="dummy_quote_token"  # 添加 quoteToken
+        )
         self.source = MagicMock(spec=Source)
         self.source.user_id = user_id
 

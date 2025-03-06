@@ -53,12 +53,15 @@ csp = {
     ]
 }
 
-# Initialize Talisman (to add security headers)
+# 判斷是否在測試環境
+is_testing = os.environ.get('TESTING', 'False').lower() == 'true'
+
+# 修改 Talisman 初始化參數
 Talisman(app, 
     content_security_policy=csp,
     content_security_policy_nonce_in=['script-src'],
-    force_https=True,  # In production, force HTTPS
-    session_cookie_secure=True,
+    force_https=not is_testing,  # 只在非測試環境強制 HTTPS
+    session_cookie_secure=not is_testing,
     session_cookie_http_only=True,
     feature_policy="geolocation 'none'; microphone 'none'; camera 'none'"
 )
