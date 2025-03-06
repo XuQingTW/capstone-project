@@ -73,6 +73,7 @@ def test_handle_message_powerbi(mock_reply_message, mock_get_embed_config):
 
 @patch.object(line_bot_api, 'reply_message_with_http_info')
 @patch('src.linebot_connect.reply_message', return_value="Fake ChatGPT response")
+@patch('src.main.reply_message', return_value="Fake ChatGPT response")
 def test_handle_message_chatgpt(mock_reply_msg, mock_linebot_reply):
     # 傳入一般訊息（非 PowerBI 指令）
     event = DummyEvent("Hello")

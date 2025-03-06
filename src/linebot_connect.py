@@ -24,7 +24,7 @@ channel_secret = os.getenv("LINE_CHANNEL_SECRET")
 if not channel_access_token or not channel_secret:
     raise ValueError("LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。")
 
-app = Flask(__name__, template_folder='../templates')
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
 
 # Setup with the appropriate API client configuration
 configuration = Configuration(access_token=channel_access_token)

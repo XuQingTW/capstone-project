@@ -72,6 +72,14 @@ def reply_message(event):
 
 # 如果直接執行此檔案，則啟動 Flask 應用
 if __name__ == "__main__":
-    from src.linebot_connect import app
+    # 避免循環引用問題
+    import sys
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("linebot_connect", 
+                                                 os.path.join(os.path.dirname(__file__), "linebot_connect.py"))
+    linebot_connect = importlib.util.module_from_spec(spec)
+    sys.modules["linebot_connect"] = linebot_connect
+    spec.loader.exec_module(linebot_connect)
+    
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    linebot_connect.app.run(host="0.0.0.0", port=port, debug=False)
