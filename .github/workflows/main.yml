@@ -127,9 +127,11 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/capstone-project:buildcache,mode=max
 
   deploy-security-scan:
-    needs: build-and-deploy
-    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
       - name: Scan Docker image for vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
