@@ -9,7 +9,9 @@ from src.linebot_connect import app, handler, handle_message, line_bot_api
 @pytest.fixture
 def client():
     with app.test_client() as client:
-        client.follow_redirects = False  # 禁用重定向跟踪
+        # Configure client to simulate HTTPS requests to bypass Talisman redirects
+        client.environ_base = {'wsgi.url_scheme': 'https', 'HTTP_X_FORWARDED_PROTO': 'https'}
+        client.follow_redirects = False  # Still don't follow redirects for testing
         yield client
 
 @patch.object(handler, 'handle')
