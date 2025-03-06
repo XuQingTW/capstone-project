@@ -42,7 +42,6 @@
 ├── templates/
 │   ├── index.html              # 服務狀態頁面
 │   └── powerbi.html            # PowerBI 報表展示頁面
-├── 整合PowerBI.html            # PowerBI 整合詳細步驟文件
 ├── requirements.txt            # Python 套件相依列表
 ├── .github/workflows/main.yml  # GitHub Actions CI/CD 設定檔
 ├── Dockerfile                  # Docker 部署設定檔
