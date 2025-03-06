@@ -22,18 +22,35 @@ class MockEvent:
 @pytest.fixture
 def mock_openai_chatcompletion():
     """
-    Mocks the OpenAI.chat.completions.create method for testing
+    Mocks the OpenAI API responses for testing
     """
-    with patch('openai.OpenAI', autospec=True) as mock_openai:
-        # Create a proper response structure
+    with patch('openai.OpenAI') as mock_openai_class:
+        # Create the mock instance with the entire chain manually
+        mock_instance = MagicMock()
+        mock_openai_class.return_value = mock_instance
+        
+        # Set up nested attributes
+        mock_chat = MagicMock()
+        mock_instance.chat = mock_chat
+        
+        mock_completions = MagicMock()
+        mock_chat.completions = mock_completions
+        
+        mock_create = MagicMock()
+        mock_completions.create = mock_create
+        
+        # Set up the return value structure
+        mock_response = MagicMock()
+        mock_create.return_value = mock_response
+        
         mock_choice = MagicMock()
-        mock_choice.message.content = "這是模擬的回應"
+        mock_message = MagicMock()
+        mock_message.content = "這是模擬的回應"
+        mock_choice.message = mock_message
         
-        # Set up all the mock chain properly
-        mock_instance = mock_openai.return_value
-        mock_instance.chat.completions.create.return_value.choices = [mock_choice]
+        mock_response.choices = [mock_choice]
         
-        yield mock_instance.chat.completions.create
+        yield mock_create
         
 def test_openai_service(mock_openai_chatcompletion):
     """
