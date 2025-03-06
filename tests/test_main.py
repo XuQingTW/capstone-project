@@ -22,28 +22,18 @@ class MockEvent:
 @pytest.fixture
 def mock_openai_chatcompletion():
     """
-    利用 pytest fixture 模擬 openai.OpenAI.chat.completions.create 的回傳結果。
-    每次測試前都會套用此 fixture，自動完成 mock 的注入。
+    Mocks the OpenAI.chat.completions.create method for testing
     """
-    with patch('openai.OpenAI') as mock_openai:
-        # Create a mock for the client instance
-        mock_client = MagicMock()
-        mock_openai.return_value = mock_client
-        
-        # Create a mock for the chat completions
-        mock_chat = MagicMock()
-        mock_client.chat.completions = mock_chat
-        
-        # Create a mock for the create method
-        mock_create = MagicMock()
-        mock_chat.create.return_value = mock_create
-        
-        # Create a proper return structure for newer OpenAI client
+    with patch('openai.OpenAI', autospec=True) as mock_openai:
+        # Create a proper response structure
         mock_choice = MagicMock()
         mock_choice.message.content = "這是模擬的回應"
-        mock_create.choices = [mock_choice]
         
-        yield mock_chat.create
+        # Set up all the mock chain properly
+        mock_instance = mock_openai.return_value
+        mock_instance.chat.completions.create.return_value.choices = [mock_choice]
+        
+        yield mock_instance.chat.completions.create
         
 def test_openai_service(mock_openai_chatcompletion):
     """
