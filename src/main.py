@@ -1,8 +1,7 @@
 import os
 import json
 import logging
-import openai
-from flask import Flask
+from openai import OpenAI
 
 # OpenAI integration for chat responses
 class UserData:
@@ -33,7 +32,7 @@ class OpenAIService:
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OpenAI API 金鑰未設置")
-        openai.api_key = self.api_key
+        self.client = OpenAI(api_key=self.api_key)
 
     def get_response(self):
         """向 OpenAI API 發送請求並獲取回應"""
@@ -42,14 +41,14 @@ class OpenAIService:
         
         try:
             # 呼叫 OpenAI API
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=conversation,
                 max_tokens=500
             )
             
             # 取得 AI 回應
-            ai_message = response.choices[0].message["content"]
+            ai_message = response.choices[0].message.content
             
             # 將 AI 回應加入對話歷史
             user_data.add_message(self.user_id, "assistant", ai_message)
@@ -61,6 +60,7 @@ class OpenAIService:
 
 def reply_message(event):
     """處理用戶訊息並回傳 AI 回應"""
+    # For LINE v3 API compatibility
     user_message = event.message.text
     user_id = event.source.user_id
     
