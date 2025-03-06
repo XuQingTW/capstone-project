@@ -1,7 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import TextSendMessage
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, Source
+from linebot.v3.messaging import TextMessage, ReplyMessageRequest
 
 from src.linebot_connect import app, handler, handle_message, line_bot_api
 
@@ -37,14 +38,13 @@ def test_callback_invalid_signature(mock_handle, client):
 
 class DummyEvent:
     def __init__(self, text, reply_token="dummy_token", user_id="user123"):
-        self.message = MagicMock()
-        self.message.text = text
+        self.message = TextMessageContent(text=text, id="message123")
         self.reply_token = reply_token
-        self.source = MagicMock()
+        self.source = MagicMock(spec=Source)
         self.source.user_id = user_id
 
 @patch('src.linebot_connect.get_powerbi_embed_config')
-@patch.object(line_bot_api, 'reply_message')
+@patch.object(line_bot_api, 'reply_message_with_http_info')
 def test_handle_message_powerbi(mock_reply_message, mock_get_embed_config):
     # 模擬取得 PowerBI 嵌入設定
     fake_config = {
@@ -54,32 +54,39 @@ def test_handle_message_powerbi(mock_reply_message, mock_get_embed_config):
         "workspaceId": "dummy_workspace_id"
     }
     mock_get_embed_config.return_value = fake_config
+    
     # 傳入 "powerbi" 指令（不區分大小寫）
     event = DummyEvent("powerbi")
     handle_message(event)
+    
     # 預期回覆文字包含 PowerBI 報表連結
     expected_text = f"請點選下方連結查看 PowerBI 報表：{fake_config['embedUrl']}"
     mock_reply_message.assert_called_once()
+    
+    # 檢查 ReplyMessageRequest 參數
     args, _ = mock_reply_message.call_args
-    # 第一個參數為 reply_token
-    assert args[0] == event.reply_token
-    # 第二個參數為 TextSendMessage 物件，其 text 屬性應符合預期
-    sent_message = args[1]
-    assert hasattr(sent_message, 'text')
-    assert sent_message.text == expected_text
+    reply_request = args[0]
+    assert isinstance(reply_request, ReplyMessageRequest)
+    assert reply_request.reply_token == event.reply_token
+    assert len(reply_request.messages) == 1
+    assert reply_request.messages[0].text == expected_text
 
-@patch.object(line_bot_api, 'reply_message')
+@patch.object(line_bot_api, 'reply_message_with_http_info')
 @patch('src.linebot_connect.reply_message', return_value="Fake ChatGPT response")
 def test_handle_message_chatgpt(mock_reply_msg, mock_linebot_reply):
     # 傳入一般訊息（非 PowerBI 指令）
     event = DummyEvent("Hello")
     handle_message(event)
+    
     expected_text = "Fake ChatGPT response"
     # 確認先調用了 ChatGPT 模組的回覆函式
     mock_reply_msg.assert_called_once_with(event)
     mock_linebot_reply.assert_called_once()
+    
+    # 檢查 ReplyMessageRequest 參數
     args, _ = mock_linebot_reply.call_args
-    assert args[0] == event.reply_token
-    sent_message = args[1]
-    assert hasattr(sent_message, 'text')
-    assert sent_message.text == expected_text
+    reply_request = args[0]
+    assert isinstance(reply_request, ReplyMessageRequest)
+    assert reply_request.reply_token == event.reply_token
+    assert len(reply_request.messages) == 1
+    assert reply_request.messages[0].text == expected_text
