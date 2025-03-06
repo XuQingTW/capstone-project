@@ -74,19 +74,18 @@ def test_handle_message_powerbi(mock_reply_message, mock_get_embed_config):
 @patch.object(line_bot_api, 'reply_message_with_http_info')
 @patch('src.linebot_connect.reply_message', return_value="Fake ChatGPT response")
 @patch('src.main.reply_message', return_value="Fake ChatGPT response")
-def test_handle_message_chatgpt(mock_reply_message, mock_linebot_reply):
-    # Test implementation
+def test_handle_message_chatgpt(mock_main_reply, mock_linebot_reply, mock_reply_message):
     # 傳入一般訊息（非 PowerBI 指令）
     event = DummyEvent("Hello")
     handle_message(event)
     
     expected_text = "Fake ChatGPT response"
     # 確認先調用了 ChatGPT 模組的回覆函式
-    mock_reply_msg.assert_called_once_with(event)
-    mock_linebot_reply.assert_called_once()
+    mock_main_reply.assert_called_once_with(event)
+    mock_reply_message.assert_called_once()
     
     # 檢查 ReplyMessageRequest 參數
-    args, _ = mock_linebot_reply.call_args
+    args, _ = mock_reply_message.call_args
     reply_request = args[0]
     assert isinstance(reply_request, ReplyMessageRequest)
     assert reply_request.reply_token == event.reply_token
