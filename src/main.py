@@ -3,13 +3,15 @@ import os
 import logging
 import openai
 from linebot.models import TextSendMessage
+with open ('setting.json','r','utf8') as tokenfile :
+    tokendata = json.load(tokenfile)
 
 # 設定 logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 設定 OpenAI API 金鑰
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv(int(tokenfile['OPENAI_API_KEY']))
 if not openai.api_key:
     raise ValueError("OPENAI_API_KEY 未設定或為空值。請先設置環境變數。")
 
