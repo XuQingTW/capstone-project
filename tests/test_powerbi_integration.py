@@ -1,6 +1,10 @@
 import os
+import sys
 import pytest
 from unittest.mock import patch
+
+# Add the explicit python path in case of import issues
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.powerbi_integration import (
     get_powerbi_access_token,
