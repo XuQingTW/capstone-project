@@ -127,6 +127,7 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/capstone-project:buildcache,mode=max
 
   deploy-security-scan:
+    runs-on: ubuntu-latest
     permissions:
       security-events: write
     steps:
