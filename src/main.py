@@ -1,7 +1,24 @@
 import os
 import json
 import logging
+import re
+from html import escape
 from openai import OpenAI
+
+def sanitize_input(text):
+    """
+    清理使用者輸入，移除任何可能的 XSS 注入或有害內容
+    """
+    if not isinstance(text, str):
+        return ""
+    
+    # 基本 HTML 跳脫
+    sanitized = escape(text)
+    
+    # 移除潛在惡意字元
+    sanitized = re.sub(r'[^\w\s.,;?!@#$%^&*()-=+\[\]{}:"\'/\\<>]', '', sanitized)
+    
+    return sanitized
 
 # OpenAI integration for chat responses
 class UserData:
@@ -26,12 +43,12 @@ user_data = UserData()
 class OpenAIService:
     """處理與 OpenAI API 的互動邏輯"""
     def __init__(self, message, user_id):
-        self.user_id = user_id
-        self.message = message
+        self.user_id = sanitize_input(user_id)
+        self.message = sanitize_input(message)
         # 從環境變數獲取 OpenAI API 金鑰
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError("OpenAI API 金鑰未設置")
+           raise ValueError("OpenAI API 金鑰未設置")
         self.client = OpenAI(api_key=self.api_key)
 
     def get_response(self):

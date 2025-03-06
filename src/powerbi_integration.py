@@ -27,15 +27,15 @@ def get_powerbi_access_token() -> str:
     }
     response = requests.post(url, data=payload)
     if response.status_code != 200:
-        logger.error(f"取得 access token 失敗：{response.text}")
+        logger.error(f"取得 access token 失敗: Status code {response.status_code}")
         raise Exception("無法取得 PowerBI 存取權杖，請檢查憑證設定。")
     json_resp = response.json()
     access_token = json_resp.get("access_token")
     if not access_token:
-        logger.error(f"回應中未包含 access_token：{json_resp}")
+        logger.error(f"回應中未包含 access_token")
         raise Exception("PowerBI 回應中未包含 access_token")
     return access_token
-
+    
 def get_powerbi_embed_token(access_token: str) -> str:
     """
     呼叫 PowerBI API 產生報表的 Embed Token

@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 from flask import Flask, request, abort, render_template
 from linebot.v3.webhook import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
@@ -12,6 +13,9 @@ from linebot.v3.messaging import (
     TextMessage
 )
 from src.powerbi_integration import get_powerbi_embed_config
+from flask_talisman import Talisman
+from werkzeug.middleware.proxy_fix import ProxyFix
+from collections import defaultdict
 
 # 設定 logging
 logging.basicConfig(level=logging.INFO)
@@ -26,11 +30,67 @@ if not channel_access_token or not channel_secret:
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
 
+csp = {
+    'default-src': "'self'",
+    'script-src': [
+        "'self'",
+        'https://cdn.powerbi.com',
+        "'unsafe-inline'",  # Only needed for inline PowerBI embed script
+    ],
+    'style-src': [
+        "'self'",
+        "'unsafe-inline'",  # Only needed for inline styles
+    ],
+    'img-src': "'self'",
+    'frame-src': [
+        'https://app.powerbi.com',
+        'https://cdn.powerbi.com',
+    ],
+    'connect-src': [
+        "'self'",
+        'https://api.powerbi.com',
+        'https://login.microsoftonline.com',
+    ]
+}
+
+# Initialize Talisman (to add security headers)
+Talisman(app, 
+    content_security_policy=csp,
+    content_security_policy_nonce_in=['script-src'],
+    force_https=True,  # In production, force HTTPS
+    session_cookie_secure=True,
+    session_cookie_http_only=True,
+    feature_policy="geolocation 'none'; microphone 'none'; camera 'none'"
+)
+
+# Handle proxy headers (if behind a proxy)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
 # Setup with the appropriate API client configuration
 configuration = Configuration(access_token=channel_access_token)
 api_client = ApiClient(configuration)
 line_bot_api = MessagingApi(api_client)
 handler = WebhookHandler(channel_secret)
+
+request_counts = defaultdict(list)
+
+def rate_limit_check(ip, max_requests=30, window_seconds=60):
+    """
+    簡單的 IP 請求限制，防止暴力攻擊
+    """
+    current_time = time.time()
+    
+    # 清理舊的請求記錄
+    request_counts[ip] = [timestamp for timestamp in request_counts[ip] 
+                         if current_time - timestamp < window_seconds]
+    
+    # 檢查請求數量
+    if len(request_counts[ip]) >= max_requests:
+        return False
+    
+    # 記錄新請求
+    request_counts[ip].append(current_time)
+    return True
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -81,11 +141,15 @@ def handle_message(event):
 
 @app.route("/powerbi")
 def powerbi():
+    # Add basic rate limiting
+    if not rate_limit_check(request.remote_addr):
+        return "請求太多，請稍後再試。", 429
+        
     try:
         config = get_powerbi_embed_config()
     except Exception as e:
-        logger.error(f"PowerBI 整合錯誤：{e}")
-        return f"Error: {str(e)}", 500
+        logger.error("PowerBI 整合錯誤")
+        return "系統錯誤，請稍後再試。", 500
     return render_template("powerbi.html", config=config)
 
 @app.route("/")
@@ -94,4 +158,5 @@ def index():
     return render_template("index.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=debug_mode)
