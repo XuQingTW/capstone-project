@@ -1,69 +1,101 @@
 import json
 import os
 import logging
-import openai
-from linebot.models import TextSendMessage
-with open ('setting.json','r','utf8') as tokenfile :
-    tokendata = json.load(tokenfile)
+from flask import Flask, request, abort, render_template
+from linebot.v3.messaging import (
+    Configuration,
+    ApiClient,
+    MessagingApi,
+    ReplyMessageRequest,
+    TextMessage
+)
+from linebot.v3.webhooks import WebhookParser
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.webhooks.models import MessageEvent, TextMessageContent
+from src.powerbi_integration import get_powerbi_embed_config
+from src.main import reply_message
 
 # 設定 logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 設定 OpenAI API 金鑰
-openai.api_key = os.getenv(int(tokenfile['OPENAI_API_KEY']))
-if not openai.api_key:
-    raise ValueError("OPENAI_API_KEY 未設定或為空值。請先設置環境變數。")
+# 從環境變數取得 LINE 金鑰
+channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+channel_secret = os.getenv("LINE_CHANNEL_SECRET")
 
-SYSTEM_PROMPT = (
-    "你是一個樂於助人的工程助理，專門協助工程師解決技術問題和優化設計方案。你的職責包括深入理解工程問題，"
-    "經過深思熟慮後提供清晰、專業且可行的解決方案。你的回答應該邏輯嚴謹，並根據實際應用場景提供合理的分析與建議。\n\n"
-    "### 指導原則：\n"
-    "1. **專業與準確性**：基於工程原理和最佳實踐，確保建議具有可行性和實用價值。\n"
-    "2. **清晰與條理**：用簡潔且有結構的方式回答問題，使工程師能夠迅速理解並應用。\n"
-    "3. **深思熟慮**：在回答之前，充分考慮問題的背景、可能的挑戰及多種解決方案，並比較其優缺點。\n"
-    "4. **積極協助**：主動提供附加建議，如優化方法、潛在風險以及改進的可能性。\n"
-    "5. **實踐導向**：結合實際工程應用，舉例說明解決方案如何實施，並提供相應的技術資源或工具建議。\n\n"
-    "### 回應格式：\n"
-    "- **問題分析**：闡述問題的本質與關鍵因素。\n"
-    "- **可能解決方案**：列舉多種可行方案並比較其優缺點。\n"
-    "- **最佳建議**：根據情境選擇最適合的方案並詳細說明實施步驟。\n"
-    "- **潛在風險與優化建議**：提出可能遇到的困難及其對策，確保方案可行性。\n\n"
-    "你的目標是以專業、高效且富有條理的方式協助工程師，使其能夠快速找到最佳解決方案並提高工作效率。"
-)
+if not channel_access_token or not channel_secret:
+    raise ValueError("LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。")
 
-class OpenAIService:
-    """用於調用 OpenAI 的 ChatCompletion API"""
+app = Flask(__name__)
 
-    def __init__(self, message: str, user_id: str) -> None:
-        self.message = message
-        self.user_id = user_id
+# 設定 LINE API 客戶端
+configuration = Configuration(access_token=channel_access_token)
+parser = WebhookParser(channel_secret)
 
-    def get_response(self) -> str:
+@app.route("/callback", methods=['POST'])
+def callback():
+    signature = request.headers.get("X-Line-Signature")
+    body = request.get_data(as_text=True)
+    if not signature:
+        logger.error("缺少 X-Line-Signature 標頭。")
+        abort(400)
+    try:
+        events = parser.parse(body, signature)
+        for event in events:
+            if isinstance(event, MessageEvent) and isinstance(event.message, TextMessageContent):
+                handle_message(event)
+    except InvalidSignatureError as e:
+        logger.error(f"驗證失敗：{e}")
+        abort(400)
+    return 'OK'
+
+def handle_message(event: MessageEvent):
+    text = event.message.text.strip().lower()
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        
+        # 當使用者輸入 "powerbi" 或 "報表" 時，回覆 PowerBI 報表連結
+        if text in ["powerbi", "報表", "powerbi報表"]:
+            try:
+                config = get_powerbi_embed_config()
+                embed_url = config["embedUrl"]
+                reply_text = f"請點選下方連結查看 PowerBI 報表：{embed_url}"
+            except Exception as e:
+                logger.error(f"取得 PowerBI 資訊失敗：{e}")
+                reply_text = f"取得 PowerBI 報表資訊失敗：{str(e)}"
+        else:
+            # 其他情況仍由 AI 模型處理
+            try:
+                response_text = reply_message(event)
+                reply_text = response_text
+            except Exception as e:
+                logger.error(f"AI 回覆產生失敗: {e}")
+                reply_text = "很抱歉，目前無法處理您的請求。請稍後再試。"
+        
+        # 發送回覆
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": self.message},
-                ],
+            line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_text)]
+                )
             )
-            content = response.choices[0].message["content"].strip()
-            return content
         except Exception as e:
-            logger.error(f"OpenAI API 呼叫錯誤：{e}")
-            return "對不起，目前無法處理請求，請稍後再試。"
+            logger.error(f"LINE API 回覆失敗: {e}")
 
-class UserData:
-    """用於儲存用戶資料的資料類"""
-    def __init__(self, name: str, message: str) -> None:
-        self.user_name = name
-        self.message = message
+@app.route("/powerbi")
+def powerbi():
+    try:
+        config = get_powerbi_embed_config()
+    except Exception as e:
+        logger.error(f"PowerBI 整合錯誤：{e}")
+        return f"Error: {str(e)}", 500
+    return render_template("powerbi.html", config=config)
 
-def reply_message(event) -> str:
-    """根據事件訊息生成回覆內容"""
-    message = event.message.text
-    user_id = event.source.user_id
-    service = OpenAIService(message, user_id)
-    reply = service.get_response()
-    return reply
+@app.route("/")
+def index():
+    """首頁，顯示簡單的服務狀態"""
+    return render_template("index.html")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
