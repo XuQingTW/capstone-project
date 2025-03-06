@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, Source
 
-
 # 匯入要測試的對象
 from src.main import reply_message, OpenAIService, UserData
 
@@ -19,56 +18,58 @@ class MockEvent:
         self.source.user_id = user_id
 
 
+class MockChoice:
+    """模擬 OpenAI 回應的 choice 物件"""
+    def __init__(self):
+        self.message = MagicMock()
+        self.message.content = "這是模擬的回應"
+
+
+class MockResponse:
+    """模擬 OpenAI 的回應物件"""
+    def __init__(self):
+        choice = MockChoice()
+        self.choices = [choice]
+
+
 @pytest.fixture
-def mock_openai_chatcompletion():
+def mock_openai_client():
     """
-    Mocks the OpenAI API responses for testing
+    直接模擬 OpenAI 客戶端，確保 create 方法正確返回
     """
-    with patch('openai.OpenAI') as mock_openai_class:
-        # Create the mock instance with the entire chain manually
-        mock_instance = MagicMock()
-        mock_openai_class.return_value = mock_instance
-        
-        # Set up nested attributes
-        mock_chat = MagicMock()
-        mock_instance.chat = mock_chat
-        
-        mock_completions = MagicMock()
-        mock_chat.completions = mock_completions
-        
-        mock_create = MagicMock()
-        mock_completions.create = mock_create
-        
-        # Set up the return value structure
-        mock_response = MagicMock()
-        mock_create.return_value = mock_response
-        
-        mock_choice = MagicMock()
-        mock_message = MagicMock()
-        mock_message.content = "這是模擬的回應"
-        mock_choice.message = mock_message
-        
-        mock_response.choices = [mock_choice]
-        
-        yield mock_create
-        
-def test_openai_service(mock_openai_chatcompletion):
+    # 建立一個帶有所需回應的 mock client
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = MockResponse()
+    
+    # 讓 OpenAI 建構子返回我們的 mock client
+    with patch('openai.OpenAI', return_value=mock_client):
+        yield mock_client.chat.completions.create
+
+
+def test_openai_service(mock_openai_client):
     """
-    測試 OpenAIService 類別是否能正確呼叫 openai.ChatCompletion.create，
-    並回傳我們模擬的文字 "這是模擬的回應"
+    測試 OpenAIService 類別是否能正確呼叫 OpenAI API
+    並回傳預期的模擬回應
     """
     service = OpenAIService(message="Test message", user_id="test_user")
     response = service.get_response()
-
+    
+    # 確認回傳了預期的回應
     assert response == "這是模擬的回應"
-    mock_openai_chatcompletion.assert_called_once()  # 確認 API 確實被呼叫
+    
+    # 確認 API 被呼叫
+    mock_openai_client.assert_called_once()
 
 
-def test_reply_message_function(mock_openai_chatcompletion):
+def test_reply_message_function(mock_openai_client):
     """
     測試 reply_message 函式是否能正確取得使用者訊息並回傳預期結果
     """
     event = MockEvent(user_message="Hello, AI!", user_id="user_123")
     reply = reply_message(event)
+    
+    # 確認回傳了預期的回應
     assert reply == "這是模擬的回應"
-    mock_openai_chatcompletion.assert_called_once()
+    
+    # 確認 API 被呼叫
+    mock_openai_client.assert_called_once()
