@@ -1,6 +1,6 @@
-# LINE Bot + OpenAI + PowerBI 整合專案
+# LINE Bot + OpenAI + PowerBI + Equipment Monitoring 整合專案
 
-本專案整合了 LINE Messaging API 與 OpenAI ChatGPT 的功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案也擴展了 PowerBI 報表嵌入功能，讓使用者可以在網頁上直觀地展示與分析數據。
+本專案整合了 LINE Messaging API 與 OpenAI ChatGPT 的功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案也擴展了 PowerBI 報表嵌入功能以及半導體設備監控功能，讓使用者可以在網頁上直觀地展示與分析數據，並能即時監控設備狀態。
 
 ## 主要功能
 
@@ -10,11 +10,14 @@
 - **PowerBI 報表嵌入**  
   整合 PowerBI API，使用 OAuth2 客戶端憑證流程取得存取權杖與嵌入 Token，並在網頁上展示 PowerBI 報表。
 
+- **半導體設備監控**  
+  實時監控半導體生產設備（如黏晶機、打線機、切割機）的運作狀態，自動偵測異常，並通過 LINE 機器人發送警報通知給相關人員。
+
 - **資料分析與儲存**  
-  使用 SQLite 資料庫儲存對話歷史與使用者偏好，提供持久化數據存儲與分析功能。
+  使用 SQLite 資料庫儲存對話歷史、使用者偏好與設備監控數據，提供持久化數據存儲與分析功能。
 
 - **管理後台**  
-  提供系統監控與管理功能，包括使用統計、對話記錄查詢與系統狀態監控。
+  提供系統監控與管理功能，包括使用統計、對話記錄查詢、系統狀態監控與設備狀態查看。
 
 - **安全性與合規性**  
   實作內容安全政策、XSS 防護、安全 Cookie 處理以及適當的輸入過濾。
@@ -30,6 +33,7 @@
 - **數據視覺化**：PowerBI API
 - **資料庫**：SQLite
 - **安全性**：Flask-Talisman
+- **任務排程**：Schedule
 - **測試框架**：pytest 7.3+
 - **CI/CD 工具**：GitHub Actions
 - **容器化**：Docker
@@ -39,29 +43,33 @@
 ```
 .
 ├── src/
-│   ├── __init__.py             # Python 包初始化
-│   ├── main.py                 # 核心業務邏輯與 OpenAI 服務
-│   ├── linebot_connect.py      # Flask 應用與 LINE Bot 事件處理
-│   ├── powerbi_integration.py  # PowerBI API 整合模組
-│   ├── config.py               # 集中式配置管理
-│   ├── database.py             # 資料庫互動模組
-│   └── analytics.py            # 數據分析與統計模組
+│   ├── __init__.py               # Python 包初始化
+│   ├── main.py                   # 核心業務邏輯與 OpenAI 服務
+│   ├── linebot_connect.py        # Flask 應用與 LINE Bot 事件處理
+│   ├── powerbi_integration.py    # PowerBI API 整合模組
+│   ├── config.py                 # 集中式配置管理
+│   ├── database.py               # 資料庫互動模組
+│   ├── analytics.py              # 數據分析與統計模組
+│   ├── equipment_monitor.py      # 半導體設備監控與異常偵測
+│   ├── equipment_scheduler.py    # 設備監控排程器
+│   └── initial_data.py           # 初始測試數據生成
 ├── tests/
-│   ├── test_main.py            # 測試 OpenAI 服務及回覆函式
-│   ├── test_linebot_connect.py # 測試 LINE Bot 事件處理
-│   └── test_powerbi_integration.py # 測試 PowerBI 整合
+│   ├── test_main.py              # 測試 OpenAI 服務及回覆函式
+│   ├── test_linebot_connect.py   # 測試 LINE Bot 事件處理
+│   ├── test_powerbi_integration.py # 測試 PowerBI 整合
+│   └── test_equipment_alert.py   # 測試設備警報功能
 ├── templates/
-│   ├── index.html              # 服務狀態頁面
-│   ├── powerbi.html            # PowerBI 報表展示頁面
-│   ├── admin_dashboard.html    # 管理後台儀表板
-│   ├── admin_login.html        # 管理員登入頁面
-│   └── admin_conversation.html # 對話記錄查詢頁面
-├── .github/workflows/main.yml  # GitHub Actions CI/CD 設定
-├── Dockerfile                  # Docker 部署設定
-├── requirements.txt            # Python 套件相依列表
-├── README.md                   # 專案簡介（本文件）
-├── Documentary.md              # 專案詳細文件
-└── .gitignore                  # 忽略檔案清單
+│   ├── index.html                # 服務狀態頁面
+│   ├── powerbi.html              # PowerBI 報表展示頁面
+│   ├── admin_dashboard.html      # 管理後台儀表板
+│   ├── admin_login.html          # 管理員登入頁面
+│   └── admin_conversation.html   # 對話記錄查詢頁面
+├── .github/workflows/main.yml    # GitHub Actions CI/CD 設定
+├── Dockerfile                    # Docker 部署設定
+├── requirements.txt              # Python 套件相依列表
+├── README.md                     # 專案簡介（本文件）
+├── Documentary.md                # 專案詳細文件
+└── .gitignore                    # 忽略檔案清單
 ```
 
 ## 環境設定
@@ -158,6 +166,7 @@ pytest --cov=src --cov-report=xml
 - LINE Bot 事件處理與簽名驗證
 - OpenAI 回覆生成
 - PowerBI API 整合
+- 設備監控與警報功能
 - 路由與安全性測試
 
 ### 持續整合與部署
@@ -186,6 +195,8 @@ GitHub Actions 工作流程自動執行以下步驟：
 ### LINE Bot 功能
 - **一般對話**：直接輸入問題，AI 將生成回應
 - **PowerBI 報表**：輸入「powerbi」或「報表」查看數據報表
+- **設備狀態**：輸入「設備狀態」或「機台狀態」查看所有設備概況
+- **設備詳情**：輸入「設備詳情 [設備名稱]」查看特定設備的詳細資訊
 - **語言設定**：輸入「language:語言代碼」更改語言（例如「language:en」切換至英文）
 - **幫助選單**：輸入「help」或「幫助」查看功能選單
 
@@ -208,6 +219,11 @@ GitHub Actions 工作流程自動執行以下步驟：
   - 確保所有 PowerBI 相關環境變數已正確配置
   - 檢查 Azure AD 應用程式已被授予適當的 PowerBI API 權限
   - 確認報表有公開存取權限或適當的權限設置
+
+- **設備監控問題**
+  - 確認數據庫是否已正確初始化設備資料表
+  - 確認設備排程器是否已正確啟動
+  - 查看日誌中的設備監控相關錯誤訊息
 
 - **Docker 部署問題**
   - 確認已正確設置所有必要的環境變數
