@@ -1,4 +1,3 @@
-import json
 import os
 import logging
 from flask import Flask, request, abort, render_template
@@ -7,7 +6,6 @@ from linebot.v3 import WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from src.powerbi_integration import get_powerbi_embed_config
-from src.main import reply_message
 
 # 設定 logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +18,7 @@ channel_secret = os.getenv("LINE_CHANNEL_SECRET")
 if not channel_access_token or not channel_secret:
     raise ValueError("LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。")
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates')
 
 line_bot_api = MessagingApi(channel_access_token)
 handler = WebhookHandler(channel_secret)
@@ -54,6 +52,7 @@ def handle_message(event: MessageEvent):
         reply = TextSendMessage(text=reply_text)
     else:
         # 其他情況仍由 ChatGPT 處理
+        from src.main import reply_message  # Import here to avoid circular imports
         response_text = reply_message(event)
         reply = TextSendMessage(text=response_text)
     line_bot_api.reply_message(event.reply_token, reply)
@@ -67,5 +66,10 @@ def powerbi():
         return f"Error: {str(e)}", 500
     return render_template("powerbi.html", config=config)
 
+@app.route("/")
+def index():
+    """首頁，顯示簡單的服務狀態"""
+    return render_template("index.html")
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
