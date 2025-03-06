@@ -2,7 +2,7 @@
 
 ## 專案概述
 
-本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat)（ChatGPT）的功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案擴展為 PowerBI 報表嵌入功能，讓使用者可以在網頁上直觀地展示與分析數據。
+本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat)（ChatGPT）的功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案擴展為 PowerBI 報表嵌入功能，讓使用者可以在網頁上直觀地展示與分析數據。此外，系統還包含完整的使用者數據儲存、分析功能以及管理後台。
 
 ## 技術棧
 
@@ -11,6 +11,7 @@
 - **line-bot-sdk v3.x**：整合 LINE Bot API，處理訊息接收與回覆
 - **OpenAI API**：調用 ChatGPT 模型生成智能回覆
 - **PowerBI API**：嵌入 PowerBI 報表以進行數據展示
+- **SQLite**：輕量級數據庫，儲存對話歷史與使用者偏好
 - **Flask-Talisman**：實作內容安全政策(CSP)與其他安全防護
 - **pytest**：進行單元測試與覆蓋率分析
 - **Docker**：容器化部署，確保環境一致性
@@ -22,24 +23,39 @@
    - 利用 `/callback` Webhook 接收並驗證 LINE 傳來的事件
    - 根據使用者訊息，調用 OpenAI ChatCompletion API 生成專業回覆，再透過 LINE Bot API 回傳結果
    - 實作訊息輸入驗證與清理，防止潛在的 XSS 攻擊
+   - 支援快速回覆、按鈕模板等 LINE 互動元素
 
 2. **智能對話生成**  
    - 根據預先定義的系統提示，結合使用者輸入生成邏輯嚴謹且具體建議的回應
    - 維護對話歷史紀錄，提供上下文相關的回覆
    - 透過 sanitize_input 函數進行輸入清理，增強安全性
+   - 支援多語言回覆，包含繁體中文、簡體中文、英文、日文和韓文
 
 3. **PowerBI 報表整合**  
    - 透過 OAuth2 客戶端憑證流程，取得 PowerBI API 存取權杖與嵌入 Token
    - 於 `/powerbi` 路由提供網頁介面展示 PowerBI 報表
    - 實作基於 IP 的請求限制，防止潛在的 DoS 攻擊
+   - 在 LINE Bot 中提供快速查看報表的連結功能
 
-4. **網站安全性強化**
+4. **資料儲存與分析**  
+   - 使用 SQLite 資料庫儲存對話歷史與使用者偏好
+   - 實作完整的分析模組，追蹤用戶行為與系統使用狀況
+   - 生成使用趨勢數據，包括每日訊息量、活躍用戶數等統計
+   - 支援關鍵字追蹤與分析，了解使用者主要關注的話題
+
+5. **管理後台**  
+   - 提供安全的管理員登入系統
+   - 展示系統使用統計，包括總對話數、用戶數等關鍵指標
+   - 查看個別使用者的完整對話歷史
+   - 監控系統狀態，顯示各API連接情況
+
+6. **網站安全性強化**
    - 使用 Flask-Talisman 實作內容安全政策(CSP)，限制資源載入來源
    - 實作安全的 Cookie 設定（HttpOnly, Secure flags）
    - 設置適當的特性政策(Feature-Policy)，限制敏感 API 的使用
    - 處理代理標頭，確保在代理伺服器後方運作正常
 
-5. **集中式配置管理**
+7. **集中式配置管理**
    - 使用 config.py 統一管理所有環境變數與設定
    - 實作環境變數驗證機制，確保必要的設定存在
    - 集中式日誌配置，提供一致的日誌格式與級別
@@ -53,7 +69,9 @@
 │   ├── config.py               # 集中式配置管理模組
 │   ├── main.py                 # 核心業務邏輯與 OpenAI 服務封裝
 │   ├── linebot_connect.py      # Flask 應用與 LINE Bot 事件處理
-│   └── powerbi_integration.py  # PowerBI API 整合與報表嵌入模組
+│   ├── powerbi_integration.py  # PowerBI API 整合與報表嵌入模組
+│   ├── database.py             # 資料庫互動模組
+│   └── analytics.py            # 數據分析與統計模組
 ├── tests/
 │   ├── __init__.py             # 測試包初始化檔案
 │   ├── conftest.py             # pytest 配置與共用 fixtures
@@ -62,7 +80,10 @@
 │   └── test_powerbi_integration.py # 測試 PowerBI 整合模組
 ├── templates/
 │   ├── index.html              # 服務狀態頁面
-│   └── powerbi.html            # PowerBI 報表展示頁面
+│   ├── powerbi.html            # PowerBI 報表展示頁面
+│   ├── admin_dashboard.html    # 管理後台儀表板
+│   ├── admin_login.html        # 管理員登入頁面
+│   └── admin_conversation.html # 對話記錄查詢頁面
 ├── .github/
 │   └── workflows/
 │       └── main.yml            # GitHub Actions CI/CD 設定檔
@@ -95,6 +116,10 @@
    - **應用程式設定：**
      - `FLASK_DEBUG`：是否啟用 Flask 除錯模式（建議生產環境設為 False）
      - `PORT`：應用程式監聽的埠號（預設 5000）
+   - **管理後台設定：**
+     - `ADMIN_USERNAME`：管理員帳號
+     - `ADMIN_PASSWORD`：管理員密碼
+     - `SECRET_KEY`：Flask session 密鑰，用於管理員登入
 
 2. **安裝依賴套件**  
    執行以下指令安裝所需套件：
@@ -112,6 +137,7 @@
    - LINE Webhook 接收端點為 `/callback`
    - PowerBI 報表嵌入頁面：`http://localhost:5000/powerbi`
    - 服務狀態頁面：`http://localhost:5000/`
+   - 管理後台登入頁面：`http://localhost:5000/admin/login`
 
 2. **Docker 部署**  
    使用 Docker 部署，確保環境一致性：
@@ -126,6 +152,9 @@
      -e POWERBI_TENANT_ID="your_powerbi_tenant_id" \
      -e POWERBI_WORKSPACE_ID="your_powerbi_workspace_id" \
      -e POWERBI_REPORT_ID="your_powerbi_report_id" \
+     -e ADMIN_USERNAME="your_admin_username" \
+     -e ADMIN_PASSWORD="your_admin_password" \
+     -e SECRET_KEY="your_secret_key" \
      capstone-project
    ```
 
@@ -151,6 +180,7 @@
    - LINE Bot 事件處理與簽名驗證
    - OpenAI 回覆生成服務
    - PowerBI API 整合功能
+   - 路由與安全性驗證
 
 2. **持續整合與部署**  
    GitHub Actions 自動化流程包含以下階段：
@@ -172,6 +202,56 @@
    d. **部署後安全掃描**
    - 使用 Trivy 掃描容器映像檔中的漏洞
    - 將掃描結果上傳至 GitHub Security
+
+## 使用指南
+
+### LINE Bot 功能
+以下是 LINE Bot 支援的主要命令與功能：
+
+- **一般對話**：直接輸入問題，AI 將生成回應
+- **PowerBI 報表**：輸入「powerbi」或「報表」查看數據報表
+- **語言設定**：輸入「language:語言代碼」更改語言（例如「language:en」切換至英文）
+- **幫助選單**：輸入「help」或「幫助」查看功能選單
+- **使用說明**：輸入「使用說明」或「指南」獲取詳細使用方法
+- **關於**：輸入「關於」或「about」查看系統簡介
+
+### 管理後台
+管理後台提供以下功能：
+
+- **儀表板**：顯示系統使用統計，包括總訊息數、用戶數、過去24小時活動等
+- **系統狀態**：監控 OpenAI API、LINE Bot API 與 PowerBI 設定的連接狀態
+- **近期對話**：查看最近活躍的用戶及其對話摘要
+- **對話記錄**：查看特定用戶的完整對話歷史
+
+訪問流程：
+1. 訪問 `/admin/login` 路徑
+2. 使用設定的管理員帳號密碼登入
+3. 登入後可查看儀表板與系統統計資料
+4. 點擊「查看對話」可檢視特定用戶的完整對話歷史
+
+## 資料分析功能
+
+系統包含完整的資料分析模組，用於追蹤與分析使用者行為：
+
+1. **事件追蹤**
+   - 記錄各種系統事件，如訊息發送、報表查看、語言變更等
+   - 支援使用者 ID 關聯，便於分析個別使用者行為
+
+2. **每日統計**
+   - 生成每日使用統計，包括訊息總數、獨立使用者數、平均回應時間等
+   - 支援數據匯出，便於進一步分析與報表生成
+
+3. **關鍵字分析**
+   - 追蹤使用者訊息中的關鍵字，分析熱門話題與使用趨勢
+   - 提供最常使用關鍵字的排行統計
+
+4. **使用趨勢**
+   - 生成使用趨勢數據，展示系統使用隨時間的變化
+   - 分析用戶活躍度與留存率
+
+5. **語言偏好分析**
+   - 追蹤使用者的語言偏好設定
+   - 分析不同語言使用者的分佈與行為差異
 
 ## 安全性考量
 
@@ -196,7 +276,12 @@
    - 移除不必要的套件以減少攻擊面
    - 最小化容器映像檔大小
 
-5. **持續安全監控**
+5. **管理後台安全**
+   - 實作安全的管理員認證系統
+   - 使用 Flask session 管理登入狀態，設定適當的 Cookie 安全屬性
+   - 管理員路由使用裝飾器進行權限檢查
+
+6. **持續安全監控**
    - 在 CI/CD 流程中包含自動化安全掃描
    - 使用 Trivy 檢測容器映像檔中的漏洞
 
@@ -222,24 +307,39 @@
    - 檢查容器日誌以獲取詳細的錯誤訊息
    - 確認 Docker 主機的網路設定允許容器連接外部 API（OpenAI、LINE、PowerBI）
 
-5. **安全警告與 CSP 違規**
-   - 如需調整內容安全政策，修改 `linebot_connect.py` 中的 `csp` 字典
-   - 對於 PowerBI 嵌入頁面，可能需要允許來自 app.powerbi.com 和 cdn.powerbi.com 的資源
+5. **資料庫相關問題**
+   - 確認 `data` 目錄具有適當的讀寫權限
+   - 檢查資料庫連接錯誤日誌
+   - 如需重置資料庫，可刪除 `data/conversations.db` 檔案，系統將自動重新建立所需表格
+
+6. **管理後台登入問題**
+   - 確認環境變數 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 和 `SECRET_KEY` 已正確設定
+   - 檢查瀏覽器 Cookie 設定，確保未禁用
+   - 若忘記密碼，可通過修改環境變數重新設定
 
 ## 開發與擴展指南
 
 1. **新增功能**
    - 遵循模組化設計，將新功能放置在適當的模組中
    - 為新功能編寫單元測試，確保代碼覆蓋率
+   - 更新 Documentary.md 與 README.md，記錄新功能的使用方法
 
 2. **更新相依套件**
    - 定期更新 requirements.txt 中的套件版本
    - 使用 GitHub Actions 中的 Safety 檢查來監控相依套件的漏洞
+   - 更新後執行完整測試，確保系統兼容性
 
 3. **擴展 AI 功能**
    - 可在 main.py 中修改 OpenAI 的提示和參數，以優化回覆品質
    - 考慮實作頻率限制，避免過度使用 OpenAI API
+   - 擴展支援的語言或增加特殊領域的知識庫
 
-4. **本地開發提示**
+4. **增強分析功能**
+   - 在 analytics.py 中新增更多分析指標
+   - 開發更豐富的數據視覺化展示
+   - 考慮實作預測分析，識別使用趨勢與模式
+
+5. **本地開發提示**
    - 設置 FLASK_DEBUG=True 以啟用熱重載與詳細錯誤訊息
    - 使用 ngrok 等工具為本地伺服器建立公開 URL，以便測試 LINE Webhook
+   - 考慮設置開發環境專用的 .env.dev 檔案，避免影響生產設定
