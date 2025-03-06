@@ -153,6 +153,5 @@ GitHub Actions 工作流程（`.github/workflows/main.yml`）自動執行：
 
 ## 詳細文件
 
-更多詳細技術資訊與整合步驟，請參閱：
-- [整合PowerBI.html](整合PowerBI.html) – PowerBI 整合完整步驟說明
+更多詳細技術資訊與整合步驟，請參閱:
 - [Documentary.md](Documentary.md) – 專案詳細文件
