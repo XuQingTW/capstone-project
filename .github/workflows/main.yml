@@ -144,4 +144,5 @@ jobs:
       - name: Upload vulnerability scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
+          token: ${{ secrets.PAT }}
           sarif_file: 'trivy-results.sarif'
