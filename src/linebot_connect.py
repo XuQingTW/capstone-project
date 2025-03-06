@@ -28,6 +28,9 @@ channel_secret = os.getenv("LINE_CHANNEL_SECRET")
 if not channel_access_token or not channel_secret:
     raise ValueError("LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。")
 
+# 判斷是否在測試環境 - Moved earlier to ensure it's set before app initialization
+is_testing = os.environ.get('TESTING', 'False').lower() == 'true'
+
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
 
 csp = {
@@ -53,18 +56,18 @@ csp = {
     ]
 }
 
-# 判斷是否在測試環境
-is_testing = os.environ.get('TESTING', 'False').lower() == 'true'
-
-# 修改 Talisman 初始化參數
-Talisman(app, 
-    content_security_policy=csp,
-    content_security_policy_nonce_in=['script-src'],
-    force_https=not is_testing,  # 只在非測試環境強制 HTTPS
-    session_cookie_secure=not is_testing,
-    session_cookie_http_only=True,
-    feature_policy="geolocation 'none'; microphone 'none'; camera 'none'"
-)
+# Only apply Talisman in non-testing environments to avoid redirects during tests
+if not is_testing:
+    Talisman(app, 
+        content_security_policy=csp,
+        content_security_policy_nonce_in=['script-src'],
+        force_https=True,
+        session_cookie_secure=True,
+        session_cookie_http_only=True,
+        feature_policy="geolocation 'none'; microphone 'none'; camera 'none'"
+    )
+else:
+    logger.info("Running in test mode - Talisman security features disabled")
 
 # Handle proxy headers (if behind a proxy)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
