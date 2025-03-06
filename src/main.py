@@ -1,101 +1,77 @@
-import json
 import os
+import json
 import logging
-from flask import Flask, request, abort, render_template
-from linebot.v3.messaging import (
-    Configuration,
-    ApiClient,
-    MessagingApi,
-    ReplyMessageRequest,
-    TextMessage
-)
-from linebot.v3.webhooks import WebhookParser
-from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks.models import MessageEvent, TextMessageContent
-from src.powerbi_integration import get_powerbi_embed_config
-from src.main import reply_message
+import openai
+from flask import Flask
 
-# 設定 logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# OpenAI integration for chat responses
+class UserData:
+    """存儲用戶對話記錄的類"""
+    def __init__(self):
+        self.conversations = {}
 
-# 從環境變數取得 LINE 金鑰
-channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-channel_secret = os.getenv("LINE_CHANNEL_SECRET")
+    def get_conversation(self, user_id):
+        """取得特定用戶的對話記錄，若不存在則初始化"""
+        if user_id not in self.conversations:
+            self.conversations[user_id] = []
+        return self.conversations[user_id]
 
-if not channel_access_token or not channel_secret:
-    raise ValueError("LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。")
+    def add_message(self, user_id, role, content):
+        """新增一則訊息到用戶的對話記錄中"""
+        conversation = self.get_conversation(user_id)
+        conversation.append({"role": role, "content": content})
+        return conversation
 
-app = Flask(__name__)
+user_data = UserData()
 
-# 設定 LINE API 客戶端
-configuration = Configuration(access_token=channel_access_token)
-parser = WebhookParser(channel_secret)
+class OpenAIService:
+    """處理與 OpenAI API 的互動邏輯"""
+    def __init__(self, message, user_id):
+        self.user_id = user_id
+        self.message = message
+        # 從環境變數獲取 OpenAI API 金鑰
+        self.api_key = os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("OpenAI API 金鑰未設置")
+        openai.api_key = self.api_key
 
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers.get("X-Line-Signature")
-    body = request.get_data(as_text=True)
-    if not signature:
-        logger.error("缺少 X-Line-Signature 標頭。")
-        abort(400)
-    try:
-        events = parser.parse(body, signature)
-        for event in events:
-            if isinstance(event, MessageEvent) and isinstance(event.message, TextMessageContent):
-                handle_message(event)
-    except InvalidSignatureError as e:
-        logger.error(f"驗證失敗：{e}")
-        abort(400)
-    return 'OK'
-
-def handle_message(event: MessageEvent):
-    text = event.message.text.strip().lower()
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
+    def get_response(self):
+        """向 OpenAI API 發送請求並獲取回應"""
+        # 添加用戶的新訊息
+        conversation = user_data.add_message(self.user_id, "user", self.message)
         
-        # 當使用者輸入 "powerbi" 或 "報表" 時，回覆 PowerBI 報表連結
-        if text in ["powerbi", "報表", "powerbi報表"]:
-            try:
-                config = get_powerbi_embed_config()
-                embed_url = config["embedUrl"]
-                reply_text = f"請點選下方連結查看 PowerBI 報表：{embed_url}"
-            except Exception as e:
-                logger.error(f"取得 PowerBI 資訊失敗：{e}")
-                reply_text = f"取得 PowerBI 報表資訊失敗：{str(e)}"
-        else:
-            # 其他情況仍由 AI 模型處理
-            try:
-                response_text = reply_message(event)
-                reply_text = response_text
-            except Exception as e:
-                logger.error(f"AI 回覆產生失敗: {e}")
-                reply_text = "很抱歉，目前無法處理您的請求。請稍後再試。"
-        
-        # 發送回覆
         try:
-            line_bot_api.reply_message(
-                ReplyMessageRequest(
-                    reply_token=event.reply_token,
-                    messages=[TextMessage(text=reply_text)]
-                )
+            # 呼叫 OpenAI API
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=conversation,
+                max_tokens=500
             )
+            
+            # 取得 AI 回應
+            ai_message = response.choices[0].message["content"]
+            
+            # 將 AI 回應加入對話歷史
+            user_data.add_message(self.user_id, "assistant", ai_message)
+            
+            return ai_message
         except Exception as e:
-            logger.error(f"LINE API 回覆失敗: {e}")
+            logging.error(f"OpenAI API 錯誤: {e}")
+            return "抱歉，我無法處理您的請求。請稍後再試。"
 
-@app.route("/powerbi")
-def powerbi():
-    try:
-        config = get_powerbi_embed_config()
-    except Exception as e:
-        logger.error(f"PowerBI 整合錯誤：{e}")
-        return f"Error: {str(e)}", 500
-    return render_template("powerbi.html", config=config)
+def reply_message(event):
+    """處理用戶訊息並回傳 AI 回應"""
+    user_message = event.message.text
+    user_id = event.source.user_id
+    
+    # 使用 OpenAI 服務產生回應
+    openai_service = OpenAIService(message=user_message, user_id=user_id)
+    response = openai_service.get_response()
+    
+    return response
 
-@app.route("/")
-def index():
-    """首頁，顯示簡單的服務狀態"""
-    return render_template("index.html")
-
+# 如果直接執行此檔案，則啟動 Flask 應用
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
+    from src.linebot_connect import app
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
