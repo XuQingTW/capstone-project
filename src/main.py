@@ -51,11 +51,22 @@ def get_system_prompt(language="zh-Hant"):
 # OpenAI integration for chat responses
 class UserData:
     """存儲用戶對話記錄的類 - 使用資料庫與記憶體快取"""
-    def __init__(self):
+    def __init__(self, max_users=1000, max_messages=20, inactive_timeout=3600):
         self.temp_conversations = {}  # 暫存記憶體中的對話
+        self.user_last_active = {}  # 記錄用戶最後活動時間
+        self.max_users = max_users  # 最大快取用戶數
+        self.max_messages = max_messages  # 每個用戶保留的最大訊息數
+        self.inactive_timeout = inactive_timeout  # 不活躍超時時間(秒)
     
     def get_conversation(self, user_id):
         """取得特定用戶的對話記錄，若不存在則初始化"""
+        # 更新最後活動時間
+        self.user_last_active[user_id] = time.time()
+        
+        # 如果用戶數超過上限，清理最不活躍的用戶
+        if len(self.temp_conversations) > self.max_users:
+            self._cleanup_least_active_users()
+            
         # 先檢查記憶體快取
         if user_id in self.temp_conversations:
             return self.temp_conversations[user_id]
@@ -73,11 +84,51 @@ class UserData:
         # 加入資料庫
         db.add_message(user_id, role, content)
         
+        # 更新最後活動時間
+        self.user_last_active[user_id] = time.time()
+        
         # 更新記憶體快取
         conversation = self.get_conversation(user_id)
         conversation.append({"role": role, "content": content})
         
+        # 限制對話長度 (保留系統提示)
+        if len(conversation) > self.max_messages + 1:
+            # 保留第一條系統提示和最近的訊息
+            if conversation[0]["role"] == "system":
+                conversation = [conversation[0]] + conversation[-(self.max_messages):]
+            else:
+                conversation = conversation[-(self.max_messages):]
+            
+            self.temp_conversations[user_id] = conversation
+        
         return conversation
+        
+    def _cleanup_least_active_users(self):
+        """清理最不活躍的用戶"""
+        # 按最後活動時間排序
+        sorted_users = sorted(self.user_last_active.items(), key=lambda x: x[1])
+        
+        # 清理 20% 最不活躍的用戶
+        users_to_remove = sorted_users[:int(len(sorted_users) * 0.2) or 1]  # 至少移除1個
+        for user_id, _ in users_to_remove:
+            if user_id in self.temp_conversations:
+                del self.temp_conversations[user_id]
+            del self.user_last_active[user_id]
+            
+    def periodic_cleanup(self):
+        """定期清理不活躍用戶的記憶體快取"""
+        current_time = time.time()
+        users_to_remove = []
+        
+        for user_id, last_active in list(self.user_last_active.items()):
+            if current_time - last_active > self.inactive_timeout:
+                users_to_remove.append(user_id)
+        
+        for user_id in users_to_remove:
+            if user_id in self.temp_conversations:
+                del self.temp_conversations[user_id]
+            if user_id in self.user_last_active:
+                del self.user_last_active[user_id]
 
 user_data = UserData()
 
@@ -182,6 +233,14 @@ if __name__ == "__main__":
     # 避免循環引用問題
     import sys
     import importlib.util
+    import threading
+    def cleanup_task():
+        while True:
+            time.sleep(1800)  # 每30分鐘清理一次
+            user_data.periodic_cleanup()
+    
+    cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
+    cleanup_thread.start()
     spec = importlib.util.spec_from_file_location("linebot_connect", 
                                                  os.path.join(os.path.dirname(__file__), "linebot_connect.py"))
     linebot_connect = importlib.util.module_from_spec(spec)
