@@ -4,6 +4,9 @@ import time
 import datetime
 import functools
 import sqlite3
+import threading
+import secrets
+from collections import defaultdict
 from flask import Flask, request, abort, render_template, session, redirect, url_for, flash
 from linebot.v3.webhook import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
@@ -28,7 +31,6 @@ from src.powerbi_integration import get_powerbi_embed_config
 from src.database import db
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
-from collections import defaultdict
 from src.equipment_scheduler import start_scheduler
 from src.initial_data import initialize_equipment_data
 
@@ -46,55 +48,62 @@ if not channel_access_token or not channel_secret:
 # 判斷是否在測試環境 - Moved earlier to ensure it's set before app initialization
 is_testing = os.environ.get('TESTING', 'False').lower() == 'true'
 
-app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
-app.secret_key = os.getenv('SECRET_KEY', os.urandom(24).hex())  # 為 session 管理設定密鑰
+# 固定的密鑰文件路徑
+SECRET_KEY_FILE = "data/secret_key.txt"
 
-csp = {
-    'default-src': "'self'",
-    'script-src': [
-        "'self'",
-        'https://cdn.powerbi.com',
-        "'unsafe-inline'",  # Only needed for inline PowerBI embed script
-    ],
-    'style-src': [
-        "'self'",
-        "'unsafe-inline'",  # Only needed for inline styles
-    ],
-    'img-src': "'self'",
-    'frame-src': [
-        'https://app.powerbi.com',
-        'https://cdn.powerbi.com',
-    ],
-    'connect-src': [
-        "'self'",
-        'https://api.powerbi.com',
-        'https://login.microsoftonline.com',
-    ]
-}
+def get_or_create_secret_key():
+    """獲取或創建一個固定的 secret key"""
+    # 首先檢查環境變數
+    env_key = os.getenv('SECRET_KEY')
+    if env_key:
+        return env_key
+        
+    # 然後檢查文件
+    os.makedirs(os.path.dirname(SECRET_KEY_FILE), exist_ok=True)
+    try:
+        if os.path.exists(SECRET_KEY_FILE):
+            with open(SECRET_KEY_FILE, 'r') as f:
+                key = f.read().strip()
+                if key:
+                    return key
+                    
+        # 如果文件不存在或為空，生成新密鑰
+        key = secrets.token_hex(24)
+        with open(SECRET_KEY_FILE, 'w') as f:
+            f.write(key)
+        return key
+    except Exception as e:
+        logger.warning(f"無法讀取或寫入密鑰文件: {e}，使用臨時密鑰")
+        return secrets.token_hex(24)
 
-# Only apply Talisman in non-testing environments to avoid redirects during tests
-if not is_testing:
-    Talisman(app, 
-        content_security_policy=csp,
-        content_security_policy_nonce_in=['script-src'],
-        force_https=True,
-        session_cookie_secure=True,
-        session_cookie_http_only=True,
-        feature_policy="geolocation 'none'; microphone 'none'; camera 'none'"
-    )
-else:
-    logger.info("Running in test mode - Talisman security features disabled")
-
-# Handle proxy headers (if behind a proxy)
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
-
-# Setup with the appropriate API client configuration
-configuration = Configuration(access_token=channel_access_token)
-api_client = ApiClient(configuration)
-line_bot_api = MessagingApi(api_client)
-handler = WebhookHandler(channel_secret)
-
+# 要放入全局作用域以在整個應用程序中使用
 request_counts = defaultdict(list)
+last_cleanup_time = time.time()
+request_counts_lock = threading.Lock()  # 添加鎖以確保線程安全
+
+def cleanup_request_counts():
+    """清理長時間未使用的 IP 地址"""
+    global last_cleanup_time
+    current_time = time.time()
+    
+    # 每小時執行一次清理
+    if current_time - last_cleanup_time < 3600:
+        return
+        
+    with request_counts_lock:
+        # 找出需要刪除的 IP
+        ips_to_remove = []
+        for ip, timestamps in request_counts.items():
+            # 如果 IP 最近一小時沒有請求，則移除
+            if not timestamps or current_time - max(timestamps) > 3600:
+                ips_to_remove.append(ip)
+                
+        # 刪除過期的 IP
+        for ip in ips_to_remove:
+            del request_counts[ip]
+            
+        last_cleanup_time = current_time
+        logger.info(f"已清理 {len(ips_to_remove)} 個過期 IP 地址")
 
 def rate_limit_check(ip, max_requests=30, window_seconds=60):
     """
@@ -102,17 +111,21 @@ def rate_limit_check(ip, max_requests=30, window_seconds=60):
     """
     current_time = time.time()
     
-    # 清理舊的請求記錄
-    request_counts[ip] = [timestamp for timestamp in request_counts[ip] 
-                         if current_time - timestamp < window_seconds]
+    # 先清理過期的 IP 記錄
+    cleanup_request_counts()
     
-    # 檢查請求數量
-    if len(request_counts[ip]) >= max_requests:
-        return False
-    
-    # 記錄新請求
-    request_counts[ip].append(current_time)
-    return True
+    with request_counts_lock:
+        # 清理舊的請求記錄
+        request_counts[ip] = [timestamp for timestamp in request_counts[ip] 
+                             if current_time - timestamp < window_seconds]
+        
+        # 檢查請求數量
+        if len(request_counts[ip]) >= max_requests:
+            return False
+        
+        # 記錄新請求
+        request_counts[ip].append(current_time)
+        return True
 
 # 簡單的管理員認證設定
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
@@ -127,19 +140,169 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers.get("X-Line-Signature")
-    body = request.get_data(as_text=True)
-    if not signature:
-        logger.error("缺少 X-Line-Signature 標頭。")
-        abort(400)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError as e:
-        logger.error(f"驗證失敗：{e}")
-        abort(400)
-    return 'OK'
+def create_app():
+    """創建 Flask 應用程序"""
+    app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
+    app.secret_key = get_or_create_secret_key()
+
+    # Handle proxy headers (if behind a proxy)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+    csp = {
+        'default-src': "'self'",
+        'script-src': [
+            "'self'",
+            'https://cdn.powerbi.com',
+            "'unsafe-inline'",  # Only needed for inline PowerBI embed script
+        ],
+        'style-src': [
+            "'self'",
+            "'unsafe-inline'",  # Only needed for inline styles
+        ],
+        'img-src': "'self'",
+        'frame-src': [
+            'https://app.powerbi.com',
+            'https://cdn.powerbi.com',
+        ],
+        'connect-src': [
+            "'self'",
+            'https://api.powerbi.com',
+            'https://login.microsoftonline.com',
+        ]
+    }
+
+    # Only apply Talisman in non-testing environments to avoid redirects during tests
+    if not is_testing:
+        Talisman(app, 
+            content_security_policy=csp,
+            content_security_policy_nonce_in=['script-src'],
+            force_https=True,
+            session_cookie_secure=True,
+            session_cookie_http_only=True,
+            feature_policy="geolocation 'none'; microphone 'none'; camera 'none'"
+        )
+    else:
+        logger.info("Running in test mode - Talisman security features disabled")
+        
+    return app
+
+app = create_app()
+
+# Setup with the appropriate API client configuration
+configuration = Configuration(access_token=channel_access_token)
+api_client = ApiClient(configuration)
+line_bot_api = MessagingApi(api_client)
+handler = WebhookHandler(channel_secret)
+
+def register_routes(app):
+    """註冊所有路由"""
+    
+    @app.route("/callback", methods=['POST'])
+    def callback():
+        signature = request.headers.get("X-Line-Signature")
+        body = request.get_data(as_text=True)
+        if not signature:
+            logger.error("缺少 X-Line-Signature 標頭。")
+            abort(400)
+        try:
+            handler.handle(body, signature)
+        except InvalidSignatureError as e:
+            logger.error(f"驗證失敗：{e}")
+            abort(400)
+        return 'OK'
+
+    @app.route("/powerbi")
+    def powerbi():
+        # 基本請求限制
+        if not rate_limit_check(request.remote_addr):
+            return "請求太多，請稍後再試。", 429
+            
+        try:
+            config = get_powerbi_embed_config()
+        except Exception as e:
+            logger.error(f"PowerBI 整合錯誤: {e}")
+            return "系統錯誤，請稍後再試。", 500
+        return render_template("powerbi.html", config=config)
+
+    @app.route("/")
+    def index():
+        """首頁，顯示簡單的服務狀態"""
+        return render_template("index.html")
+
+    # 管理後台路由
+    @app.route("/admin/login", methods=["GET", "POST"])
+    def admin_login():
+        if request.method == "POST":
+            username = request.form.get("username")
+            password = request.form.get("password")
+            
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                session['admin_logged_in'] = True
+                return redirect(request.args.get("next") or url_for("admin_dashboard"))
+            else:
+                flash("登入失敗，請確認帳號密碼是否正確", "error")
+        
+        return render_template("admin_login.html")
+
+    @app.route("/admin/logout")
+    def admin_logout():
+        session.pop('admin_logged_in', None)
+        return redirect(url_for('admin_login'))
+
+    @app.route("/admin/dashboard")
+    @admin_required
+    def admin_dashboard():
+        # 取得總對話數
+        conversation_stats = db.get_conversation_stats()
+        
+        # 取得近期使用者與對話
+        recent_conversations = db.get_recent_conversations(limit=20)
+        
+        # 取得系統資訊
+        system_info = {
+            "openai_api_key": "已設置" if os.getenv("OPENAI_API_KEY") else "未設置",
+            "line_channel_secret": "已設置" if os.getenv("LINE_CHANNEL_SECRET") else "未設置", 
+            "powerbi_config": "已設置" if all([os.getenv(f"POWERBI_{key}") for key in ["CLIENT_ID", "CLIENT_SECRET", "TENANT_ID", "WORKSPACE_ID", "REPORT_ID"]]) else "未設置"
+        }
+        
+        return render_template(
+            "admin_dashboard.html",
+            stats=conversation_stats,
+            recent=recent_conversations,
+            system_info=system_info
+        )
+
+    @app.route("/admin/conversation/<user_id>")
+    @admin_required
+    def admin_view_conversation(user_id):
+        # 取得該使用者的對話記錄
+        conversation = db.get_conversation_history(user_id, limit=50)
+        
+        # 取得使用者資訊
+        user_info = db.get_user_preference(user_id)
+        
+        return render_template(
+            "admin_conversation.html",
+            conversation=conversation,
+            user_id=user_id,
+            user_info=user_info
+        )
+
+    # Jinja過濾器與功能函數
+    @app.template_filter('nl2br')
+    def nl2br(value):
+        if not value:
+            return ""
+        return value.replace('\n', '<br>')
+
+    @app.context_processor
+    def utility_processor():
+        def now():
+            return datetime.datetime.now()
+        return dict(now=now)
+
+# 註冊路由
+register_routes(app)
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
@@ -601,96 +764,6 @@ def handle_message(event):
             )
             line_bot_api.reply_message_with_http_info(reply_request)
 
-@app.route("/powerbi")
-def powerbi():
-    # 基本請求限制
-    if not rate_limit_check(request.remote_addr):
-        return "請求太多，請稍後再試。", 429
-        
-    try:
-        config = get_powerbi_embed_config()
-    except Exception as e:
-        logger.error(f"PowerBI 整合錯誤: {e}")
-        return "系統錯誤，請稍後再試。", 500
-    return render_template("powerbi.html", config=config)
-
-@app.route("/")
-def index():
-    """首頁，顯示簡單的服務狀態"""
-    return render_template("index.html")
-
-# 管理後台路由
-@app.route("/admin/login", methods=["GET", "POST"])
-def admin_login():
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session['admin_logged_in'] = True
-            return redirect(request.args.get("next") or url_for("admin_dashboard"))
-        else:
-            flash("登入失敗，請確認帳號密碼是否正確", "error")
-    
-    return render_template("admin_login.html")
-
-@app.route("/admin/logout")
-def admin_logout():
-    session.pop('admin_logged_in', None)
-    return redirect(url_for('admin_login'))
-
-@app.route("/admin/dashboard")
-@admin_required
-def admin_dashboard():
-    # 取得總對話數
-    conversation_stats = db.get_conversation_stats()
-    
-    # 取得近期使用者與對話
-    recent_conversations = db.get_recent_conversations(limit=20)
-    
-    # 取得系統資訊
-    system_info = {
-        "openai_api_key": "已設置" if os.getenv("OPENAI_API_KEY") else "未設置",
-        "line_channel_secret": "已設置" if os.getenv("LINE_CHANNEL_SECRET") else "未設置", 
-        "powerbi_config": "已設置" if all([os.getenv(f"POWERBI_{key}") for key in ["CLIENT_ID", "CLIENT_SECRET", "TENANT_ID", "WORKSPACE_ID", "REPORT_ID"]]) else "未設置"
-    }
-    
-    return render_template(
-        "admin_dashboard.html",
-        stats=conversation_stats,
-        recent=recent_conversations,
-        system_info=system_info
-    )
-
-@app.route("/admin/conversation/<user_id>")
-@admin_required
-def admin_view_conversation(user_id):
-    # 取得該使用者的對話記錄
-    conversation = db.get_conversation_history(user_id, limit=50)
-    
-    # 取得使用者資訊
-    user_info = db.get_user_preference(user_id)
-    
-    return render_template(
-        "admin_conversation.html",
-        conversation=conversation,
-        user_id=user_id,
-        user_info=user_info
-    )
-
-# Jinja過濾器與功能函數
-@app.template_filter('nl2br')
-def nl2br(value):
-    if not value:
-        return ""
-    return value.replace('\n', '<br>')
-
-@app.context_processor
-def utility_processor():
-    def now():
-        return datetime.datetime.now()
-    return dict(now=now)
-    
 def send_notification(user_id, message):
     """發送 LINE 訊息給特定使用者"""
     try:
@@ -708,6 +781,7 @@ def send_notification(user_id, message):
         logger.error(f"發送通知失敗: {e}")
         return False
 
+# 若此檔案被直接執行
 if __name__ == "__main__":
     # 初始化設備資料
     initialize_equipment_data()

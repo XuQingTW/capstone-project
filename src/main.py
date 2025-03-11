@@ -57,6 +57,20 @@ class UserData:
         self.max_users = max_users  # 最大快取用戶數
         self.max_messages = max_messages  # 每個用戶保留的最大訊息數
         self.inactive_timeout = inactive_timeout  # 不活躍超時時間(秒)
+        self._start_cleanup_thread()
+        
+    def _start_cleanup_thread(self):
+        """啟動清理線程"""
+        import threading
+        import time
+        
+        def cleanup_task():
+            while True:
+                time.sleep(1800)  # 每30分鐘清理一次
+                self.periodic_cleanup()
+                
+        cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
+        cleanup_thread.start()
     
     def get_conversation(self, user_id):
         """取得特定用戶的對話記錄，若不存在則初始化"""
@@ -233,14 +247,7 @@ if __name__ == "__main__":
     # 避免循環引用問題
     import sys
     import importlib.util
-    import threading
-    def cleanup_task():
-        while True:
-            time.sleep(1800)  # 每30分鐘清理一次
-            user_data.periodic_cleanup()
     
-    cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
-    cleanup_thread.start()
     spec = importlib.util.spec_from_file_location("linebot_connect", 
                                                  os.path.join(os.path.dirname(__file__), "linebot_connect.py"))
     linebot_connect = importlib.util.module_from_spec(spec)

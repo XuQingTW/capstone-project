@@ -1,5 +1,6 @@
 import os
 import logging
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if it exists
@@ -37,9 +38,20 @@ class Config:
     POWERBI_WORKSPACE_ID = os.getenv('POWERBI_WORKSPACE_ID')
     POWERBI_REPORT_ID = os.getenv('POWERBI_REPORT_ID')
     
+    # 驗證模式：嚴格 (strict) 或寬鬆 (loose)
+    VALIDATION_MODE = os.getenv('VALIDATION_MODE', 'strict')
+    
     @classmethod
-    def validate(cls):
-        """驗證必需的環境變數是否存在"""
+    def validate(cls, exit_on_failure=None):
+        """
+        驗證必需的環境變數是否存在
+        
+        參數:
+            exit_on_failure: 
+                - 如果為 True，驗證失敗時會終止程序
+                - 如果為 False，驗證失敗時只會拋出例外 
+                - 如果為 None，則根據 VALIDATION_MODE 環境變數決定行為
+        """
         missing_vars = []
         
         # 檢查 OpenAI 設定
@@ -61,14 +73,31 @@ class Config:
         if missing_vars:
             error_msg = f"缺少以下必要環境變數: {', '.join(missing_vars)}"
             logger.error(error_msg)
+            
+            # 決定驗證失敗行為
+            should_exit = exit_on_failure if exit_on_failure is not None else cls.VALIDATION_MODE.lower() == 'strict'
+            
+            # 嚴格模式或明確要求下直接中斷程序
+            if should_exit:
+                logger.critical("驗證失敗，程序將終止")
+                sys.exit(1)
+                
+            # 否則拋出例外，讓呼叫者決定如何處理
             raise ValueError(error_msg)
         
         return True
 
-# Validate config when module is imported
+# 應用程序啟動時嘗試驗證配置
 try:
+    # 這裡會根據 VALIDATION_MODE 環境變數決定驗證失敗行為
     Config.validate()
     logger.info("環境變數驗證成功")
 except ValueError as e:
-    logger.error(f"環境變數驗證失敗: {e}")
-    # 不在此處中斷程式，而是讓主程式決定如何處理
+    is_testing = os.environ.get('TESTING', 'False').lower() == 'true'
+    if is_testing:
+        # 測試環境下只發出警告
+        logger.warning(f"測試環境：環境變數驗證失敗，但將繼續執行：{e}")
+    else:
+        # 非測試環境且配置指定為寬鬆模式時，發出警告但不中斷
+        logger.error(f"環境變數驗證失敗: {e}")
+        # 注意：在寬鬆模式下，這裡沒有中斷程序，讓主程式決定如何處理
