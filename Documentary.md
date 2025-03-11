@@ -2,7 +2,7 @@
 
 ## 專案概述
 
-本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/) 與 [OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat)（ChatGPT）的功能，打造一個能夠在 LINE 平台上即時提供工程技術支援與諮詢的智能助理。同時，專案擴展為 PowerBI 報表嵌入功能，讓使用者可以在網頁上直觀地展示與分析數據。此外，系統包含半導體設備的即時監控功能，能自動偵測異常並通過 LINE 機器人發送警報。系統還包含完整的使用者數據儲存、分析功能以及管理後台。
+本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/)、[OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat) (ChatGPT)、[PowerBI](https://powerbi.microsoft.com/) 與半導體設備監控系統，打造一個多功能智能助理。系統可在 LINE 平台上即時提供工程技術支援與諮詢，同時提供 PowerBI 報表嵌入功能，讓使用者直觀地展示與分析數據。此外，系統能即時監控半導體設備，自動偵測異常並通過 LINE 機器人發送警報通知。系統包含完整的使用者數據儲存、分析功能以及管理後台。
 
 ## 技術棧
 
@@ -22,15 +22,15 @@
 
 1. **LINE 訊息處理**  
    - 利用 `/callback` Webhook 接收並驗證 LINE 傳來的事件
-   - 根據使用者訊息，調用 OpenAI ChatCompletion API 生成專業回覆，再透過 LINE Bot API 回傳結果
+   - 根據使用者訊息，調用 OpenAI ChatCompletion API 生成專業回覆
    - 實作訊息輸入驗證與清理，防止潛在的 XSS 攻擊
    - 支援快速回覆、按鈕模板等 LINE 互動元素
 
 2. **智能對話生成**  
-   - 根據預先定義的系統提示，結合使用者輸入生成邏輯嚴謹且具體建議的回應
+   - 根據預先定義的系統提示，結合使用者輸入生成邏輯嚴謹的回應
    - 維護對話歷史紀錄，提供上下文相關的回覆
-   - 透過 sanitize_input 函數進行輸入清理，增強安全性
    - 支援多語言回覆，包含繁體中文、簡體中文、英文、日文和韓文
+   - 使用記憶體快取與資料庫儲存的混合策略，優化對話處理效能
 
 3. **PowerBI 報表整合**  
    - 透過 OAuth2 客戶端憑證流程，取得 PowerBI API 存取權杖與嵌入 Token
@@ -60,11 +60,10 @@
    - 監控系統狀態，顯示各API連接情況
    - 查看設備監控概況與異常警報
 
-7. **網站安全性強化**
-   - 使用 Flask-Talisman 實作內容安全政策(CSP)，限制資源載入來源
-   - 實作安全的 Cookie 設定（HttpOnly, Secure flags）
-   - 設置適當的特性政策(Feature-Policy)，限制敏感 API 的使用
-   - 處理代理標頭，確保在代理伺服器後方運作正常
+7. **事件系統**
+   - 實作輕量級事件發布/訂閱系統，解耦模組間的依賴
+   - 允許不同模組響應系統事件，如設備警報、使用者行為等
+   - 提高系統可擴展性與維護性
 
 8. **集中式配置管理**
    - 使用 config.py 統一管理所有環境變數與設定
@@ -77,14 +76,16 @@
 .
 ├── src/
 │   ├── __init__.py               # Python 包初始化檔案
+│   ├── app.py                    # Flask 應用程式創建與配置
 │   ├── config.py                 # 集中式配置管理模組
 │   ├── main.py                   # 核心業務邏輯與 OpenAI 服務封裝
-│   ├── linebot_connect.py        # Flask 應用與 LINE Bot 事件處理
+│   ├── linebot_connect.py        # LINE Bot 事件處理與路由註冊
 │   ├── powerbi_integration.py    # PowerBI API 整合與報表嵌入模組
 │   ├── database.py               # 資料庫互動模組
 │   ├── analytics.py              # 數據分析與統計模組
 │   ├── equipment_monitor.py      # 半導體設備監控與異常偵測器
 │   ├── equipment_scheduler.py    # 設備監控排程器
+│   ├── event_system.py           # 事件發布/訂閱系統
 │   └── initial_data.py           # 初始設備資料生成腳本
 ├── tests/
 │   ├── __init__.py               # 測試包初始化檔案
@@ -107,7 +108,7 @@
 ├── Dockerfile                    # Docker 部署設定檔
 ├── README.md                     # 專案簡介與快速上手指南
 ├── Documentary.md                # 專案詳細文件（本文件）
-├── pytest.py                     # pytest 設定檔
+├── pytest.py                    # pytest 設定檔
 └── .gitignore                    # 忽略檔案清單
 ```
 
@@ -147,7 +148,11 @@
 1. **本地執行**  
    啟動 Flask 應用：
    ```bash
-   python src/linebot_connect.py
+   python -m src.linebot_connect
+   ```
+   或使用新的應用入口點：
+   ```bash
+   python -m src.app
    ```
    - LINE Webhook 接收端點為 `/callback`
    - PowerBI 報表嵌入頁面：`http://localhost:5000/powerbi`
@@ -288,6 +293,27 @@
    - 使用 OpenAI 分析異常情況，生成對應的解釋與建議
    - 根據設備特性提供專業的建議，協助技術人員快速解決問題
 
+## 事件系統
+
+新增的事件系統提供以下功能：
+
+1. **模組解耦**
+   - 透過發布/訂閱模式解耦各模組間的直接依賴
+   - 允許不同模組對相同事件進行響應，無需修改發送端代碼
+
+2. **主要事件類型**
+   - **設備警報事件**：當設備狀態異常時觸發
+   - **使用者互動事件**：記錄使用者的重要操作
+   - **系統狀態事件**：監控系統各組件的運行狀態
+
+3. **使用方式**
+   - 透過 `event_system.subscribe()` 註冊事件處理函數
+   - 使用 `event_system.publish()` 發布事件到系統
+
+4. **錯誤處理**
+   - 事件處理中的錯誤不會影響整個系統運行
+   - 所有事件處理錯誤會被記錄到日誌中
+
 ## 資料分析功能
 
 系統包含完整的資料分析模組，用於追蹤與分析使用者行為：
@@ -330,10 +356,11 @@
    - 使用 Flask-Talisman 實作嚴格的內容安全政策(CSP)
    - 設定安全的 Cookie 屬性（HttpOnly, Secure）
    - 強制使用 HTTPS 連線
+   - 實作基於 IP 的請求速率限制
 
 3. **輸入驗證與清理**
    - 使用 sanitize_input 函數處理使用者輸入，防止潛在的注入攻擊
-   - 實作請求速率限制，防止暴力攻擊
+   - 對所有 API 參數進行類型與格式驗證
 
 4. **容器安全**
    - 使用非 root 用戶運行容器化應用
@@ -385,36 +412,3 @@
    - 確認環境變數 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 和 `SECRET_KEY` 已正確設定
    - 檢查瀏覽器 Cookie 設定，確保未禁用
    - 若忘記密碼，可通過修改環境變數重新設定
-
-## 開發與擴展指南
-
-1. **新增功能**
-   - 遵循模組化設計，將新功能放置在適當的模組中
-   - 為新功能編寫單元測試，確保代碼覆蓋率
-   - 更新 Documentary.md 與 README.md，記錄新功能的使用方法
-
-2. **更新相依套件**
-   - 定期更新 requirements.txt 中的套件版本
-   - 使用 GitHub Actions 中的 Safety 檢查來監控相依套件的漏洞
-   - 更新後執行完整測試，確保系統兼容性
-
-3. **擴展 AI 功能**
-   - 可在 main.py 中修改 OpenAI 的提示和參數，以優化回覆品質
-   - 考慮實作頻率限制，避免過度使用 OpenAI API
-   - 擴展支援的語言或增加特殊領域的知識庫
-
-4. **增強設備監控功能**
-   - 在 equipment_monitor.py 中添加更多設備類型與監控指標
-   - 擴展異常偵測演算法，提高準確度
-   - 開發更詳細的設備管理介面，支援設備新增與修改
-   - 整合機器學習模型預測設備故障
-
-5. **增強分析功能**
-   - 在 analytics.py 中新增更多分析指標
-   - 開發更豐富的數據視覺化展示
-   - 考慮實作預測分析，識別使用趨勢與模式
-
-6. **本地開發提示**
-   - 設置 FLASK_DEBUG=True 以啟用熱重載與詳細錯誤訊息
-   - 使用 ngrok 等工具為本地伺服器建立公開 URL，以便測試 LINE Webhook
-   - 考慮設置開發環境專用的 .env.dev 檔案，避免影響生產設定
