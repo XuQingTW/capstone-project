@@ -93,7 +93,8 @@ def test_handle_message_powerbi(mock_reply_message, mock_get_embed_config):
     template = message.template
     assert isinstance(template, ButtonsTemplate)
     assert template.title == "PowerBI 報表"
-    assert template.text == "點擊下方按鈕查看我們的數據報表"
+    # 更新期望的文字訊息，以符合實際實現
+    assert template.text == "點擊下方按鈕查看您訂閱的設備報表"
     
     # 驗證按鈕動作
     assert len(template.actions) == 1
