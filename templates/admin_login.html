@@ -3,69 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理員登入 - LINE Bot 管理後台</title>
+    <title>管理員登入 - 半導體設備監控系統</title>
     <style>
+        :root {
+            --primary-color: #00c300;
+            --primary-dark: #00a000;
+            --secondary-color: #0078d4;
+            --gray-light: #f5f5f5;
+            --gray: #e0e0e0;
+            --gray-dark: #666;
+            --text-dark: #333;
+            --danger-color: #d9534f;
+            --shadow: 0 4px 15px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            background: linear-gradient(135deg, #f5f7fa, #e4e8f0);
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            padding: 2rem;
         }
+        
         .login-container {
             background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 2.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        h1 {
+        
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        }
+        
+        .login-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .logo {
             text-align: center;
-            color: #333;
             margin-bottom: 1.5rem;
         }
-        .form-group {
-            margin-bottom: 1rem;
+        
+        .logo img {
+            width: 60px;
+            height: auto;
         }
+        
+        h1 {
+            text-align: center;
+            color: var(--text-dark);
+            margin-bottom: 1.8rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        
         label {
             display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.95rem;
         }
+        
         input[type="text"],
         input[type="password"] {
             width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
+            padding: 0.8rem 1rem 0.8rem 2.8rem;
+            border: 1px solid var(--gray);
             border-radius: 4px;
             font-size: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 195, 0, 0.2);
+        }
+        
+        .form-group::before {
+            content: "";
+            position: absolute;
+            left: 12px;
+            top: 38px;
+            width: 18px;
+            height: 18px;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            opacity: 0.6;
+        }
+        
+        .form-group.username::before {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M12 2a5 5 0 0 1 5 5v2a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v2a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3zm9 15v4H3v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3zm-2 2v-2a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v2h14z' fill='rgba(51,51,51,1)'/%3E%3C/svg%3E");
+        }
+        
+        .form-group.password::before {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M19 10h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1V9a7 7 0 1 1 14 0v1zm-2 0V9A5 5 0 0 0 7 9v1h10zm-6 4v4h2v-4h-2z' fill='rgba(51,51,51,1)'/%3E%3C/svg%3E");
+        }
+        
         button {
             width: 100%;
-            padding: 0.6rem;
-            background-color: #00c300;
+            padding: 0.9rem;
+            background: linear-gradient(to right, var(--primary-color), var(--primary-dark));
             color: white;
             border: none;
             border-radius: 4px;
             font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 1rem;
+            margin-top: 1.5rem;
+            transition: transform 0.3s, box-shadow 0.3s;
         }
+        
         button:hover {
-            background-color: #00a000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
+        
+        button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        
         .error-message {
-            color: #d9534f;
-            margin-top: 1rem;
+            color: var(--danger-color);
+            margin-top: 1.5rem;
             text-align: center;
+            padding: 0.8rem 1rem;
+            background-color: rgba(217, 83, 79, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid var(--danger-color);
+            font-size: 0.95rem;
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        
+        .back-link:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+        
+        .security-note {
+            margin-top: 2rem;
+            border-top: 1px solid var(--gray);
+            padding-top: 1.2rem;
+            font-size: 0.85rem;
+            color: var(--gray-dark);
+            text-align: center;
+        }
+        
+        .security-note strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+        
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 2rem 1.5rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="login-container">
+        <div class="logo">
+            <!-- 使用内联SVG作为徽标 -->
+            <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M30 0C13.4315 0 0 13.4315 0 30C0 46.5685 13.4315 60 30 60C46.5685 60 60 46.5685 60 30C60 13.4315 46.5685 0 30 0Z" fill="#00C300"/>
+                <path d="M45 28.5C45 21.0441 38.5059 15 30.5 15C22.4941 15 16 21.0441 16 28.5C16 35.2065 21.2612 40.7631 28.1982 41.4587C28.6604 41.5552 29.3117 41.7482 29.4584 42.117C29.5906 42.4547 29.5428 43.0009 29.4963 43.335C29.4963 43.335 29.2328 44.8591 29.1863 45.1968C29.1236 45.6796 28.8764 46.7415 30.5 46.0459C32.1236 45.3504 39.2764 40.8435 42.3236 37.0126C44.2191 34.6783 45 31.7301 45 28.5Z" fill="white"/>
+                <path d="M26 24H24V33H26V24Z" fill="#00C300"/>
+                <path d="M36 24H34V33H36V24Z" fill="#00C300"/>
+                <path d="M31 24H29V33H31V24Z" fill="#00C300"/>
+                <path d="M24 31V33H36V31H24Z" fill="#00C300"/>
+                <path d="M24 24V26H36V24H24Z" fill="#00C300"/>
+            </svg>
+        </div>
+        
         <h1>管理員登入</h1>
         
         {% if get_flashed_messages() %}
@@ -77,18 +232,54 @@
         {% endif %}
         
         <form method="post">
-            <div class="form-group">
+            <div class="form-group username">
                 <label for="username">使用者名稱</label>
-                <input type="text" id="username" name="username" required>
+                <input type="text" id="username" name="username" required autocomplete="username" placeholder="請輸入管理員帳號">
             </div>
             
-            <div class="form-group">
+            <div class="form-group password">
                 <label for="password">密碼</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="請輸入管理員密碼">
             </div>
             
             <button type="submit">登入</button>
         </form>
+        
+        <a href="/" class="back-link">返回首頁</a>
+        
+        <div class="security-note">
+            <strong>安全提醒</strong>
+            <p>本系統僅限授權管理員訪問。未經授權的訪問將被記錄並可能導致法律後果。</p>
+        </div>
     </div>
+    
+    <script>
+        // 簡單的表單驗證
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            
+            form.addEventListener('submit', function(e) {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                
+                if (!username || !password) {
+                    e.preventDefault();
+                    alert('請填寫所有必填欄位');
+                }
+            });
+            
+            // 輸入欄位獲得焦點動畫
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentElement.style.transform = 'translateX(5px)';
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.parentElement.style.transform = 'translateX(0)';
+                });
+            });
+        });
+    </script>
 </body>
 </html>

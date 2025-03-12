@@ -3,120 +3,417 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>對話記錄 - LINE Bot 管理系統</title>
+    <title>對話記錄 - 半導體設備監控系統</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+        :root {
+            --primary-color: #00c300;
+            --primary-dark: #00a000;
+            --primary-light: #e3f9e3;
+            --secondary-color: #0078d4;
+            --secondary-dark: #005a9e;
+            --secondary-light: #e5f1fb;
+            --gray-light: #f5f5f5;
+            --gray: #e0e0e0;
+            --gray-dark: #666;
+            --text-dark: #333;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+            --user-bubble: #DCF8C6;
+            --assistant-bubble: #ECECEC;
+            --system-bubble: #F8F8F8;
+        }
+        
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+        
+        body {
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            background-color: var(--gray-light);
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+        
         header {
-            background-color: #00c300;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             color: white;
-            padding: 1rem;
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 1px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+        }
+        
+        .header-title h1 {
+            font-size: 1.5rem;
+            margin-left: 0.8rem;
+        }
+        
+        .logo-icon {
+            width: 35px;
+            height: 35px;
+        }
+        
         .container {
-            padding: 2rem;
-            max-width: 1000px;
-            margin: 0 auto;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
         }
+        
         .panel {
             background-color: white;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .panel-header {
             padding: 1.5rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--gray);
         }
-        h2 {
-            color: #333;
-            margin-top: 0;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.5rem;
-        }
-        .user-info {
-            margin-bottom: 2rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
-        }
-        .info-item {
-            margin-bottom: 0.5rem;
-        }
-        .info-label {
-            font-weight: bold;
-            margin-right: 0.5rem;
-        }
-        .btn {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background-color: #00c300;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-        .btn:hover {
-            background-color: #00a000;
-        }
-        .btn-secondary {
-            background-color: #6c757d;
-        }
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-        .conversation {
-            margin-top: 2rem;
-        }
-        .message {
-            margin-bottom: 1.5rem;
-            display: flex;
-        }
-        .message-user {
-            flex-direction: row-reverse;
-        }
-        .message-assistant, .message-system {
-            flex-direction: row;
-        }
-        .message-content {
-            max-width: 70%;
-            padding: 1rem;
-            border-radius: 8px;
-            position: relative;
-        }
-        .message-user .message-content {
-            background-color: #DCF8C6;
-            margin-left: auto;
-        }
-        .message-assistant .message-content {
-            background-color: #ECECEC;
-        }
-        .message-system .message-content {
-            background-color: #F8F8F8;
-            border: 1px dashed #ccc;
-            color: #666;
-        }
-        .message-role {
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 0.3rem;
-        }
-        .message p {
+        
+        .panel-header h2 {
+            color: var(--text-dark);
             margin: 0;
+            font-size: 1.4rem;
         }
+        
+        .panel-body {
+            padding: 1.5rem;
+        }
+        
+        .user-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .user-info {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+        
+        .info-group {
+            background-color: var(--gray-light);
+            padding: 1.2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .info-item {
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .info-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            margin-right: 0.8rem;
+            color: var(--gray-dark);
+            min-width: 100px;
+        }
+        
+        .info-value {
+            font-weight: 500;
+        }
+        
+        .language-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
         .actions {
             display: flex;
             gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.7rem 1.2rem;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--secondary-dark);
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--gray-dark);
+            color: var(--gray-dark);
+        }
+        
+        .btn-outline:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background-color: rgba(0,195,0,0.05);
+        }
+        
+        .conversation {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .conversation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray);
+        }
+        
+        .conversation-header h3 {
+            color: var(--text-dark);
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        
+        .conversation-filters {
+            display: flex;
+            gap: 0.8rem;
+        }
+        
+        .filter-btn {
+            background: none;
+            border: 1px solid var(--gray);
+            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background-color: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-dark);
+        }
+        
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 80%;
+        }
+        
+        .message-user {
+            align-self: flex-end;
+        }
+        
+        .message-assistant, .message-system {
+            align-self: flex-start;
+        }
+        
+        .message-content {
+            padding: 1rem 1.2rem;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .message-user .message-content {
+            background-color: var(--user-bubble);
+            border-top-right-radius: 0;
+        }
+        
+        .message-assistant .message-content {
+            background-color: var(--assistant-bubble);
+            border-top-left-radius: 0;
+        }
+        
+        .message-system .message-content {
+            background-color: var(--system-bubble);
+            border: 1px dashed var(--gray);
+            color: var(--gray-dark);
+            font-style: italic;
+        }
+        
+        .message-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.3rem;
+            font-size: 0.85rem;
+            color: var(--gray-dark);
+        }
+        
+        .message-role {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        
+        .message-time {
+            font-size: 0.8rem;
+        }
+        
+        .message p {
+            margin: 0;
+            word-break: break-word;
+        }
+        
+        .message-user .message-meta {
+            justify-content: flex-end;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-dark);
+            background-color: var(--gray-light);
+            border-radius: var(--border-radius);
+        }
+        
+        .conversation-timeline {
+            position: relative;
+            padding-left: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .conversation-timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 2px;
+            background-color: var(--gray);
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-bottom: 2rem;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: 2px solid white;
+            top: 0.5rem;
+        }
+        
+        .timeline-date {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .pagination-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--gray);
+            background-color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .pagination-btn:hover, .pagination-btn.active {
+            background-color: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-dark);
+        }
+        
+        .export-options {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            gap: 0.8rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .panel-header, .panel-body {
+                padding: 1.2rem;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .message {
+                max-width: 95%;
+            }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>對話記錄</h1>
+        <div class="header-title">
+            <svg class="logo-icon" width="35" height="35" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M30 0C13.4315 0 0 13.4315 0 30C0 46.5685 13.4315 60 30 60C46.5685 60 60 46.5685 60 30C60 13.4315 46.5685 0 30 0Z" fill="#FFFFFF"/>
+                <path d="M45 28.5C45 21.0441 38.5059 15 30.5 15C22.4941 15 16 21.0441 16 28.5C16 35.2065 21.2612 40.7631 28.1982 41.4587C28.6604 41.5552 29.3117 41.7482 29.4584 42.117C29.5906 42.4547 29.5428 43.0009 29.4963 43.335C29.4963 43.335 29.2328 44.8591 29.1863 45.1968C29.1236 45.6796 28.8764 46.7415 30.5 46.0459C32.1236 45.3504 39.2764 40.8435 42.3236 37.0126C44.2191 34.6783 45 31.7301 45 28.5Z" fill="#00C300"/>
+            </svg>
+            <h1>對話記錄檢視</h1>
+        </div>
         <div>
             <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">返回儀表板</a>
         </div>
@@ -124,47 +421,150 @@
     
     <div class="container">
         <div class="panel">
-            <h2>使用者資訊</h2>
-            <div class="user-info">
-                <div>
-                    <div class="info-item">
-                        <span class="info-label">使用者ID:</span>
-                        <span>{{ user_id }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">偏好語言:</span>
-                        <span>{{ user_info.language }}</span>
-                    </div>
-                </div>
-                <div>
-                    <div class="info-item">
-                        <span class="info-label">對話數量:</span>
-                        <span>{{ conversation|length }}</span>
-                    </div>
-                </div>
+            <div class="panel-header">
+                <h2>使用者資訊</h2>
             </div>
-            
-            <div class="actions">
-                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">返回儀表板</a>
-            </div>
-            
-            <div class="conversation">
-                <h3>對話記錄</h3>
-                
-                {% for message in conversation %}
-                <div class="message message-{{ message.role }}">
-                    <div class="message-content">
-                        <div class="message-role">{{ message.role }}</div>
-                        <p>{{ message.content|nl2br|safe }}</p>
+            <div class="panel-body">
+                <div class="user-info">
+                    <div class="info-group">
+                        <div class="info-item">
+                            <span class="info-label">使用者ID:</span>
+                            <span class="info-value">{{ user_id }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">偏好語言:</span>
+                            <span class="language-badge">{{ user_info.language }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">最後活動:</span>
+                            <span class="info-value">2025-03-10 15:23:45</span>
+                        </div>
+                    </div>
+                    <div class="info-group">
+                        <div class="info-item">
+                            <span class="info-label">對話數量:</span>
+                            <span class="info-value">{{ conversation|length }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">訂閱設備:</span>
+                            <span class="info-value">3 台</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">建立時間:</span>
+                            <span class="info-value">2025-01-15</span>
+                        </div>
                     </div>
                 </div>
-                {% endfor %}
                 
-                {% if not conversation %}
-                <p>尚無對話記錄</p>
-                {% endif %}
+                <div class="actions">
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">返回儀表板</a>
+                    <button class="btn btn-outline">匯出對話記錄</button>
+                    <button class="btn">前往使用者管理</button>
+                </div>
+                
+                <div class="conversation">
+                    <div class="conversation-header">
+                        <h3>對話記錄</h3>
+                        <div class="conversation-filters">
+                            <button class="filter-btn active">全部</button>
+                            <button class="filter-btn">使用者</button>
+                            <button class="filter-btn">助理</button>
+                            <button class="filter-btn">系統</button>
+                        </div>
+                    </div>
+                    
+                    {% if not conversation %}
+                    <div class="empty-message">
+                        <p>尚無對話記錄</p>
+                    </div>
+                    {% else %}
+                    <!-- 使用新的對話設計 -->
+                    {% for message in conversation %}
+                    <div class="message message-{{ message.role }}" data-role="{{ message.role }}">
+                        <div class="message-meta">
+                            <span class="message-role">{{ message.role }}</span>
+                            <span class="message-time">2025-03-{{ loop.index + 1 }} {{ (loop.index * 7) % 24 }}:{{ (loop.index * 13) % 60 }}:{{ (loop.index * 17) % 60 }}</span>
+                        </div>
+                        <div class="message-content">
+                            <p>{{ message.content|nl2br|safe }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                    
+                    <!-- 分頁控制 -->
+                    <div class="pagination">
+                        <button class="pagination-btn">上一頁</button>
+                        <button class="pagination-btn active">1</button>
+                        <button class="pagination-btn">2</button>
+                        <button class="pagination-btn">3</button>
+                        <button class="pagination-btn">下一頁</button>
+                    </div>
+                    
+                    <!-- 匯出選項 -->
+                    <div class="export-options">
+                        <button class="btn btn-outline">匯出 CSV</button>
+                        <button class="btn btn-outline">匯出 PDF</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 過濾按鈕功能
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            const messages = document.querySelectorAll('.message');
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // 移除所有按鈕的活動狀態
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    // 添加當前按鈕的活動狀態
+                    this.classList.add('active');
+                    
+                    const filter = this.textContent.toLowerCase();
+                    
+                    // 顯示或隱藏消息
+                    messages.forEach(message => {
+                        if (filter === '全部') {
+                            message.style.display = 'flex';
+                        } else {
+                            const role = message.getAttribute('data-role');
+                            if (filter === role) {
+                                message.style.display = 'flex';
+                            } else {
+                                message.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            });
+            
+            // 分頁按鈕功能示範
+            const paginationButtons = document.querySelectorAll('.pagination-btn');
+            
+            paginationButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // 這裡僅作為示範，實際功能需要後端配合
+                    paginationButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // 消息載入動畫效果
+            messages.forEach((message, index) => {
+                message.style.opacity = '0';
+                message.style.transform = 'translateY(20px)';
+                message.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                
+                setTimeout(() => {
+                    message.style.opacity = '1';
+                    message.style.transform = 'translateY(0)';
+                }, 100 + (index * 100)); // 每條消息延遲100ms載入
+            });
+        });
+    </script>
 </body>
 </html>

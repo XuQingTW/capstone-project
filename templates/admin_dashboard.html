@@ -3,213 +3,754 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理後台 - LINE Bot 管理系統</title>
+    <title>管理後台 - 半導體設備監控系統</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+        :root {
+            --primary-color: #00c300;
+            --primary-dark: #00a000;
+            --primary-light: #e3f9e3;
+            --secondary-color: #0078d4;
+            --secondary-dark: #005a9e;
+            --accent-color: #ff9500;
+            --gray-light: #f5f5f5;
+            --gray: #e0e0e0;
+            --gray-dark: #666;
+            --text-dark: #333;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+        }
+        
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+        
+        body {
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            background-color: var(--gray-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+        
         header {
-            background-color: #00c300;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             color: white;
-            padding: 1rem;
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 1px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+        }
+        
+        .header-title h1 {
+            font-size: 1.5rem;
+            margin-left: 0.8rem;
+        }
+        
+        .logo-icon {
+            width: 35px;
+            height: 35px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+        
         .container {
-            padding: 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-height: calc(100vh - 64px);
         }
+        
+        .sidebar {
+            background-color: white;
+            padding: 1.5rem 0;
+            box-shadow: 1px 0 5px rgba(0,0,0,0.05);
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+        }
+        
+        .sidebar-menu li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-menu a:hover {
+            background-color: var(--primary-light);
+            border-left-color: var(--primary-color);
+        }
+        
+        .sidebar-menu a.active {
+            background-color: var(--primary-light);
+            border-left-color: var(--primary-color);
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+        
+        .sidebar-menu a .icon {
+            margin-right: 0.8rem;
+            width: 20px;
+            height: 20px;
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            padding: 2rem;
+        }
+        
+        .dashboard-header {
+            margin-bottom: 2rem;
+        }
+        
+        .dashboard-header h2 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+        
+        .dashboard-header p {
+            color: var(--gray-dark);
+        }
+        
         .stats-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
             margin-bottom: 2rem;
         }
+        
         .stat-card {
             background-color: white;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             padding: 1.5rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            text-align: center;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            background-color: var(--primary-color);
+            opacity: 0.7;
+        }
+        
+        .stat-card:nth-child(2)::after {
+            background-color: var(--secondary-color);
+        }
+        
+        .stat-card:nth-child(3)::after {
+            background-color: var(--accent-color);
+        }
+        
+        .stat-card:nth-child(4)::after {
+            background-color: var(--success-color);
+        }
+        
         .stat-value {
-            font-size: 2rem;
+            font-size: 2.2rem;
             font-weight: bold;
             margin: 0.5rem 0;
-            color: #00c300;
+            color: var(--text-dark);
         }
+        
         .stat-label {
-            color: #666;
-            font-size: 0.9rem;
+            color: var(--gray-dark);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+        
+        .stat-change {
+            display: flex;
+            align-items: center;
+            margin-top: 0.8rem;
+            font-size: 0.85rem;
+        }
+        
+        .stat-change.positive {
+            color: var(--success-color);
+        }
+        
+        .stat-change.negative {
+            color: var(--danger-color);
+        }
+        
         .panel {
             background-color: white;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             padding: 1.5rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow);
             margin-bottom: 2rem;
         }
-        h2 {
-            color: #333;
-            margin-top: 0;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.5rem;
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid var(--gray);
         }
+        
+        h2 {
+            color: var(--text-dark);
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
         table {
             width: 100%;
             border-collapse: collapse;
         }
+        
         th, td {
-            padding: 0.8rem;
+            padding: 1rem;
             text-align: left;
-            border-bottom: 1px solid #eee;
         }
+        
         th {
-            font-weight: bold;
-            color: #333;
+            font-weight: 600;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--gray);
         }
-        tr:hover {
-            background-color: #f9f9f9;
+        
+        td {
+            border-bottom: 1px solid var(--gray);
         }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover td {
+            background-color: rgba(0,0,0,0.02);
+        }
+        
         .btn {
             display: inline-block;
-            padding: 0.5rem 1rem;
-            background-color: #00c300;
+            padding: 0.6rem 1rem;
+            background-color: var(--primary-color);
             color: white;
             text-decoration: none;
             border-radius: 4px;
             font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
         }
+        
         .btn:hover {
-            background-color: #00a000;
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
         }
+        
         .btn-secondary {
-            background-color: #6c757d;
+            background-color: var(--secondary-color);
         }
+        
         .btn-secondary:hover {
-            background-color: #5a6268;
+            background-color: var(--secondary-dark);
         }
+        
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--gray-dark);
+            color: var(--gray-dark);
+        }
+        
+        .btn-outline:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background-color: rgba(0,195,0,0.05);
+        }
+        
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        
         .system-info {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1rem;
         }
-        .system-info div {
-            flex: 1;
-            min-width: 200px;
-        }
+        
         .status {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
         }
+        
         .status-success {
-            background-color: #d4edda;
-            color: #155724;
+            background-color: rgba(40, 167, 69, 0.15);
+            color: var(--success-color);
         }
+        
         .status-danger {
-            background-color: #f8d7da;
-            color: #721c24;
+            background-color: rgba(220, 53, 69, 0.15);
+            color: var(--danger-color);
         }
+        
+        .status-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+        
+        .status-info strong {
+            margin-right: 0.5rem;
+            width: 120px;
+            display: inline-block;
+        }
+        
         .preview-text {
             max-width: 250px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        
+        .search-box {
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: 1px solid var(--gray);
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+        
+        .search-box input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0,195,0,0.1);
+        }
+        
+        .action-icons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .action-icons a {
+            color: var(--gray-dark);
+            transition: color 0.3s;
+        }
+        
+        .action-icons a:hover {
+            color: var(--primary-color);
+        }
+        
+        .equipment-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .equipment-status .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+        }
+        
+        .equipment-status .status-dot.warning {
+            background-color: var(--warning-color);
+        }
+        
+        .equipment-status .status-dot.danger {
+            background-color: var(--danger-color);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--gray-dark);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--gray);
+            margin-top: 2rem;
+        }
+        
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header-title h1 {
+                font-size: 1.2rem;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .main-content {
+                padding: 1.5rem;
+            }
+            
+            .panel {
+                padding: 1.2rem;
+            }
+            
+            .search-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            th, td {
+                padding: 0.8rem 0.5rem;
+            }
+            
+            .header-actions .btn {
+                padding: 0.5rem 0.8rem;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>LINE Bot 管理後台</h1>
-        <div>
+        <div class="header-title">
+            <svg class="logo-icon" width="35" height="35" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M30 0C13.4315 0 0 13.4315 0 30C0 46.5685 13.4315 60 30 60C46.5685 60 60 46.5685 60 30C60 13.4315 46.5685 0 30 0Z" fill="#FFFFFF"/>
+                <path d="M45 28.5C45 21.0441 38.5059 15 30.5 15C22.4941 15 16 21.0441 16 28.5C16 35.2065 21.2612 40.7631 28.1982 41.4587C28.6604 41.5552 29.3117 41.7482 29.4584 42.117C29.5906 42.4547 29.5428 43.0009 29.4963 43.335C29.4963 43.335 29.2328 44.8591 29.1863 45.1968C29.1236 45.6796 28.8764 46.7415 30.5 46.0459C32.1236 45.3504 39.2764 40.8435 42.3236 37.0126C44.2191 34.6783 45 31.7301 45 28.5Z" fill="#00C300"/>
+            </svg>
+            <h1>LINE Bot 管理後台</h1>
+        </div>
+        <div class="header-actions">
             <a href="{{ url_for('admin_logout') }}" class="btn btn-secondary">登出</a>
         </div>
     </header>
     
     <div class="container">
-        <div class="stats-container">
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_messages }}</div>
-                <div class="stat-label">總訊息數</div>
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li>
+                    <a href="#" class="active">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        儀表板
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                        </svg>
+                        對話管理
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="3" y1="9" x2="21" y2="9"></line>
+                            <line x1="9" y1="21" x2="9" y2="9"></line>
+                        </svg>
+                        設備監控
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        使用者管理
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        系統設定
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        系統狀態
+                    </a>
+                </li>
+            </ul>
+        </aside>
+        <main class="main-content">
+            <div class="dashboard-header">
+                <h2>儀表板概覽</h2>
+                <p>歡迎回來！這裡是系統整體使用狀況與最新活動。</p>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.unique_users }}</div>
-                <div class="stat-label">使用者數</div>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-label">總訊息數</div>
+                    <div class="stat-value">{{ stats.total_messages }}</div>
+                    <div class="stat-change positive">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 4px;">
+                            <path d="M7 14L12 9L17 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        8.5% 較上週
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">使用者數</div>
+                    <div class="stat-value">{{ stats.unique_users }}</div>
+                    <div class="stat-change positive">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 4px;">
+                            <path d="M7 14L12 9L17 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        4.2% 較上週
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">過去24小時訊息</div>
+                    <div class="stat-value">{{ stats.last_24h }}</div>
+                    <div class="stat-change positive">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 4px;">
+                            <path d="M7 14L12 9L17 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        12.7% 較昨日
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">回覆率</div>
+                    <div class="stat-value">{{ (stats.assistant_messages / stats.total_messages * 100)|round if stats.total_messages > 0 else 0 }}%</div>
+                    <div class="stat-change negative">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 4px;">
+                            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        1.2% 較上週
+                    </div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.last_24h }}</div>
-                <div class="stat-label">過去24小時訊息</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ (stats.assistant_messages / stats.total_messages * 100)|round if stats.total_messages > 0 else 0 }}%</div>
-                <div class="stat-label">回覆率</div>
-            </div>
-        </div>
-        
-        <div class="panel">
-            <h2>系統狀態</h2>
-            <div class="system-info">
-                <div>
-                    <p><strong>OpenAI API:</strong> 
+            
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>系統狀態</h2>
+                    <button class="btn btn-outline btn-sm">重新整理</button>
+                </div>
+                <div class="system-info">
+                    <div class="status-info">
+                        <strong>OpenAI API:</strong> 
                         <span class="status {{ 'status-success' if system_info.openai_api_key == '已設置' else 'status-danger' }}">
                             {{ system_info.openai_api_key }}
                         </span>
-                    </p>
-                </div>
-                <div>
-                    <p><strong>LINE Bot API:</strong> 
+                    </div>
+                    <div class="status-info">
+                        <strong>LINE Bot API:</strong> 
                         <span class="status {{ 'status-success' if system_info.line_channel_secret == '已設置' else 'status-danger' }}">
                             {{ system_info.line_channel_secret }}
                         </span>
-                    </p>
-                </div>
-                <div>
-                    <p><strong>PowerBI 設定:</strong> 
+                    </div>
+                    <div class="status-info">
+                        <strong>PowerBI 設定:</strong> 
                         <span class="status {{ 'status-success' if system_info.powerbi_config == '已設置' else 'status-danger' }}">
                             {{ system_info.powerbi_config }}
                         </span>
-                    </p>
+                    </div>
+                    <div class="status-info">
+                        <strong>設備監控:</strong> 
+                        <span class="status status-success">運行中</span>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="panel">
-            <h2>近期對話</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>使用者ID</th>
-                        <th>語言</th>
-                        <th>最後活動</th>
-                        <th>訊息數</th>
-                        <th>最近訊息預覽</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for conv in recent %}
-                    <tr>
-                        <td>{{ conv.user_id }}</td>
-                        <td>{{ conv.language }}</td>
-                        <td>{{ conv.last_activity }}</td>
-                        <td>{{ conv.message_count }}</td>
-                        <td class="preview-text">{{ conv.last_message }}</td>
-                        <td>
-                            <a href="{{ url_for('admin_view_conversation', user_id=conv.user_id) }}" class="btn">查看對話</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+            
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>近期對話</h2>
+                    <div class="search-box">
+                        <input type="text" placeholder="搜尋用戶ID或訊息內容...">
+                        <button class="btn btn-sm">搜尋</button>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>使用者ID</th>
+                            <th>語言</th>
+                            <th>最後活動</th>
+                            <th>訊息數</th>
+                            <th>最近訊息預覽</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conv in recent %}
+                        <tr>
+                            <td>{{ conv.user_id }}</td>
+                            <td>{{ conv.language }}</td>
+                            <td>{{ conv.last_activity }}</td>
+                            <td>{{ conv.message_count }}</td>
+                            <td class="preview-text">{{ conv.last_message }}</td>
+                            <td>
+                                <a href="{{ url_for('admin_view_conversation', user_id=conv.user_id) }}" class="btn btn-sm">查看對話</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>設備監控概況</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>設備類型</th>
+                            <th>正常</th>
+                            <th>警告</th>
+                            <th>嚴重</th>
+                            <th>緊急</th>
+                            <th>最新警報</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>黏晶機</td>
+                            <td>5</td>
+                            <td>1</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>
+                                <div class="equipment-status">
+                                    <span class="status-dot warning"></span>
+                                    溫度異常 (5分鐘前)
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>打線機</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>1</td>
+                            <td>0</td>
+                            <td>
+                                <div class="equipment-status">
+                                    <span class="status-dot danger"></span>
+                                    金絲張力異常 (15分鐘前)
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>切割機</td>
+                            <td>3</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>
+                                <div class="equipment-status">
+                                    <span class="status-dot"></span>
+                                    運作正常
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <footer>
+                <p>&copy; 2025 LINE Bot + OpenAI + PowerBI 整合服務 | 版本 1.5.2</p>
+            </footer>
+        </main>
     </div>
+    
+    <script>
+        // 模擬實時數據更新
+        document.addEventListener('DOMContentLoaded', function() {
+            // 隨機增減統計數值的動畫效果
+            const statValues = document.querySelectorAll('.stat-value');
+            
+            statValues.forEach(value => {
+                const originalValue = value.textContent;
+                const isPercentage = originalValue.includes('%');
+                
+                // 數字跳動動畫效果
+                if (!isPercentage) {
+                    const finalValue = parseInt(originalValue.replace(/,/g, ''));
+                    let startValue = 0;
+                    const duration = 1500;
+                    const frameDuration = 1000 / 60;
+                    const totalFrames = Math.round(duration / frameDuration);
+                    let frame = 0;
+                    
+                    const counter = setInterval(() => {
+                        frame++;
+                        const progress = frame / totalFrames;
+                        const currentValue = Math.round(startValue + progress * (finalValue - startValue));
+                        
+                        value.textContent = currentValue.toLocaleString();
+                        
+                        if (frame === totalFrames) {
+                            clearInterval(counter);
+                        }
+                    }, frameDuration);
+                }
+            });
+        });
+    </script>
 </body>
 </html>

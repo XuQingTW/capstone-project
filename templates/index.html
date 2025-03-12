@@ -10,37 +10,59 @@
             --primary-dark: #00a000;
             --secondary-color: #4169E1;
             --secondary-dark: #3454B4;
+            --accent-color: #FF9500;
             --gray-light: #f5f5f5;
             --gray: #e0e0e0;
             --gray-dark: #666;
             --text-dark: #333;
             --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --border-radius: 8px;
         }
         
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
         
         body {
             font-family: Arial, "Microsoft JhengHei", sans-serif;
             line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: var(--gray-light);
             color: var(--text-dark);
+            background-color: var(--gray-light);
+            overflow-x: hidden;
         }
         
         header {
-            background-color: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             color: white;
-            padding: 1.5rem 2rem;
+            padding: 2rem 2rem 4rem 2rem;
             text-align: center;
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .header-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
         }
         
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 0 2rem 3rem;
         }
         
         .overview {
@@ -48,46 +70,82 @@
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 2rem;
             margin-bottom: 3rem;
+            margin-top: -4rem;
         }
         
         .card {
             background: white;
             padding: 1.5rem;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
         
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: var(--primary-color);
+        }
+        
+        .card.secondary::before {
+            background: var(--secondary-color);
+        }
+        
+        .card.accent::before {
+            background: var(--accent-color);
         }
         
         .card h2 {
             color: var(--primary-color);
             margin-top: 0;
-            border-bottom: 1px solid var(--gray);
+            margin-bottom: 1rem;
             padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--gray);
+            font-size: 1.5rem;
+        }
+        
+        .card.secondary h2 {
+            color: var(--secondary-color);
+        }
+        
+        .card.accent h2 {
+            color: var(--accent-color);
         }
         
         .feature {
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
             background: white;
             padding: 2rem;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             box-shadow: var(--shadow);
         }
         
         .feature h2 {
             color: var(--text-dark);
             margin-top: 0;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--gray);
+            font-size: 1.5rem;
         }
         
         .status {
             display: inline-block;
             padding: 0.3rem 0.8rem;
-            border-radius: 4px;
+            border-radius: 20px;
             font-weight: bold;
+            font-size: 0.9rem;
         }
         
         .status-ok {
@@ -107,18 +165,23 @@
         
         a.btn {
             display: inline-block;
-            padding: 0.7rem 1.5rem;
+            padding: 0.8rem 1.5rem;
             background-color: var(--primary-color);
             color: white;
             text-decoration: none;
             border-radius: 4px;
             font-weight: bold;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         a.btn:hover {
             background-color: var(--primary-dark);
-            text-decoration: none;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
         a.btn-secondary {
@@ -127,6 +190,17 @@
         
         a.btn-secondary:hover {
             background-color: var(--secondary-dark);
+        }
+        
+        a.btn-outline {
+            background-color: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        a.btn-outline:hover {
+            background-color: var(--primary-color);
+            color: white;
         }
         
         a {
@@ -150,14 +224,24 @@
         .feature-item {
             background: var(--gray-light);
             padding: 1.5rem;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-item:hover {
+            transform: translateY(-5px);
         }
         
         .feature-icon {
             font-size: 2.5rem;
             margin-bottom: 1rem;
             color: var(--primary-color);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-item:hover .feature-icon {
+            transform: scale(1.1);
         }
         
         footer {
@@ -172,17 +256,29 @@
             width: 100%;
             border-collapse: collapse;
             margin: 1rem 0;
+            border-radius: var(--border-radius);
+            overflow: hidden;
         }
         
         .status-table th,
         .status-table td {
-            padding: 0.8rem;
+            padding: 1rem;
             text-align: left;
             border-bottom: 1px solid var(--gray);
         }
         
         .status-table th {
+            background-color: rgba(0,0,0,0.03);
             color: var(--gray-dark);
+            font-weight: 600;
+        }
+        
+        .status-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .status-table tr:hover td {
+            background-color: rgba(0,0,0,0.02);
         }
         
         .admin-link {
@@ -210,6 +306,11 @@
             box-shadow: var(--shadow);
             max-width: 200px;
             height: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        .qr-code:hover {
+            transform: scale(1.05);
         }
         
         .mockup {
@@ -217,49 +318,110 @@
             height: auto;
             border-radius: 20px;
             box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
+        }
+        
+        .mockup:hover {
+            transform: scale(1.03);
+        }
+        
+        /* 新增：動畫效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate {
+            animation: fadeIn 0.8s ease forwards;
+        }
+        
+        .delay-1 {
+            animation-delay: 0.2s;
+        }
+        
+        .delay-2 {
+            animation-delay: 0.4s;
+        }
+        
+        .delay-3 {
+            animation-delay: 0.6s;
         }
         
         /* Responsive adjustments */
         @media (max-width: 768px) {
+            header {
+                padding: 1.5rem 1rem 3rem;
+            }
+            
+            header h1 {
+                font-size: 2rem;
+            }
+            
             .container {
-                padding: 1rem;
+                padding: 0 1rem 2rem;
             }
             
             .overview {
                 grid-template-columns: 1fr;
-                gap: 1rem;
+                gap: 1.5rem;
+                margin-top: -3rem;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .qr-container {
+                flex-direction: column;
+                gap: 2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+            
+            header p {
+                font-size: 1rem;
+            }
+            
+            .card, .feature {
+                padding: 1.2rem;
             }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>LINE Bot + OpenAI + PowerBI 整合服務</h1>
-        <p>智能聊天機器人與資料視覺化的完美結合</p>
+        <div class="header-content">
+            <h1>LINE Bot + OpenAI + PowerBI 整合服務</h1>
+            <p>智能聊天機器人與半導體設備監控的完美結合</p>
+        </div>
     </header>
     
     <div class="container">
         <div class="overview">
-            <div class="card">
+            <div class="card animate">
                 <h2>LINE Bot 智能對話</h2>
                 <p>透過 OpenAI 技術提供即時、專業的回覆，解答您的技術問題。支援多種語言，包括繁體中文、簡體中文、英文、日文和韓文。</p>
-                <p><a href="#line-bot-features" class="btn">了解更多</a></p>
+                <p style="margin-top: 1rem;"><a href="#line-bot-features" class="btn">了解更多</a></p>
             </div>
             
-            <div class="card">
+            <div class="card secondary animate delay-1">
                 <h2>PowerBI 報表整合</h2>
-                <p>直接在 LINE 中請求查看 PowerBI 報表，或使用網頁介面深入探索您的數據，做出更明智的決策。</p>
-                <p><a href="/powerbi" class="btn btn-secondary">查看報表</a></p>
+                <p>直接在 LINE 中請求查看 PowerBI 報表，或使用網頁介面深入探索設備監控數據，做出更明智的決策。</p>
+                <p style="margin-top: 1rem;"><a href="/powerbi" class="btn btn-secondary">查看報表</a></p>
             </div>
             
-            <div class="card">
-                <h2>多語言支援</h2>
-                <p>智能助理支援多種語言，包括繁體中文、簡體中文、英文、日文和韓文，只需簡單的命令即可切換語言偏好。</p>
-                <p><a href="#language-support" class="btn">語言選項</a></p>
+            <div class="card accent animate delay-2">
+                <h2>設備監控系統</h2>
+                <p>即時監控半導體設備運作狀態，自動偵測黏晶機、打線機、切割機等設備的異常狀況，透過 LINE 發送警報通知。</p>
+                <p style="margin-top: 1rem;"><a href="#equipment-features" class="btn" style="background-color: var(--accent-color);">設備功能</a></p>
             </div>
         </div>
         
-        <div class="feature" id="line-bot-features">
+        <div class="feature animate" id="line-bot-features">
             <h2>LINE Bot 功能特色</h2>
             <p>本服務已成功整合 LINE Messaging API 與 OpenAI，可在 LINE 應用程式中進行智能對話。使用以下功能增強您的體驗：</p>
             
@@ -298,7 +460,40 @@
             </div>
         </div>
         
-        <div class="feature" id="language-support">
+        <div class="feature animate" id="equipment-features">
+            <h2>半導體設備監控</h2>
+            <p>本系統提供完整的半導體設備監控功能，包括：</p>
+            
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">🔍</div>
+                    <h3>即時監控</h3>
+                    <p>即時監控各類半導體設備的運作狀態與關鍵指標</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">⚠️</div>
+                    <h3>異常偵測</h3>
+                    <p>自動偵測設備異常，包括溫度、壓力、轉速、良率等指標超出閾值的情況</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📱</div>
+                    <h3>LINE 通知</h3>
+                    <p>透過 LINE 機器人即時發送警報通知給相關責任人員</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📋</div>
+                    <h3>狀態查詢</h3>
+                    <p>支援設備狀態查詢指令，可查看所有設備概況或特定設備詳情</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 2rem; text-align: center;">
+                <p>透過 LINE 機器人，輸入「設備狀態」或「設備詳情 [設備名稱]」即可查詢</p>
+                <a href="#line-bot-features" class="btn" style="margin-top: 1rem;">開始使用 LINE Bot</a>
+            </div>
+        </div>
+        
+        <div class="feature animate" id="language-support">
             <h2>多語言支援</h2>
             <p>本服務支援多種語言，使用以下命令可以切換語言：</p>
             
@@ -340,7 +535,7 @@
             </table>
         </div>
         
-        <div class="feature">
+        <div class="feature animate">
             <h2>系統狀態</h2>
             <table class="status-table">
                 <tr>
@@ -379,5 +574,31 @@
         <p>&copy; 2025 LINE Bot + OpenAI + PowerBI 整合服務</p>
         <p>如需更多技術文件，請參考 <a href="https://github.com/yourusername/yourrepository" target="_blank">GitHub 專案庫</a></p>
     </footer>
+    
+    <script>
+        // 簡單的動畫觸發
+        document.addEventListener('DOMContentLoaded', function() {
+            // 監聽滾動事件
+            const animateElements = document.querySelectorAll('.animate');
+            
+            function checkIfInView() {
+                animateElements.forEach(function(element) {
+                    const rect = element.getBoundingClientRect();
+                    const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+                    
+                    if (rect.top <= windowHeight * 0.8) {
+                        element.style.opacity = '1';
+                        element.style.transform = 'translateY(0)';
+                    }
+                });
+            }
+            
+            // 初始檢查
+            checkIfInView();
+            
+            // 滾動時檢查
+            window.addEventListener('scroll', checkIfInView);
+        });
+    </script>
 </body>
 </html>

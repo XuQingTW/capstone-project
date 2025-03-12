@@ -3,170 +3,429 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PowerBI 報表展示</title>
+    <title>PowerBI 報表展示 - 半導體設備監控系統</title>
     <!-- 載入 PowerBI Client SDK -->
     <script src="https://cdn.powerbi.com/libs/powerbi-client/latest/powerbi.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        :root {
+            --primary-color: #00c300;
+            --primary-dark: #00a000;
+            --secondary-color: #0078d4;
+            --secondary-dark: #005a9e;
+            --gray-light: #f5f5f5;
+            --gray: #e0e0e0;
+            --gray-dark: #666;
+            --text-dark: #333;
+            --accent-color: #FF9500;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+            --warning-bg: #fff3e0;
+            --warning-border: #ffb74d;
+            --warning-text: #e65100;
+            --info-bg: #e8f5e9;
+            --info-border: #66bb6a;
+            --info-text: #2e7d32;
+        }
+        
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
+            padding: 0;
         }
-        h2 {
-            color: #333;
+        
+        body {
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            line-height: 1.6;
+            background-color: var(--gray-light);
+            color: var(--text-dark);
+            padding-bottom: 2rem;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            padding: 1.5rem;
             text-align: center;
-            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+            margin-bottom: 2rem;
         }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+        
+        h2 {
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            text-align: center;
+            font-size: 1.8rem;
+        }
+        
         #reportContainer {
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow);
             background: white;
-            border-radius: 5px;
+            border-radius: var(--border-radius);
             overflow: hidden;
             height: 800px;
-            margin-top: 20px;
+            margin-top: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
         }
+        
         .equipment-filter {
-            margin-bottom: 15px;
+            margin-bottom: 1.5rem;
             background: white;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
         }
+        
+        .equipment-filter:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
         .equipment-filter h3 {
             margin-top: 0;
-            color: #444;
-            font-size: 16px;
+            color: var(--text-dark);
+            font-size: 1.2rem;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--gray);
         }
+        
         .equipment-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 10px;
+            gap: 0.8rem;
+            margin-top: 1rem;
         }
+        
         .equipment-badge {
-            background-color: #e0f7fa;
-            border: 1px solid #b3e5fc;
+            background-color: rgba(0, 120, 212, 0.1);
+            border: 1px solid rgba(0, 120, 212, 0.3);
             border-radius: 20px;
-            padding: 5px 12px;
-            font-size: 14px;
-            color: #0277bd;
+            padding: 0.4rem 1rem;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
         }
+        
+        .equipment-badge:hover {
+            background-color: rgba(0, 120, 212, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .equipment-badge:before {
+            content: "";
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--secondary-color);
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
         .no-access {
             text-align: center;
-            padding: 30px;
-            background-color: #fff3e0;
-            border-radius: 5px;
-            margin-top: 20px;
-            color: #e65100;
+            padding: 3rem 2rem;
+            background-color: var(--warning-bg);
+            border-radius: var(--border-radius);
+            margin: 2rem auto;
+            color: var(--warning-text);
+            border-left: 4px solid var(--warning-border);
+            max-width: 600px;
+            box-shadow: var(--shadow);
         }
+        
+        .no-access h3 {
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .no-access p {
+            margin-bottom: 0.8rem;
+        }
+        
         .back-link {
             display: inline-block;
-            margin-top: 20px;
-            color: #0277bd;
+            margin-top: 1.5rem;
+            color: var(--secondary-color);
             text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 0;
+            transition: all 0.3s ease;
         }
+        
         .back-link:hover {
-            text-decoration: underline;
+            color: var(--secondary-dark);
+            transform: translateX(-3px);
         }
+        
+        .back-link:before {
+            content: "←";
+            margin-right: 0.5rem;
+        }
+        
         .info-box {
-            background-color: #e8f5e9;
-            border-left: 4px solid #43a047;
-            padding: 10px 15px;
-            margin-bottom: 20px;
-            border-radius: 0 5px 5px 0;
+            background-color: var(--info-bg);
+            border-left: 4px solid var(--info-border);
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            box-shadow: var(--shadow);
         }
+        
         .info-box h4 {
             margin-top: 0;
-            color: #2e7d32;
+            color: var(--info-text);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
         }
+        
         .info-box p {
             margin-bottom: 0;
-            color: #333;
+            color: var(--text-dark);
+            font-size: 0.95rem;
         }
+        
         .footer {
-            margin-top: 30px;
+            margin-top: 3rem;
             text-align: center;
-            font-size: 12px;
-            color: #777;
+            font-size: 0.9rem;
+            color: var(--gray-dark);
+            padding: 1rem;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 195, 0, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading p {
+            margin-top: 1rem;
+            color: var(--gray-dark);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.6rem 1.2rem;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--secondary-dark);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            #reportContainer {
+                height: 600px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
 <body>
-    <h2>PowerBI 報表展示</h2>
+    <header>
+        <h2>PowerBI 報表展示</h2>
+    </header>
     
-    <div class="info-box">
-        <h4>權限說明</h4>
-        <p>此報表僅顯示您已訂閱機台的數據。如需查看更多機台的數據，請使用 LINE Bot 的「訂閱設備」功能。</p>
-    </div>
-    
-    {% if config.equipmentFilter and config.equipmentFilter|length > 0 %}
-    <div class="equipment-filter">
-        <h3>您有權查看的設備:</h3>
-        <div class="equipment-list">
-            {% for equipment_id in config.equipmentFilter %}
-            <span class="equipment-badge">{{ equipment_id }}</span>
-            {% endfor %}
+    <div class="container">
+        <div class="info-box">
+            <h4>權限說明</h4>
+            <p>此報表僅顯示您已訂閱機台的數據。如需查看更多機台的數據，請使用 LINE Bot 的「訂閱設備」功能。</p>
         </div>
-    </div>
-    
-    <div id="reportContainer"></div>
-    <script>
-        // 定義過濾器
-        var equipmentFilter = null;
-        {% if config.equipmentFilter %}
-        equipmentFilter = {
-            $schema: "http://powerbi.com/product/schema#basic",
-            target: {
-                table: "Equipment", // 假設您的 PowerBI 報表中有個名為 Equipment 的表格
-                column: "EquipmentID" // 假設 Equipment 表格中有個名為 EquipmentID 的列
-            },
-            operator: "In",
-            values: {{ config.equipmentFilter|tojson }} // 傳遞設備 ID 列表
-        };
-        {% endif %}
         
-        // 嵌入設定
-        var embedConfig = {
-            type: 'report',
-            tokenType: powerbi.models.TokenType.Embed,
-            accessToken: "{{ config.accessToken }}",
-            embedUrl: "{{ config.embedUrl }}",
-            id: "{{ config.reportId }}",
-            settings: {
-                filterPaneEnabled: true,
-                navContentPaneEnabled: true
-            },
-            // 加入過濾器
-            filters: equipmentFilter ? [equipmentFilter] : []
-        };
+        <div class="controls">
+            <a href="/" class="back-link">返回首頁</a>
+            <div>
+                <button class="btn btn-secondary" id="refreshBtn">重新載入報表</button>
+            </div>
+        </div>
+        
+        {% if config.equipmentFilter and config.equipmentFilter|length > 0 %}
+        <div class="equipment-filter">
+            <h3>您有權查看的設備:</h3>
+            <div class="equipment-list">
+                {% for equipment_id in config.equipmentFilter %}
+                <span class="equipment-badge">{{ equipment_id }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div id="reportContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>報表載入中，請稍候...</p>
+            </div>
+        </div>
+        
+        <script>
+            // 定義過濾器
+            var equipmentFilter = null;
+            {% if config.equipmentFilter %}
+            equipmentFilter = {
+                $schema: "http://powerbi.com/product/schema#basic",
+                target: {
+                    table: "Equipment", // 假設您的 PowerBI 報表中有個名為 Equipment 的表格
+                    column: "EquipmentID" // 假設 Equipment 表格中有個名為 EquipmentID 的列
+                },
+                operator: "In",
+                values: {{ config.equipmentFilter|tojson }} // 傳遞設備 ID 列表
+            };
+            {% endif %}
+            
+            // 嵌入設定
+            var embedConfig = {
+                type: 'report',
+                tokenType: powerbi.models.TokenType.Embed,
+                accessToken: "{{ config.accessToken }}",
+                embedUrl: "{{ config.embedUrl }}",
+                id: "{{ config.reportId }}",
+                settings: {
+                    filterPaneEnabled: true,
+                    navContentPaneEnabled: true,
+                    background: powerbi.models.BackgroundType.Transparent
+                },
+                // 加入過濾器
+                filters: equipmentFilter ? [equipmentFilter] : []
+            };
 
-        // 嵌入報表
-        var reportContainer = document.getElementById('reportContainer');
-        var report = powerbi.embed(reportContainer, embedConfig);
-        
-        // 在報表加載完成後執行
-        report.on('loaded', function() {
-            console.log('Report loaded successfully');
-        });
-        
-        // 處理錯誤
-        report.on('error', function(event) {
-            console.error('Error loading report:', event.detail);
-        });
-    </script>
-    {% else %}
-    <div class="no-access">
-        <h3>無訂閱設備</h3>
-        <p>您目前沒有訂閱任何設備，請先訂閱設備後再查看報表。</p>
-        <p>使用 LINE Bot 輸入「訂閱設備」指令查看可訂閱的設備。</p>
+            var reportContainer = document.getElementById('reportContainer');
+            var report;
+            var loadingElement = document.querySelector('.loading');
+            
+            // 嵌入報表
+            function embedReport() {
+                // 顯示載入中狀態
+                if (loadingElement) {
+                    loadingElement.style.display = 'flex';
+                }
+                
+                // 嵌入報表
+                report = powerbi.embed(reportContainer, embedConfig);
+                
+                // 在報表加載完成後執行
+                report.on('loaded', function() {
+                    console.log('Report loaded successfully');
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                    }
+                });
+                
+                // 處理錯誤
+                report.on('error', function(event) {
+                    console.error('Error loading report:', event.detail);
+                    if (loadingElement) {
+                        loadingElement.innerHTML = `<p style="color: #e53935;">載入報表時發生錯誤，請重新整理頁面或稍後再試。</p>`;
+                    }
+                });
+            }
+            
+            // 初始載入報表
+            document.addEventListener('DOMContentLoaded', embedReport);
+            
+            // 重新整理報表按鈕
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                if (report) {
+                    report.reload();
+                    if (loadingElement) {
+                        loadingElement.style.display = 'flex';
+                    }
+                }
+            });
+        </script>
+        {% else %}
+        <div class="no-access">
+            <h3>無訂閱設備</h3>
+            <p>您目前沒有訂閱任何設備，請先訂閱設備後再查看報表。</p>
+            <p>使用 LINE Bot 輸入「訂閱設備」指令查看可訂閱的設備。</p>
+            <a href="/" class="btn" style="margin-top: 1.5rem;">返回首頁</a>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
-    
-    <a href="/" class="back-link">← 返回首頁</a>
     
     <div class="footer">
-        <p>© 2025 LINE Bot + OpenAI + PowerBI 整合服務</p>
+        <p>© 2025 LINE Bot + OpenAI + PowerBI 整合服務 | 半導體設備監控系統</p>
     </div>
+    
+    <script>
+        // 添加一些交互增強功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 懶加載效果
+            const elements = document.querySelectorAll('.equipment-filter, .info-box, .no-access');
+            
+            elements.forEach(function(element) {
+                element.style.opacity = '0';
+                element.style.transform = 'translateY(20px)';
+                element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                
+                setTimeout(function() {
+                    element.style.opacity = '1';
+                    element.style.transform = 'translateY(0)';
+                }, 100);
+            });
+        });
+    </script>
 </body>
 </html>
