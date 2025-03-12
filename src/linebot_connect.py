@@ -324,7 +324,8 @@ def handle_message(event):
             equipment_filter = config.get("equipmentFilter")
             if equipment_filter and len(equipment_filter) > 0:
                 # 將設備清單轉換為 PowerBI URL 過濾參數格式
-                equipment_list = f"[{','.join([f'\\'{eq}\\'' for eq in equipment_filter])}]"
+                quoted_items = [f"'{eq}'" for eq in equipment_filter]
+                equipment_list = f"[{','.join(quoted_items)}]"
                 filter_param = f"$filter=Equipment/EquipmentID in {equipment_list}"
                 # 編碼過濾參數
                 encoded_filter = urllib.parse.quote(filter_param)
