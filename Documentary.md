@@ -1,6 +1,6 @@
 # 專案文件
 
-## 專案概述
+## 概述
 
 本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/)、[OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat) (ChatGPT)、[PowerBI](https://powerbi.microsoft.com/) 與半導體設備監控系統，打造一個多功能智能助理。系統可在 LINE 平台上即時提供工程技術支援與諮詢，同時提供 PowerBI 報表嵌入功能，讓使用者直觀地展示與分析數據。此外，系統能即時監控半導體設備，自動偵測異常並通過 LINE 機器人發送警報通知。系統包含完整的使用者數據儲存、分析功能以及管理後台。
 
