@@ -2,15 +2,131 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PowerBI 報表展示</title>
     <!-- 載入 PowerBI Client SDK -->
     <script src="https://cdn.powerbi.com/libs/powerbi-client/latest/powerbi.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #reportContainer {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 800px;
+            margin-top: 20px;
+        }
+        .equipment-filter {
+            margin-bottom: 15px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+        .equipment-filter h3 {
+            margin-top: 0;
+            color: #444;
+            font-size: 16px;
+        }
+        .equipment-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .equipment-badge {
+            background-color: #e0f7fa;
+            border: 1px solid #b3e5fc;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 14px;
+            color: #0277bd;
+        }
+        .no-access {
+            text-align: center;
+            padding: 30px;
+            background-color: #fff3e0;
+            border-radius: 5px;
+            margin-top: 20px;
+            color: #e65100;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #0277bd;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .info-box {
+            background-color: #e8f5e9;
+            border-left: 4px solid #43a047;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            border-radius: 0 5px 5px 0;
+        }
+        .info-box h4 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        .info-box p {
+            margin-bottom: 0;
+            color: #333;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
 </head>
 <body>
     <h2>PowerBI 報表展示</h2>
-    <div id="reportContainer" style="height:800px;"></div>
+    
+    <div class="info-box">
+        <h4>權限說明</h4>
+        <p>此報表僅顯示您已訂閱機台的數據。如需查看更多機台的數據，請使用 LINE Bot 的「訂閱設備」功能。</p>
+    </div>
+    
+    {% if config.equipmentFilter and config.equipmentFilter|length > 0 %}
+    <div class="equipment-filter">
+        <h3>您有權查看的設備:</h3>
+        <div class="equipment-list">
+            {% for equipment_id in config.equipmentFilter %}
+            <span class="equipment-badge">{{ equipment_id }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div id="reportContainer"></div>
     <script>
-        // 取得後端傳入的嵌入設定
+        // 定義過濾器
+        var equipmentFilter = null;
+        {% if config.equipmentFilter %}
+        equipmentFilter = {
+            $schema: "http://powerbi.com/product/schema#basic",
+            target: {
+                table: "Equipment", // 假設您的 PowerBI 報表中有個名為 Equipment 的表格
+                column: "EquipmentID" // 假設 Equipment 表格中有個名為 EquipmentID 的列
+            },
+            operator: "In",
+            values: {{ config.equipmentFilter|tojson }} // 傳遞設備 ID 列表
+        };
+        {% endif %}
+        
+        // 嵌入設定
         var embedConfig = {
             type: 'report',
             tokenType: powerbi.models.TokenType.Embed,
@@ -18,14 +134,39 @@
             embedUrl: "{{ config.embedUrl }}",
             id: "{{ config.reportId }}",
             settings: {
-                filterPaneEnabled: false,
+                filterPaneEnabled: true,
                 navContentPaneEnabled: true
-            }
+            },
+            // 加入過濾器
+            filters: equipmentFilter ? [equipmentFilter] : []
         };
 
-        // 將報表嵌入到網頁中
+        // 嵌入報表
         var reportContainer = document.getElementById('reportContainer');
-        powerbi.embed(reportContainer, embedConfig);
+        var report = powerbi.embed(reportContainer, embedConfig);
+        
+        // 在報表加載完成後執行
+        report.on('loaded', function() {
+            console.log('Report loaded successfully');
+        });
+        
+        // 處理錯誤
+        report.on('error', function(event) {
+            console.error('Error loading report:', event.detail);
+        });
     </script>
+    {% else %}
+    <div class="no-access">
+        <h3>無訂閱設備</h3>
+        <p>您目前沒有訂閱任何設備，請先訂閱設備後再查看報表。</p>
+        <p>使用 LINE Bot 輸入「訂閱設備」指令查看可訂閱的設備。</p>
+    </div>
+    {% endif %}
+    
+    <a href="/" class="back-link">← 返回首頁</a>
+    
+    <div class="footer">
+        <p>© 2025 LINE Bot + OpenAI + PowerBI 整合服務</p>
+    </div>
 </body>
 </html>

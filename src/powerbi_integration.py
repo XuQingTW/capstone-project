@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import requests
+import sqlite3
 from datetime import datetime, timedelta
 from threading import Lock
 
@@ -128,19 +129,89 @@ def get_powerbi_embed_token(access_token: str = None) -> str:
         logger.info(f"PowerBI embed token 成功取得，有效期至 {datetime.fromtimestamp(_embed_token_expiry).isoformat()}")
         return _embed_token
 
-def get_powerbi_embed_config() -> dict:
+def get_user_subscribed_equipment(user_id):
+    """
+    取得用戶訂閱的設備清單
+    
+    參數:
+        user_id: 用戶 ID
+        
+    返回:
+        設備 ID 列表
+    """
+    try:
+        from src.database import db
+        
+        with sqlite3.connect(db.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 查詢用戶訂閱的設備
+            cursor.execute("""
+                SELECT equipment_id FROM user_equipment_subscriptions
+                WHERE user_id = ?
+            """, (user_id,))
+            
+            equipment_ids = [row[0] for row in cursor.fetchall()]
+            
+            # 如果用戶沒有特定訂閱，檢查是否為管理員或有責任區域
+            if not equipment_ids:
+                cursor.execute("""
+                    SELECT is_admin, responsible_area FROM user_preferences
+                    WHERE user_id = ?
+                """, (user_id,))
+                
+                result = cursor.fetchone()
+                if result:
+                    is_admin, responsible_area = result
+                    
+                    # 如果是管理員，可以查看所有設備
+                    if is_admin:
+                        cursor.execute("SELECT equipment_id FROM equipment")
+                        equipment_ids = [row[0] for row in cursor.fetchall()]
+                    # 如果有責任區域，可以查看該區域的設備
+                    elif responsible_area:
+                        cursor.execute("""
+                            SELECT equipment_id FROM equipment
+                            WHERE type = ?
+                        """, (responsible_area,))
+                        equipment_ids = [row[0] for row in cursor.fetchall()]
+            
+            return equipment_ids
+    except Exception as e:
+        logger.error(f"取得用戶訂閱設備失敗: {e}")
+        return []
+
+def get_powerbi_embed_config(user_id=None) -> dict:
     """
     組合 PowerBI 嵌入所需的設定，包含 embed URL 與 token
+    
+    參數:
+        user_id: 用戶 ID，用於過濾報表顯示的設備
+        
+    返回:
+        包含嵌入設定的字典
     """
     access_token = get_powerbi_access_token()
     embed_token = get_powerbi_embed_token(access_token)
+    
+    # 基本 embed URL
     embed_url = f"https://app.powerbi.com/reportEmbed?reportId={POWERBI_REPORT_ID}&groupId={POWERBI_WORKSPACE_ID}"
+    
+    # 如果提供了用戶 ID，添加設備過濾
+    equipment_filter = None
+    if user_id:
+        equipment_ids = get_user_subscribed_equipment(user_id)
+        
+        if equipment_ids:
+            # 構建 PowerBI 過濾器參數
+            equipment_filter = equipment_ids
     
     return {
         "embedUrl": embed_url,
         "accessToken": embed_token,
         "reportId": POWERBI_REPORT_ID,
         "workspaceId": POWERBI_WORKSPACE_ID,
+        "equipmentFilter": equipment_filter,
         "settings": {
             "filterPaneEnabled": True,
             "navContentPaneEnabled": True

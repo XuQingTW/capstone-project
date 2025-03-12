@@ -6,6 +6,7 @@ import functools
 import sqlite3
 import threading
 import secrets
+import urllib.parse
 from collections import defaultdict
 from flask import Flask, request, abort, render_template, session, redirect, url_for, flash
 from linebot.v3.webhook import WebhookHandler
@@ -218,7 +219,9 @@ def register_routes(app):
             return "請求太多，請稍後再試。", 429
             
         try:
-            config = get_powerbi_embed_config()
+            # 如果有用戶ID參數，使用該用戶的訂閱過濾報表
+            user_id = request.args.get('user_id')
+            config = get_powerbi_embed_config(user_id)
         except Exception as e:
             logger.error(f"PowerBI 整合錯誤: {e}")
             return "系統錯誤，請稍後再試。", 500
@@ -312,13 +315,29 @@ def handle_message(event):
     # 當使用者輸入 "powerbi" 或 "報表" 時，回覆 PowerBI 報表連結
     if text_lower in ["powerbi", "報表", "powerbi報表", "report"]:
         try:
-            config = get_powerbi_embed_config()
+            # 傳遞用戶 ID 以獲取過濾後的報表配置
+            user_id = event.source.user_id
+            config = get_powerbi_embed_config(user_id)
             embed_url = config["embedUrl"]
+            
+            # 添加過濾器參數（如果有）
+            equipment_filter = config.get("equipmentFilter")
+            if equipment_filter and len(equipment_filter) > 0:
+                # 將設備清單轉換為 PowerBI URL 過濾參數格式
+                equipment_list = f"[{','.join([f'\\'{eq}\\'' for eq in equipment_filter])}]"
+                filter_param = f"$filter=Equipment/EquipmentID in {equipment_list}"
+                # 編碼過濾參數
+                encoded_filter = urllib.parse.quote(filter_param)
+                # 添加到 URL
+                embed_url = f"{embed_url}&{encoded_filter}"
+                
+                # 還需要添加用戶ID參數，以便在網頁中顯示用戶訂閱設備
+                embed_url = f"{embed_url}&user_id={user_id}"
             
             # 創建一個按鈕模板，附帶 PowerBI 報表連結
             buttons_template = ButtonsTemplate(
                 title="PowerBI 報表",
-                text="點擊下方按鈕查看我們的數據報表",
+                text="點擊下方按鈕查看您訂閱的設備報表",
                 actions=[
                     URIAction(
                         label="查看報表",
@@ -359,13 +378,16 @@ def handle_message(event):
                 action=MessageAction(label="查看報表", text="powerbi")
             ),
             QuickReplyItem(
-                action=MessageAction(label="使用說明", text="使用說明")
+                action=MessageAction(label="我的訂閱", text="我的訂閱")
+            ),
+            QuickReplyItem(
+                action=MessageAction(label="訂閱設備", text="訂閱設備")
             ),
             QuickReplyItem(
                 action=MessageAction(label="設備狀態", text="設備狀態")
             ),
             QuickReplyItem(
-                action=MessageAction(label="關於", text="關於")
+                action=MessageAction(label="使用說明", text="使用說明")
             )
         ])
         
@@ -396,8 +418,18 @@ def handle_message(event):
                     ]
                 ),
                 CarouselColumn(
+                    title="設備訂閱功能",
+                    text="訂閱您需要監控的設備，接收警報並查看報表。",
+                    actions=[
+                        MessageAction(
+                            label="我的訂閱",
+                            text="我的訂閱"
+                        )
+                    ]
+                ),
+                CarouselColumn(
                     title="查看 PowerBI 報表",
-                    text="輸入 'powerbi' 查看數據報表。",
+                    text="輸入 'powerbi' 查看已訂閱設備的數據報表。",
                     actions=[
                         MessageAction(
                             label="查看報表",
@@ -730,6 +762,254 @@ def handle_message(event):
             except Exception as e:
                 logger.error(f"取得設備詳情失敗：{e}")
                 message = TextMessage(text="取得設備詳情失敗，請稍後再試。")
+        
+        reply_request = ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[message]
+        )
+        
+        line_bot_api.reply_message_with_http_info(reply_request)
+    
+    # 設備訂閱相關指令處理
+    elif text_lower.startswith("訂閱設備") or text_lower.startswith("subscribe equipment"):
+        # 從命令中提取設備ID
+        parts = text.split(" ", 1)
+        if len(parts) < 2:
+            # 如果沒有提供設備ID，列出可用設備
+            try:
+                with sqlite3.connect(db.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # 查詢所有設備
+                    cursor.execute("""
+                        SELECT equipment_id, name, type, location 
+                        FROM equipment
+                        ORDER BY type, name
+                    """)
+                    
+                    equipments = cursor.fetchall()
+                    
+                    if not equipments:
+                        message = TextMessage(text="目前沒有可用的設備。")
+                    else:
+                        # 按類型分組顯示設備
+                        equipment_types = {}
+                        for equipment_id, name, equipment_type, location in equipments:
+                            if equipment_type not in equipment_types:
+                                equipment_types[equipment_type] = []
+                            equipment_types[equipment_type].append((equipment_id, name, location))
+                        
+                        response_text = "可訂閱的設備清單：\n\n"
+                        
+                        for equipment_type, equipment_list in equipment_types.items():
+                            type_name = {
+                                "die_bonder": "黏晶機",
+                                "wire_bonder": "打線機",
+                                "dicer": "切割機"
+                            }.get(equipment_type, equipment_type)
+                            
+                            response_text += f"【{type_name}】\n"
+                            
+                            for equipment_id, name, location in equipment_list:
+                                response_text += f"• {name} (ID: {equipment_id})\n"
+                                response_text += f"  位置: {location}\n"
+                            
+                            response_text += "\n"
+                        
+                        response_text += "使用方式: 訂閱設備 [設備ID]\n"
+                        response_text += "例如: 訂閱設備 DB001"
+                        
+                        message = TextMessage(text=response_text)
+            except Exception as e:
+                logger.error(f"獲取設備清單失敗: {e}")
+                message = TextMessage(text="獲取設備清單失敗，請稍後再試。")
+        else:
+            # 提供了設備ID，進行訂閱
+            equipment_id = parts[1].strip()
+            user_id = event.source.user_id
+            
+            try:
+                with sqlite3.connect(db.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # 檢查設備是否存在
+                    cursor.execute("SELECT name FROM equipment WHERE equipment_id = ?", (equipment_id,))
+                    equipment = cursor.fetchone()
+                    
+                    if not equipment:
+                        message = TextMessage(text=f"找不到ID為 {equipment_id} 的設備，請檢查ID是否正確。")
+                    else:
+                        equipment_name = equipment[0]
+                        
+                        # 檢查是否已訂閱
+                        cursor.execute("""
+                            SELECT id FROM user_equipment_subscriptions
+                            WHERE user_id = ? AND equipment_id = ?
+                        """, (user_id, equipment_id))
+                        
+                        existing = cursor.fetchone()
+                        
+                        if existing:
+                            message = TextMessage(text=f"您已經訂閱了設備 {equipment_name} ({equipment_id})。")
+                        else:
+                            # 添加訂閱
+                            cursor.execute("""
+                                INSERT INTO user_equipment_subscriptions
+                                (user_id, equipment_id, notification_level)
+                                VALUES (?, ?, 'all')
+                            """, (user_id, equipment_id))
+                            
+                            conn.commit()
+                            
+                            message = TextMessage(text=f"成功訂閱設備 {equipment_name} ({equipment_id})。\n\n您現在可以查看此設備的 PowerBI 報表並接收其警報通知。")
+            except Exception as e:
+                logger.error(f"訂閱設備失敗: {e}")
+                message = TextMessage(text="訂閱設備失敗，請稍後再試。")
+        
+        reply_request = ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[message]
+        )
+        
+        line_bot_api.reply_message_with_http_info(reply_request)
+
+    elif text_lower.startswith("取消訂閱") or text_lower.startswith("unsubscribe"):
+        # 從命令中提取設備ID
+        parts = text.split(" ", 1)
+        if len(parts) < 2:
+            # 如果沒有提供設備ID，列出用戶已訂閱的設備
+            try:
+                user_id = event.source.user_id
+                
+                with sqlite3.connect(db.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # 查詢用戶已訂閱的設備
+                    cursor.execute("""
+                        SELECT s.equipment_id, e.name, e.type, e.location
+                        FROM user_equipment_subscriptions s
+                        JOIN equipment e ON s.equipment_id = e.equipment_id
+                        WHERE s.user_id = ?
+                        ORDER BY e.type, e.name
+                    """, (user_id,))
+                    
+                    subscriptions = cursor.fetchall()
+                    
+                    if not subscriptions:
+                        message = TextMessage(text="您目前沒有訂閱任何設備。")
+                    else:
+                        response_text = "您已訂閱的設備：\n\n"
+                        
+                        for equipment_id, name, equipment_type, location in subscriptions:
+                            type_name = {
+                                "die_bonder": "黏晶機",
+                                "wire_bonder": "打線機",
+                                "dicer": "切割機"
+                            }.get(equipment_type, equipment_type)
+                            
+                            response_text += f"• {name} ({type_name})\n"
+                            response_text += f"  ID: {equipment_id}\n"
+                            response_text += f"  位置: {location}\n\n"
+                        
+                        response_text += "使用方式: 取消訂閱 [設備ID]\n"
+                        response_text += "例如: 取消訂閱 DB001"
+                        
+                        message = TextMessage(text=response_text)
+            except Exception as e:
+                logger.error(f"獲取訂閱清單失敗: {e}")
+                message = TextMessage(text="獲取訂閱清單失敗，請稍後再試。")
+        else:
+            # 提供了設備ID，取消訂閱
+            equipment_id = parts[1].strip()
+            user_id = event.source.user_id
+            
+            try:
+                with sqlite3.connect(db.db_path) as conn:
+                    cursor = conn.cursor()
+                    
+                    # 檢查設備是否存在
+                    cursor.execute("SELECT name FROM equipment WHERE equipment_id = ?", (equipment_id,))
+                    equipment = cursor.fetchone()
+                    
+                    if not equipment:
+                        message = TextMessage(text=f"找不到ID為 {equipment_id} 的設備，請檢查ID是否正確。")
+                    else:
+                        equipment_name = equipment[0]
+                        
+                        # 檢查是否已訂閱
+                        cursor.execute("""
+                            DELETE FROM user_equipment_subscriptions
+                            WHERE user_id = ? AND equipment_id = ?
+                        """, (user_id, equipment_id))
+                        
+                        if cursor.rowcount > 0:
+                            conn.commit()
+                            message = TextMessage(text=f"已取消訂閱設備 {equipment_name} ({equipment_id})。")
+                        else:
+                            message = TextMessage(text=f"您未訂閱設備 {equipment_name} ({equipment_id})。")
+            except Exception as e:
+                logger.error(f"取消訂閱設備失敗: {e}")
+                message = TextMessage(text="取消訂閱設備失敗，請稍後再試。")
+        
+        reply_request = ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[message]
+        )
+        
+        line_bot_api.reply_message_with_http_info(reply_request)
+
+    elif text_lower == "我的訂閱" or text_lower == "my subscriptions":
+        # 顯示用戶已訂閱的設備
+        try:
+            user_id = event.source.user_id
+            
+            with sqlite3.connect(db.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 查詢用戶已訂閱的設備
+                cursor.execute("""
+                    SELECT s.equipment_id, e.name, e.type, e.location, e.status
+                    FROM user_equipment_subscriptions s
+                    JOIN equipment e ON s.equipment_id = e.equipment_id
+                    WHERE s.user_id = ?
+                    ORDER BY e.type, e.name
+                """, (user_id,))
+                
+                subscriptions = cursor.fetchall()
+                
+                if not subscriptions:
+                    response_text = "您目前沒有訂閱任何設備。\n\n請使用「訂閱設備」指令查看可訂閱的設備列表。"
+                else:
+                    response_text = "您已訂閱的設備：\n\n"
+                    
+                    for equipment_id, name, equipment_type, location, status in subscriptions:
+                        type_name = {
+                            "die_bonder": "黏晶機",
+                            "wire_bonder": "打線機",
+                            "dicer": "切割機"
+                        }.get(equipment_type, equipment_type)
+                        
+                        status_emoji = {
+                            "normal": "✅",
+                            "warning": "⚠️",
+                            "critical": "🔴",
+                            "emergency": "🚨",
+                            "offline": "⚫"
+                        }.get(status, "❓")
+                        
+                        response_text += f"{status_emoji} {name} ({type_name})\n"
+                        response_text += f"  ID: {equipment_id}\n"
+                        response_text += f"  位置: {location}\n\n"
+                    
+                    response_text += "管理訂閱:\n"
+                    response_text += "• 訂閱設備 [設備ID] - 新增訂閱\n"
+                    response_text += "• 取消訂閱 [設備ID] - 取消訂閱\n"
+                    response_text += "• 輸入「報表」查看訂閱設備的 PowerBI 報表"
+                    
+                message = TextMessage(text=response_text)
+        except Exception as e:
+            logger.error(f"獲取訂閱清單失敗: {e}")
+            message = TextMessage(text="獲取訂閱清單失敗，請稍後再試。")
         
         reply_request = ReplyMessageRequest(
             reply_token=event.reply_token,
