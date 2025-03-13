@@ -8,8 +8,8 @@ logs/
 !.env.example
 
 # SSL certificates and keys
-*.pem
-*.key
+certs/key.pem
+certs/cert.pem
 *.crt
 *.cert
 *.csr
