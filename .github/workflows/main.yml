@@ -130,7 +130,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/capstone-project:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}capstone-project:latest
 
   deploy-security-scan:
     runs-on: ubuntu-latest
@@ -145,7 +145,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ secrets.DOCKER_USERNAME }}/capstone-project:latest'
+          image-ref: '${{ secrets.DOCKER_USERNAME }}capstone-project:latest'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
