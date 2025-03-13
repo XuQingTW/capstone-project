@@ -60,8 +60,8 @@ def test_get_powerbi_embed_token(mock_post):
 @patch("src.powerbi_integration.get_powerbi_access_token", return_value="fake_access_token")
 def test_get_powerbi_embed_config(mock_access_token, mock_embed_token):
     config = get_powerbi_embed_config()
-    expected_embed_url = "https://app.powerbi.com/reportEmbed?reportId=dummy_report_id&groupId=dummy_workspace_id"
+    expected_embed_url = "https://app.powerbi.com/reportEmbed?reportId=test_powerbi_report_id&groupId=test_powerbi_workspace_id"
     assert config["embedUrl"] == expected_embed_url
     assert config["accessToken"] == "fake_embed_token"
-    assert config["reportId"] == "dummy_report_id"
-    assert config["workspaceId"] == "dummy_workspace_id"
+    assert config["reportId"] == "test_powerbi_report_id"
+    assert config["workspaceId"] == "test_powerbi_workspace_id"

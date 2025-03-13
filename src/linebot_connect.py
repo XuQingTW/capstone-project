@@ -1063,6 +1063,10 @@ def send_notification(user_id, message):
         return False
 
 # 若此檔案被直接執行
+# This is the updated main section for your linebot_connect.py file
+# Keep all your existing code above this point unchanged
+
+# 若此檔案被直接執行
 if __name__ == "__main__":
     # 初始化設備資料
     initialize_equipment_data()
@@ -1071,4 +1075,13 @@ if __name__ == "__main__":
     start_scheduler()
     
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=debug_mode)
+    port = int(os.environ.get("PORT", 5000))
+    
+    # Use Flask's built-in adhoc SSL certificates (requires pyOpenSSL)
+    print(f"Starting Flask app with SSL on port {port}")
+    app.run(
+        host="0.0.0.0", 
+        port=port, 
+        debug=debug_mode,
+        ssl_context='adhoc'  # This creates temporary certificates automatically
+    )

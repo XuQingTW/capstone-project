@@ -1,6 +1,20 @@
-key.json
+# Custom project-specific ignores
+certs/
+data/*.db
+data/secret_key.txt
+logs/
+.env
+.env.*
+!.env.example
 
-# Docker 相關
+# SSL certificates and keys
+certs/key.pem
+certs/cert.pem
+*.crt
+*.cert
+*.csr
+
+# Docker related
 *.pid
 docker-compose.override.yml
 
@@ -91,31 +105,30 @@ ipython_config.py
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
 #   However, in case of collaboration, if having platform-specific dependencies or dependencies
 #   having no cross-platform support, pipenv may install dependencies that don't work, or not
 #   install all needed dependencies.
-#Pipfile.lock
+Pipfile.lock
 
 # UV
 #   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
-#uv.lock
+uv.lock
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
+poetry.lock
 
 # pdm
 #   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
+pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
 #   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
@@ -136,6 +149,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+Scripts/
 env/
 venv/
 ENV/
@@ -171,8 +185,15 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+.idea/
+
+# VSCode
+.vscode/
+*.code-workspace
 
 # PyPI configuration file
 .pypirc
-2a2e9c016f63d2c01be16a52fdd8f1cb65928fe0
+
+# OS specific files
+.DS_Store
+Thumbs.db

@@ -98,13 +98,17 @@ def create_app(testing=False):
         raise
 
 # 提供一個便利函數來運行應用
-def run_app(host="0.0.0.0", port=None, debug=None):
+def run_app(host="0.0.0.0", port=None, debug=None, ssl_context=None):
     """運行 Flask 應用程序"""
     port = port or int(os.environ.get("PORT", 5000))
     debug = debug or (os.environ.get("FLASK_DEBUG", "False").lower() == "true")
     
     app = create_app()
-    app.run(host=host, port=port, debug=debug)
+    app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)
 
 if __name__ == "__main__":
-    run_app()
+    # Use Flask's built-in adhoc SSL certificates (requires pyOpenSSL)
+    ssl_context = 'adhoc'
+    
+    print(f"Starting Flask app with SSL...")
+    run_app(ssl_context=ssl_context)

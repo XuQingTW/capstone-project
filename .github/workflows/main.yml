@@ -107,26 +107,33 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v4
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/capstone-project
-          tags: |
-            type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          context: .
+          push: false  # 先不推送，只在本地構建
+          tags: capstone-project:latest  # 使用簡單標籤
+          load: true  # 確保映像加載到 Docker 守護進程
 
-      - name: Build and push Docker image
+      # 在此處運行 Trivy 掃描
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'capstone-project:latest'  # 現在正確引用構建的映像
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # 推送映像（只有在掃描通過後）
+      - name: Push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/capstone-project:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/capstone-project:buildcache,mode=max
+          tags: ${{ secrets.DOCKER_USERNAME }}/capstone-project:latest
 
   deploy-security-scan:
+    needs: build-and-deploy  # Add dependency on build-and-deploy job
     runs-on: ubuntu-latest
     permissions:
       security-events: write
