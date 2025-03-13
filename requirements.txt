@@ -10,3 +10,5 @@ flask-talisman>=1.0.0
 python-dotenv>=1.0.0
 gunicorn>=21.2.0
 schedule>=1.2.0
+pyopenssl>=23.2.0
+cryptography>=41.0.0

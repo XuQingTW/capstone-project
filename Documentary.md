@@ -155,9 +155,9 @@
    python -m src.app
    ```
    - LINE Webhook 接收端點為 `/callback`
-   - PowerBI 報表嵌入頁面：`http://localhost:5000/powerbi`
-   - 服務狀態頁面：`http://localhost:5000/`
-   - 管理後台登入頁面：`http://localhost:5000/admin/login`
+   - PowerBI 報表嵌入頁面：`https://localhost:5000/powerbi`
+   - 服務狀態頁面：`https://localhost:5000/`
+   - 管理後台登入頁面：`https://localhost:5000/admin/login`
 
 2. **Docker 部署**  
    使用 Docker 部署，確保環境一致性：
