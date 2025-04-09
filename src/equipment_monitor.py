@@ -2,7 +2,7 @@
 import logging
 import sqlite3
 from datetime import datetime, timedelta
-from src.database import db
+from database import db
 
 logger = logging.getLogger(__name__)
 

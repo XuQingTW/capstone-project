@@ -7,11 +7,11 @@ from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # 導入自訂模組
-from src.config import Config
-from src.database import db
-from src.equipment_scheduler import start_scheduler
-from src.initial_data import initialize_equipment_data
-from src.event_system import event_system
+from config import Config
+from database import db
+from equipment_scheduler import start_scheduler
+from initial_data import initialize_equipment_data
+from event_system import event_system
 
 # 設定日誌
 logger = logging.getLogger(__name__)

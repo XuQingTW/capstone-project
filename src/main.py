@@ -5,7 +5,7 @@ import re
 import time
 from html import escape
 from openai import OpenAI
-from src.database import db
+from database import db
 
 def sanitize_input(text):
     """

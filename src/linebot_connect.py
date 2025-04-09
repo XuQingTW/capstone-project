@@ -28,12 +28,12 @@ from linebot.v3.messaging import (
     MessageAction,
     URIAction
 )
-from src.powerbi_integration import get_powerbi_embed_config
-from src.database import db
+from powerbi_integration import get_powerbi_embed_config
+from database import db
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
-from src.equipment_scheduler import start_scheduler
-from src.initial_data import initialize_equipment_data
+from equipment_scheduler import start_scheduler
+from initial_data import initialize_equipment_data
 
 # 設定 logging
 logging.basicConfig(level=logging.INFO)
@@ -1083,5 +1083,5 @@ if __name__ == "__main__":
         host="0.0.0.0", 
         port=port, 
         debug=debug_mode,
-        ssl_context='adhoc'  # This creates temporary certificates automatically
+        ssl_context=("./certs/cert.pem", "./certs/privkey.pem")  # This creates temporary certificates automatically
     )
