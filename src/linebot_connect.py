@@ -1083,5 +1083,4 @@ if __name__ == "__main__":
         host="0.0.0.0", 
         port=port, 
         debug=debug_mode,
-        ssl_context=("./certs/cert.pem", "./certs/privkey.pem")  # This creates temporary certificates automatically
     )
