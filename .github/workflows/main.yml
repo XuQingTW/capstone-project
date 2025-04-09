@@ -73,6 +73,7 @@ jobs:
 
       - name: Run pytest with coverage
         env:
+          PYTHONPATH: src
           POWERBI_CLIENT_ID: "dummy_client_id"
           POWERBI_CLIENT_SECRET: "dummy_client_secret"
           POWERBI_TENANT_ID: "dummy_tenant_id"
