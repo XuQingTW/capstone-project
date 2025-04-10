@@ -5,7 +5,7 @@ import threading
 import logging
 import signal
 import sys
-from src.equipment_monitor import EquipmentMonitor
+from equipment_monitor import EquipmentMonitor
 
 logger = logging.getLogger(__name__)
 

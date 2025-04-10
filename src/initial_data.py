@@ -1,7 +1,7 @@
 # src/initial_data.py
 import sqlite3
 import logging
-from src.database import db
+from database import db
 
 logger = logging.getLogger(__name__)
 
