@@ -13,7 +13,6 @@
 - **SQLite**：輕量級數據庫，儲存對話歷史、使用者偏好與設備數據
 - **Schedule**：簡易任務排程，用於定期設備監控
 - **Flask-Talisman**：實作內容安全政策(CSP)與其他安全防護
-- **pytest**：進行單元測試與覆蓋率分析
 - **Docker**：容器化部署，確保環境一致性
 - **GitHub Actions**：CI/CD 流程自動化與安全掃描
 
@@ -101,7 +100,6 @@
 ├── Dockerfile                    # Docker 部署設定檔
 ├── README.md                     # 專案簡介與快速上手指南
 ├── Documentary.md                # 專案詳細文件（本文件）
-├── pytest.py                     # pytest 設定檔
 └── .gitignore                    # 忽略檔案清單
 ```
 
@@ -163,26 +161,9 @@
    - 移除不必要的套件以減少攻擊面
    - 適當設定檔案權限
 
-## 測試與 CI/CD
+## CI/CD
 
-1. **單元測試**  
-   使用 pytest 執行所有單元測試，確保各模組功能正常：
-   ```bash
-   pytest
-   ```
-   
-   若要產生覆蓋率報告：
-   ```bash
-   pytest --cov=src --cov-report=xml
-   ```
-
-   測試涵蓋：
-   - LINE Bot 事件處理與簽名驗證
-   - OpenAI 回覆生成服務
-   - 設備監控與警報功能
-   - 路由與安全性驗證
-
-2. **持續整合與部署**  
+1. **持續整合與部署**  
    GitHub Actions 自動化流程包含以下階段：
 
    a. **安全性掃描**
