@@ -31,12 +31,6 @@ class Config:
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
     LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
     
-    # PowerBI 配置
-    POWERBI_CLIENT_ID = os.getenv('POWERBI_CLIENT_ID')
-    POWERBI_CLIENT_SECRET = os.getenv('POWERBI_CLIENT_SECRET')
-    POWERBI_TENANT_ID = os.getenv('POWERBI_TENANT_ID')
-    POWERBI_WORKSPACE_ID = os.getenv('POWERBI_WORKSPACE_ID')
-    POWERBI_REPORT_ID = os.getenv('POWERBI_REPORT_ID')
     
     # 驗證模式：嚴格 (strict) 或寬鬆 (loose)
     VALIDATION_MODE = os.getenv('VALIDATION_MODE', 'strict')
@@ -63,12 +57,6 @@ class Config:
             missing_vars.append('LINE_CHANNEL_ACCESS_TOKEN')
         if not cls.LINE_CHANNEL_SECRET:
             missing_vars.append('LINE_CHANNEL_SECRET')
-        
-        # 檢查 PowerBI 設定
-        if not all([cls.POWERBI_CLIENT_ID, cls.POWERBI_CLIENT_SECRET, 
-                  cls.POWERBI_TENANT_ID, cls.POWERBI_WORKSPACE_ID, 
-                  cls.POWERBI_REPORT_ID]):
-            missing_vars.append('POWERBI_* (one or more PowerBI variables)')
         
         if missing_vars:
             error_msg = f"缺少以下必要環境變數: {', '.join(missing_vars)}"

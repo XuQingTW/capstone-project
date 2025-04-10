@@ -28,7 +28,6 @@ from linebot.v3.messaging import (
     MessageAction,
     URIAction
 )
-from powerbi_integration import get_powerbi_embed_config
 from database import db
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -153,8 +152,7 @@ def create_app():
         'default-src': "'self'",
         'script-src': [
             "'self'",
-            'https://cdn.powerbi.com',
-            "'unsafe-inline'",  # Only needed for inline PowerBI embed script
+            "'unsafe-inline'",
         ],
         'style-src': [
             "'self'",
@@ -162,13 +160,9 @@ def create_app():
         ],
         'img-src': "'self'",
         'frame-src': [
-            'https://app.powerbi.com',
-            'https://cdn.powerbi.com',
         ],
         'connect-src': [
             "'self'",
-            'https://api.powerbi.com',
-            'https://login.microsoftonline.com',
         ]
     }
 
@@ -212,21 +206,6 @@ def register_routes(app):
             abort(400)
         return 'OK'
 
-    @app.route("/powerbi")
-    def powerbi():
-        # 基本請求限制
-        if not rate_limit_check(request.remote_addr):
-            return "請求太多，請稍後再試。", 429
-            
-        try:
-            # 如果有用戶ID參數，使用該用戶的訂閱過濾報表
-            user_id = request.args.get('user_id')
-            config = get_powerbi_embed_config(user_id)
-        except Exception as e:
-            logger.error(f"PowerBI 整合錯誤: {e}")
-            return "系統錯誤，請稍後再試。", 500
-        return render_template("powerbi.html", config=config)
-
     @app.route("/")
     def index():
         """首頁，顯示簡單的服務狀態"""
@@ -265,8 +244,6 @@ def register_routes(app):
         system_info = {
             "openai_api_key": "已設置" if os.getenv("OPENAI_API_KEY") else "未設置",
             "line_channel_secret": "已設置" if os.getenv("LINE_CHANNEL_SECRET") else "未設置", 
-            "powerbi_config": "已設置" if all([os.getenv(f"POWERBI_{key}") for key in ["CLIENT_ID", "CLIENT_SECRET", "TENANT_ID", "WORKSPACE_ID", "REPORT_ID"]]) else "未設置"
-        }
         
         return render_template(
             "admin_dashboard.html",
@@ -312,67 +289,9 @@ def handle_message(event):
     text = event.message.text.strip()
     text_lower = text.lower()
     
-    # 當使用者輸入 "powerbi" 或 "報表" 時，回覆 PowerBI 報表連結
-    if text_lower in ["powerbi", "報表", "powerbi報表", "report"]:
-        try:
-            # 傳遞用戶 ID 以獲取過濾後的報表配置
-            user_id = event.source.user_id
-            config = get_powerbi_embed_config(user_id)
-            embed_url = config["embedUrl"]
-            
-            # 添加過濾器參數（如果有）
-            equipment_filter = config.get("equipmentFilter")
-            if equipment_filter and len(equipment_filter) > 0:
-                # 將設備清單轉換為 PowerBI URL 過濾參數格式
-                quoted_items = [f"'{eq}'" for eq in equipment_filter]
-                equipment_list = f"[{','.join(quoted_items)}]"
-                filter_param = f"$filter=Equipment/EquipmentID in {equipment_list}"
-                # 編碼過濾參數
-                encoded_filter = urllib.parse.quote(filter_param)
-                # 添加到 URL
-                embed_url = f"{embed_url}&{encoded_filter}"
-                
-                # 還需要添加用戶ID參數，以便在網頁中顯示用戶訂閱設備
-                embed_url = f"{embed_url}&user_id={user_id}"
-            
-            # 創建一個按鈕模板，附帶 PowerBI 報表連結
-            buttons_template = ButtonsTemplate(
-                title="PowerBI 報表",
-                text="點擊下方按鈕查看您訂閱的設備報表",
-                actions=[
-                    URIAction(
-                        label="查看報表",
-                        uri=embed_url
-                    )
-                ]
-            )
-            
-            template_message = TemplateMessage(
-                alt_text="PowerBI 報表連結",
-                template=buttons_template
-            )
-            
-            # 創建回覆請求
-            reply_request = ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=[template_message]
-            )
-            
-            line_bot_api.reply_message_with_http_info(reply_request)
-            
-        except Exception as e:
-            logger.error(f"取得 PowerBI 資訊失敗：{e}")
-            
-            # 若失敗則使用文字訊息回覆
-            message = TextMessage(text=f"取得 PowerBI 報表資訊失敗，請稍後再試。")
-            reply_request = ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=[message]
-            )
-            line_bot_api.reply_message_with_http_info(reply_request)
     
     # 幫助命令
-    elif text_lower in ["help", "幫助", "選單", "menu"]:
+    if text_lower in ["help", "幫助", "選單", "menu"]:
         # 創建快速回覆按鈕
         quick_reply = QuickReply(items=[
             QuickReplyItem(
@@ -429,16 +348,6 @@ def handle_message(event):
                     ]
                 ),
                 CarouselColumn(
-                    title="查看 PowerBI 報表",
-                    text="輸入 'powerbi' 查看已訂閱設備的數據報表。",
-                    actions=[
-                        MessageAction(
-                            label="查看報表",
-                            text="powerbi"
-                        )
-                    ]
-                ),
-                CarouselColumn(
                     title="設備監控功能",
                     text="查看半導體設備的狀態和異常警告。",
                     actions=[
@@ -476,7 +385,7 @@ def handle_message(event):
     # 關於命令
     elif text_lower in ["關於", "about"]:
         message = TextMessage(
-            text="這是一個整合 LINE Bot、OpenAI 與 PowerBI 的智能助理，可以回答您的技術問題、監控半導體設備狀態並展示 PowerBI 報表。您可以輸入 'help' 查看更多功能。"
+            text="這是一個整合 LINE Bot與OpenAI 的智能助理，可以回答您的技術問題、監控半導體設備狀態並展示。您可以輸入 'help' 查看更多功能。"
         )
         
         reply_request = ReplyMessageRequest(
@@ -491,10 +400,6 @@ def handle_message(event):
         message = TextMessage(
             text="您可以通過輸入以下命令設置語言：\n\n"
                  "language:zh-Hant - 繁體中文\n"
-                 "language:zh-Hans - 简体中文\n"
-                 "language:en - English\n"
-                 "language:ja - 日本語\n"
-                 "language:ko - 한국어"
         )
         
         reply_request = ReplyMessageRequest(
@@ -513,10 +418,6 @@ def handle_message(event):
         valid_langs = {
             "zh": "zh-Hant",
             "zh-hant": "zh-Hant",
-            "zh-hans": "zh-Hans",
-            "en": "en",
-            "ja": "ja",
-            "ko": "ko"
         }
         
         if lang_code in valid_langs:
@@ -527,10 +428,6 @@ def handle_message(event):
             # 確認語言變更
             lang_names = {
                 "zh-Hant": "繁體中文",
-                "zh-Hans": "简体中文",
-                "en": "English",
-                "ja": "日本語",
-                "ko": "한국어"
             }
             
             message = TextMessage(
@@ -538,7 +435,7 @@ def handle_message(event):
             )
         else:
             message = TextMessage(
-                text="不支援的語言。支援的語言有：繁體中文 (zh-Hant)、简体中文 (zh-Hans)、English (en)、日本語 (ja)、한국어 (ko)"
+                text="不支援的語言。支援的語言有：繁體中文 (zh-Hant)"
             )
         
         reply_request = ReplyMessageRequest(
@@ -862,7 +759,7 @@ def handle_message(event):
                             
                             conn.commit()
                             
-                            message = TextMessage(text=f"成功訂閱設備 {equipment_name} ({equipment_id})。\n\n您現在可以查看此設備的 PowerBI 報表並接收其警報通知。")
+                            message = TextMessage(text=f"成功訂閱設備 {equipment_name} ({equipment_id})。\n\n您現在可以查看此設備的報表並接收其警報通知。")
             except Exception as e:
                 logger.error(f"訂閱設備失敗: {e}")
                 message = TextMessage(text="訂閱設備失敗，請稍後再試。")
@@ -1005,7 +902,6 @@ def handle_message(event):
                     response_text += "管理訂閱:\n"
                     response_text += "• 訂閱設備 [設備ID] - 新增訂閱\n"
                     response_text += "• 取消訂閱 [設備ID] - 取消訂閱\n"
-                    response_text += "• 輸入「報表」查看訂閱設備的 PowerBI 報表"
                     
                 message = TextMessage(text=response_text)
         except Exception as e:

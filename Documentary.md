@@ -2,7 +2,7 @@
 
 ## 概述
 
-本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/)、[OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat) (ChatGPT)、[PowerBI](https://powerbi.microsoft.com/) 與半導體設備監控系統，打造一個多功能智能助理。系統可在 LINE 平台上即時提供工程技術支援與諮詢，同時提供 PowerBI 報表嵌入功能，讓使用者直觀地展示與分析數據。此外，系統能即時監控半導體設備，自動偵測異常並通過 LINE 機器人發送警報通知。系統包含完整的使用者數據儲存、分析功能以及管理後台。
+本專案整合 [LINE Messaging API](https://developers.line.biz/zh-hant/)、[OpenAI ChatCompletion](https://platform.openai.com/docs/guides/chat) (ChatGPT) 與半導體設備監控系統，打造一個多功能智能助理。系統可在 LINE 平台上即時提供工程技術支援與諮詢。此外，系統能即時監控半導體設備，自動偵測異常並通過 LINE 機器人發送警報通知。系統包含完整的使用者數據儲存、分析功能以及管理後台。
 
 ## 技術棧
 
@@ -10,7 +10,6 @@
 - **Flask**：輕量級後端 Web 框架，處理 API 請求與網頁展示
 - **line-bot-sdk v3.x**：整合 LINE Bot API，處理訊息接收與回覆
 - **OpenAI API**：調用 ChatGPT 模型生成智能回覆
-- **PowerBI API**：嵌入 PowerBI 報表以進行數據展示
 - **SQLite**：輕量級數據庫，儲存對話歷史、使用者偏好與設備數據
 - **Schedule**：簡易任務排程，用於定期設備監控
 - **Flask-Talisman**：實作內容安全政策(CSP)與其他安全防護
@@ -31,12 +30,6 @@
    - 維護對話歷史紀錄，提供上下文相關的回覆
    - 支援多語言回覆，包含繁體中文、簡體中文、英文、日文和韓文
    - 使用記憶體快取與資料庫儲存的混合策略，優化對話處理效能
-
-3. **PowerBI 報表整合**  
-   - 透過 OAuth2 客戶端憑證流程，取得 PowerBI API 存取權杖與嵌入 Token
-   - 於 `/powerbi` 路由提供網頁介面展示 PowerBI 報表
-   - 實作基於 IP 的請求限制，防止潛在的 DoS 攻擊
-   - 在 LINE Bot 中提供快速查看報表的連結功能
 
 4. **半導體設備監控**  
    - 即時監控各類半導體設備（黏晶機、打線機、切割機）的運作狀態與關鍵指標
@@ -89,23 +82,14 @@
 │   ├── config.py                 # 集中式配置管理模組
 │   ├── main.py                   # 核心業務邏輯與 OpenAI 服務封裝
 │   ├── linebot_connect.py        # LINE Bot 事件處理與路由註冊
-│   ├── powerbi_integration.py    # PowerBI API 整合與報表嵌入模組
 │   ├── database.py               # 資料庫互動模組
 │   ├── analytics.py              # 數據分析與統計模組
 │   ├── equipment_monitor.py      # 半導體設備監控與異常偵測器
 │   ├── equipment_scheduler.py    # 設備監控排程器
 │   ├── event_system.py           # 事件發布/訂閱系統
 │   └── initial_data.py           # 初始設備資料生成腳本
-├── tests/
-│   ├── __init__.py               # 測試包初始化檔案
-│   ├── conftest.py               # pytest 配置與共用 fixtures
-│   ├── test_main.py              # 測試 OpenAI 服務及回覆函式
-│   ├── test_linebot_connect.py   # 測試 LINE Bot 事件處理與簽名驗證
-│   ├── test_powerbi_integration.py # 測試 PowerBI 整合模組
-│   └── test_equipment_alert.py   # 測試設備警報功能
 ├── templates/
 │   ├── index.html                # 服務狀態頁面
-│   ├── powerbi.html              # PowerBI 報表展示頁面
 │   ├── admin_dashboard.html      # 管理後台儀表板
 │   ├── admin_login.html          # 管理員登入頁面
 │   └── admin_conversation.html   # 對話記錄查詢頁面
@@ -132,12 +116,6 @@
    - **LINE Bot 相關：**
      - `LINE_CHANNEL_ACCESS_TOKEN`：LINE Bot 存取金鑰
      - `LINE_CHANNEL_SECRET`：LINE Bot 密鑰
-   - **PowerBI 相關：**
-     - `POWERBI_CLIENT_ID`：Azure AD 應用程式用戶端 ID
-     - `POWERBI_CLIENT_SECRET`：Azure AD 應用程式用戶端密碼
-     - `POWERBI_TENANT_ID`：Azure 租戶 ID
-     - `POWERBI_WORKSPACE_ID`：PowerBI 工作區 ID
-     - `POWERBI_REPORT_ID`：PowerBI 報表 ID
    - **應用程式設定：**
      - `FLASK_DEBUG`：是否啟用 Flask 除錯模式（建議生產環境設為 False）
      - `PORT`：應用程式監聽的埠號（預設 5000）
@@ -161,7 +139,6 @@
    python -m src.app
    ```
    - LINE Webhook 接收端點為 `/callback`
-   - PowerBI 報表嵌入頁面：`https://localhost:5000/powerbi`
    - 服務狀態頁面：`https://localhost:5000/`
    - 管理後台登入頁面：`https://localhost:5000/admin/login`
 
@@ -175,11 +152,6 @@
      -e OPENAI_API_KEY="your_openai_api_key" \
      -e LINE_CHANNEL_ACCESS_TOKEN="your_line_access_token" \
      -e LINE_CHANNEL_SECRET="your_line_channel_secret" \
-     -e POWERBI_CLIENT_ID="your_powerbi_client_id" \
-     -e POWERBI_CLIENT_SECRET="your_powerbi_client_secret" \
-     -e POWERBI_TENANT_ID="your_powerbi_tenant_id" \
-     -e POWERBI_WORKSPACE_ID="your_powerbi_workspace_id" \
-     -e POWERBI_REPORT_ID="your_powerbi_report_id" \
      -e ADMIN_USERNAME="your_admin_username" \
      -e ADMIN_PASSWORD="your_admin_password" \
      -e SECRET_KEY="your_secret_key" \
@@ -207,7 +179,6 @@
    測試涵蓋：
    - LINE Bot 事件處理與簽名驗證
    - OpenAI 回覆生成服務
-   - PowerBI API 整合功能
    - 設備監控與警報功能
    - 路由與安全性驗證
 
@@ -239,7 +210,6 @@
 以下是 LINE Bot 支援的主要命令與功能：
 
 - **一般對話**：直接輸入問題，AI 將生成回應
-- **PowerBI 報表**：輸入「powerbi」或「報表」查看數據報表
 - **設備狀態查詢**：輸入「設備狀態」或「機台狀態」查看所有設備的概況
 - **設備詳情查詢**：輸入「設備詳情 [設備名稱]」（例如「設備詳情 黏晶機A1」）查看特定設備的詳細資訊
 - **訂閱設備**：輸入「訂閱設備」查看可訂閱的設備列表，或「訂閱設備 [設備ID]」訂閱特定設備
@@ -454,12 +424,6 @@
    - 驗證 `OPENAI_API_KEY` 是否正確，並檢查 API 調用是否超出使用配額
    - 查看應用程式日誌中的詳細錯誤訊息
    - 確認網路連線是否穩定，特別是在容器化環境中
-
-3. **PowerBI 嵌入報表失敗**  
-   - 檢查所有 PowerBI 相關環境變數是否正確配置
-   - 確認 Azure AD 應用程式已被授予適當的 PowerBI API 權限
-   - 檢查 PowerBI 工作區與報表 ID 是否正確
-   - 確認報表有公開存取權限或適當的權限設置
 
 4. **設備監控問題**
    - 確認資料庫中已正確初始化設備資料表與範例資料
