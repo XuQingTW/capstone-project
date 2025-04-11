@@ -224,8 +224,8 @@ class Analytics:
                     )
                 conn.commit()
                 return stats_data
-        except Exception:
-            logger.error("")
+        except Exception as e:
+            logger.error(f"生成每日統計失敗: {e}")
             return None
 
     def get_usage_trends(self, days=30):
