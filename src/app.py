@@ -88,8 +88,8 @@ def create_app(testing=False):
         from src.linebot_connect import register_routes
         register_routes(app)
         return app
-    except Exception:
-        logger.critical("")
+    except Exception as e:
+        logger.critical(f"應用程序初始化失敗: {e}")
         raise
 # 提供一個便利函數來運行應用
 
