@@ -55,12 +55,13 @@ def stop_scheduler():
     else:
         logger.info("設備監控排程器已成功停止")
         scheduler_thread = None
-        os._exit(0) 
+        os._exit(0)
 
 
 def stop_scheduler_on_signal(signum, frame):
     logger.info("信號處理函數，用於處理 SIGTERM 和 SIGINT")
     stop_scheduler()
+
 
 def manual_check():
     monitor.check_all_equipment()

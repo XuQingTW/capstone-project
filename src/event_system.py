@@ -31,8 +31,8 @@ class EventSystem:
             try:
                 result = handler(**kwargs)
                 results.append(result)
-            except Exception:
-                 logger.error(f"事件處理失敗 '{event_type}': {e}")
+            except Exception as e:
+                logger.error(f"事件處理失敗 '{event_type}': {e}")
         return results
 
 

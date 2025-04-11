@@ -71,7 +71,7 @@ try:
     # 這裡會根據 VALIDATION_MODE 環境變數決定驗證失敗行為
     Config.validate()
     logger.info("環境變數驗證成功")
-except ValueError:
+except ValueError as e:
     is_testing = os.environ.get("TESTING", "False").lower() == "true"
     if is_testing:
         # 測試環境下只發出警告

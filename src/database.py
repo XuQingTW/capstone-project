@@ -213,11 +213,8 @@ class Database:
                         values.append(language)
                     fields_str = ", ".join(fields)
                     placeholders = ", ".join(["?"] * len(values))
-                    query = (
-                        f"INSERT INTO user_preferences (user_id, language) VALUES (?, ?) "
-                        f"VALUES ({placeholders})"
-                    )
-                    cursor.execute(query, (user_id, language))
+                    query = f"INSERT INTO user_preferences ({fields_str}) VALUES ({placeholders})"
+                    cursor.execute(query, tuple(values))
                 conn.commit()
                 return True
         except Exception:

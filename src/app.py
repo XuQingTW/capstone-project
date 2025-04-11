@@ -20,7 +20,7 @@ def create_app(testing=False):
         try:
             Config.validate()
             logger.info("環境變數驗證成功")
-        except ValueError:
+        except ValueError as e:
             if not testing:  # 測試模式下允許使用假數據
                 logger.critical("環境變數驗證失敗，程序將終止")
                 sys.exit(1)
