@@ -154,4 +154,4 @@ def initialize_equipment_data():
             conn.commit()
             logger.info("設備資料初始化完成")
     except Exception:
-        logger.error("")
+        logger.error(f"初始化設備資料失敗: {e}")

@@ -49,7 +49,7 @@ class Config:
         if not cls.LINE_CHANNEL_SECRET:
             missing_vars.append("LINE_CHANNEL_SECRET")
         if missing_vars:
-            error_msg = ""
+            error_msg = f"缺少以下必要環境變數: {', '.join(missing_vars)}"
             logger.error(error_msg)
             # 決定驗證失敗行為
             should_exit = (
@@ -75,8 +75,8 @@ except ValueError:
     is_testing = os.environ.get("TESTING", "False").lower() == "true"
     if is_testing:
         # 測試環境下只發出警告
-        logger.warning("")
+        logger.warning(f"測試環境：環境變數驗證失敗，但將繼續執行：{e}")
     else:
         # 非測試環境且配置指定為寬鬆模式時，發出警告但不中斷
-        logger.error("")
+        logger.error(f"環境變數驗證失敗: {e}")
         # 注意：在寬鬆模式下，這裡沒有中斷程序，讓主程式決定如何處理
