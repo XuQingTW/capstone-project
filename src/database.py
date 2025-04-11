@@ -214,10 +214,10 @@ class Database:
                     fields_str = ", ".join(fields)
                     placeholders = ", ".join(["?"] * len(values))
                     query = (
-                        f"INSERT INTO user_preferences ({fields_str}) "
+                        f"INSERT INTO user_preferences (user_id, language) VALUES (?, ?) "
                         f"VALUES ({placeholders})"
                     )
-                    cursor.execute(query, values)
+                    cursor.execute(query, (user_id, language))
                 conn.commit()
                 return True
         except Exception:
