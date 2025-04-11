@@ -6,6 +6,7 @@ import logging
 import signal
 import sys
 from equipment_monitor import EquipmentMonitor
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def stop_scheduler():
     else:
         logger.info("設備監控排程器已成功停止")
         scheduler_thread = None
+        os._exit(0) # 強制退出，避免主線程繼續執行
         
 def stop_scheduler_on_signal(signum, frame):
     """信號處理函數，用於處理 SIGTERM 和 SIGINT"""
