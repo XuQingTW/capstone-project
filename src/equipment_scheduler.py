@@ -43,30 +43,24 @@ def start_scheduler():
 
 
 def stop_scheduler():
-    """停止排程器"""
     global scheduler_running, scheduler_thread
     if not scheduler_thread or not scheduler_thread.is_alive():
         logger.info("設備監控排程器未在運行")
         return
     logger.info("正在停止設備監控排程器...")
     scheduler_running = False
-    # 等待線程結束，但最多等 5 秒
     scheduler_thread.join(timeout=5)
     if scheduler_thread.is_alive():
         logger.warning("設備監控排程器無法正常停止")
     else:
         logger.info("設備監控排程器已成功停止")
         scheduler_thread = None
-        os._exit(0)  # 強制退出，避免主線程繼續執行
+        os._exit(0) 
 
 
 def stop_scheduler_on_signal(signum, frame):
-    """信號處理函數，用於處理 SIGTERM 和 SIGINT"""
-    logger.info("")
+    logger.info("信號處理函數，用於處理 SIGTERM 和 SIGINT")
     stop_scheduler()
-# 提供手動檢查函數，方便測試
-
 
 def manual_check():
-    """手動執行設備檢查"""
     monitor.check_all_equipment()
