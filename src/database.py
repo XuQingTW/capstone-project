@@ -141,7 +141,7 @@ class Database:
                 conn.commit()
                 logger.info("資料庫初始化成功，包含設備監控相關資料表")
         except Exception:
-            logger.exception("資料庫初始化失敗")
+            logger.exception(f"資料庫初始化失敗：{e}")
             raise
 
     def add_message(self, user_id, role, content):
