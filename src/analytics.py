@@ -4,6 +4,7 @@ import logging
 import os
 import sqlite3
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,6 +66,7 @@ class Analytics:
     def track_event(self, event_type, user_id=None, metadata=None):
         """
         記錄一個事件
+
         參數:
             event_type: 事件類型 (例如: message, powerbi_view, language_change)
             user_id: 使用者 ID
@@ -75,7 +77,8 @@ class Analytics:
             with self._get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT INTO analytics_events (event_type, user_id, metadata) VALUES (?, ?, ?)",
+                    "INSERT INTO analytics_events (event_type, user_id, metadata) "
+                    "VALUES (?, ?, ?)",
                     (event_type, user_id, metadata_json),
                 )
                 conn.commit()
@@ -87,6 +90,7 @@ class Analytics:
     def track_keywords(self, text, increment=1):
         """
         追蹤常用關鍵字
+
         參數:
             text: 要分析的文字
             increment: 增加的計數
@@ -105,7 +109,8 @@ class Analytics:
                     result = cursor.fetchone()
                     if result:
                         cursor.execute(
-                            "UPDATE keyword_stats SET count = count + ?, last_used = CURRENT_TIMESTAMP WHERE keyword = ?",
+                            "UPDATE keyword_stats SET count = count + ?, last_used = "
+                            "CURRENT_TIMESTAMP WHERE keyword = ?",
                             (increment, keyword),
                         )
                     else:
@@ -136,6 +141,7 @@ class Analytics:
     def generate_daily_stats(self, date=None):
         """
         生成每日統計數據
+
         參數:
             date: 日期字串 (YYYY-MM-DD)，若未提供則使用今天
         """
@@ -145,35 +151,24 @@ class Analytics:
             with self._get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    """
-                    SELECT COUNT(*) FROM conversations
-                    WHERE date(timestamp) = ?
-                    """,
+                    "SELECT COUNT(*) FROM conversations WHERE date(timestamp) = ?",
                     (date,),
                 )
                 total_messages = cursor.fetchone()[0]
                 cursor.execute(
-                    """
-                    SELECT COUNT(DISTINCT user_id) FROM conversations
-                    WHERE date(timestamp) = ?
-                    """,
+                    "SELECT COUNT(DISTINCT user_id) FROM conversations "
+                    "WHERE date(timestamp) = ?",
                     (date,),
                 )
                 unique_users = cursor.fetchone()[0]
                 cursor.execute(
-                    """
-                    SELECT event_type, COUNT(*) FROM analytics_events
-                    WHERE date(timestamp) = ?
-                    GROUP BY event_type
-                    """,
+                    "SELECT event_type, COUNT(*) FROM analytics_events "
+                    "WHERE date(timestamp) = ? GROUP BY event_type",
                     (date,),
                 )
                 event_counts = dict(cursor.fetchall())
                 cursor.execute(
-                    """
-                    SELECT language, COUNT(*) FROM user_preferences
-                    GROUP BY language
-                    """
+                    "SELECT language, COUNT(*) FROM user_preferences GROUP BY language"
                 )
                 language_distribution = dict(cursor.fetchall())
                 stats_data = {
@@ -187,19 +182,14 @@ class Analytics:
                 cursor.execute("SELECT date FROM daily_stats WHERE date = ?", (date,))
                 if cursor.fetchone():
                     cursor.execute(
-                        """
-                        UPDATE daily_stats
-                        SET total_messages = ?, unique_users = ?, data = ?
-                        WHERE date = ?
-                        """,
+                        "UPDATE daily_stats SET total_messages = ?, unique_users = ?, "
+                        "data = ? WHERE date = ?",
                         (total_messages, unique_users, stats_json, date),
                     )
                 else:
                     cursor.execute(
-                        """
-                        INSERT INTO daily_stats (date, total_messages, unique_users, data)
-                        VALUES (?, ?, ?, ?)
-                        """,
+                        "INSERT INTO daily_stats (date, total_messages, unique_users, data) "
+                        "VALUES (?, ?, ?, ?)",
                         (date, total_messages, unique_users, stats_json),
                     )
                 conn.commit()
@@ -211,6 +201,7 @@ class Analytics:
     def get_usage_trends(self, days=30):
         """
         取得使用趨勢數據
+
         參數:
             days: 要回溯的天數
         """
@@ -220,25 +211,21 @@ class Analytics:
             with self._get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    """
-                    SELECT date(timestamp) as day, COUNT(*) as count
-                    FROM conversations
-                    WHERE timestamp BETWEEN ? AND ?
-                    GROUP BY day
-                    ORDER BY day
-                    """,
-                    (start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")),
+                    "SELECT date(timestamp) as day, COUNT(*) as count FROM conversations "
+                    "WHERE timestamp BETWEEN ? AND ? GROUP BY day ORDER BY day",
+                    (
+                        start_date.strftime("%Y-%m-%d"),
+                        end_date.strftime("%Y-%m-%d"),
+                    ),
                 )
                 message_trend = {day: count for day, count in cursor.fetchall()}
                 cursor.execute(
-                    """
-                    SELECT date(timestamp) as day, COUNT(DISTINCT user_id) as count
-                    FROM conversations
-                    WHERE timestamp BETWEEN ? AND ?
-                    GROUP BY day
-                    ORDER BY day
-                    """,
-                    (start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")),
+                    "SELECT date(timestamp) as day, COUNT(DISTINCT user_id) as count FROM "
+                    "conversations WHERE timestamp BETWEEN ? AND ? GROUP BY day ORDER BY day",
+                    (
+                        start_date.strftime("%Y-%m-%d"),
+                        end_date.strftime("%Y-%m-%d"),
+                    ),
                 )
                 user_trend = {day: count for day, count in cursor.fetchall()}
                 date_range = []
@@ -259,6 +246,7 @@ class Analytics:
     def export_stats(self, format="json"):
         """
         匯出統計數據
+
         參數:
             format: 輸出格式 (目前僅支援 json)
         """
@@ -291,19 +279,12 @@ class Analytics:
                 cursor.execute("SELECT COUNT(*) FROM conversations")
                 total_messages = cursor.fetchone()[0]
                 cursor.execute(
-                    """
-                    SELECT role, COUNT(*)
-                    FROM conversations
-                    GROUP BY role
-                    """
+                    "SELECT role, COUNT(*) FROM conversations GROUP BY role"
                 )
                 role_counts = dict(cursor.fetchall())
                 cursor.execute(
-                    """
-                    SELECT COUNT(*)
-                    FROM conversations
-                    WHERE timestamp > datetime('now', '-1 day')
-                    """
+                    "SELECT COUNT(*) FROM conversations WHERE timestamp > "
+                    "datetime('now', '-1 day')"
                 )
                 last_24h = cursor.fetchone()[0]
                 return {
@@ -323,19 +304,12 @@ class Analytics:
                 cursor.execute("SELECT COUNT(DISTINCT user_id) FROM conversations")
                 total_users = cursor.fetchone()[0]
                 cursor.execute(
-                    """
-                    SELECT COUNT(DISTINCT user_id)
-                    FROM conversations
-                    WHERE timestamp > datetime('now', '-7 day')
-                    """
+                    "SELECT COUNT(DISTINCT user_id) FROM conversations WHERE timestamp > "
+                    "datetime('now', '-7 day')"
                 )
                 active_users = cursor.fetchone()[0]
                 cursor.execute(
-                    """
-                    SELECT language, COUNT(*)
-                    FROM user_preferences
-                    GROUP BY language
-                    """
+                    "SELECT language, COUNT(*) FROM user_preferences GROUP BY language"
                 )
                 language_distribution = dict(cursor.fetchall())
                 return {
