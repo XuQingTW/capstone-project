@@ -25,7 +25,7 @@ def create_app(testing=False):
                 logger.critical("環境變數驗證失敗，程序將終止")
                 sys.exit(1)
             else:
-                logger.warning("")
+                llogger.warning(f"測試模式: 環境變數驗證失敗，但將繼續執行: {e}")
         # 初始化 Flask 應用
         app = Flask(
             __name__,

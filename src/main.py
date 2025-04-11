@@ -200,14 +200,14 @@ class OpenAIService:
                     return ai_message
                 except Exception:
                     retry_count += 1
-                    logging.warning("")
+                    logging.warning(f"OpenAI API 請求失敗，正在重試第 {retry_count + 1} 次...")
                     time.sleep(1)  # 等待 1 秒再重試
             # 若所有重試都失敗，使用備用回應
             fallback_message = self.get_fallback_response()
             user_data.add_message(self.user_id, "assistant", fallback_message)
             return fallback_message
         except Exception as e:
-            logging.error("")
+            logging.error(f"OpenAI API 錯誤: {e}")
             fallback_message = self.get_fallback_response(e)
             user_data.add_message(self.user_id, "assistant", fallback_message)
             return fallback_message

@@ -82,7 +82,7 @@ def get_or_create_secret_key():
             f.write(key)
         return key
     except Exception:
-        logger.warning("取得密鑰失敗")
+        logger.warning(f"無法讀取或寫入密鑰文件: {e}，使用臨時密鑰")
         return secrets.token_hex(24)
 
 
