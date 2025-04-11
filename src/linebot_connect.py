@@ -244,7 +244,7 @@ def register_routes(app):
         system_info = {
             "openai_api_key": "已設置" if os.getenv("OPENAI_API_KEY") else "未設置",
             "line_channel_secret": "已設置" if os.getenv("LINE_CHANNEL_SECRET") else "未設置", 
-        
+        }
         return render_template(
             "admin_dashboard.html",
             stats=conversation_stats,
