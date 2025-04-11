@@ -1,9 +1,8 @@
-# LINE Bot + OpenAI + PowerBI 整合系統
+# LINE Bot + OpenAI 整合系統
 
 ## 主要功能
 
 - **LINE Bot 智能對話**：接收使用者訊息，利用 ChatGPT 生成專業、具實踐性的回應
-- **PowerBI 報表嵌入**：整合 PowerBI API，在網頁上展示資料報表與分析結果
 - **半導體設備監控**：即時監控黏晶機、打線機、切割機等設備的運作狀態，自動偵測異常並發送警報
 - **多語言支援**：支援繁體中文、簡體中文、英文、日文與韓文等多種語言
 - **事件系統**：實作輕量級事件發布/訂閱系統，解耦模組間的依賴
@@ -16,11 +15,9 @@
 - **Flask**：輕量級網頁框架
 - **LINE Bot SDK v3.x**：處理 LINE 訊息互動
 - **OpenAI API**：接入 ChatGPT 模型
-- **PowerBI API**：嵌入 PowerBI 報表
 - **SQLite**：輕量級資料庫
 - **Flask-Talisman**：網頁安全增強
 - **Schedule**：設備監控排程
-- **pytest**：單元測試框架
 - **Docker**：容器化部署
 - **GitHub Actions**：CI/CD 自動化工作流程
 
@@ -41,7 +38,6 @@
 │   ├── equipment_scheduler.py    # 設備監控排程器
 │   ├── event_system.py           # 事件發布/訂閱系統
 │   └── initial_data.py           # 初始資料生成
-├── tests/                        # 測試目錄
 ├── templates/                    # HTML 模板
 ├── .github/workflows/            # GitHub Actions 設定
 ├── Dockerfile                    # Docker 配置
@@ -67,13 +63,6 @@ OPENAI_API_KEY=your_openai_api_key
 # LINE Bot API
 LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
 LINE_CHANNEL_SECRET=your_line_channel_secret
-
-# PowerBI API
-POWERBI_CLIENT_ID=your_powerbi_client_id
-POWERBI_CLIENT_SECRET=your_powerbi_client_secret
-POWERBI_TENANT_ID=your_powerbi_tenant_id
-POWERBI_WORKSPACE_ID=your_powerbi_workspace_id
-POWERBI_REPORT_ID=your_powerbi_report_id
 
 # 管理後台
 ADMIN_USERNAME=admin_username
@@ -111,7 +100,6 @@ Docker 映像檔採用官方 Python 3.11-slim 為基礎，並實作以下安全�
 ### LINE Bot 指令
 
 - **一般對話**：直接輸入問題，AI 將生成回應
-- **PowerBI 報表**：輸入「powerbi」或「報表」查看數據報表
 - **設備狀態**：輸入「設備狀態」或「機台狀態」查看所有設備概況
 - **設備詳情**：輸入「設備詳情 [設備名稱]」查看特定設備的詳細資訊
 - **訂閱設備**：輸入「訂閱設備」查看可用設備列表並進行訂閱
@@ -139,20 +127,6 @@ Docker 映像檔採用官方 Python 3.11-slim 為基礎，並實作以下安全�
 - 通過 `event_system.subscribe()` 註冊事件處理函數
 - 使用 `event_system.publish()` 發布事件到系統
 
-## 測試
-
-執行單元測試：
-
-```bash
-pytest
-```
-
-產生測試覆蓋率報告：
-
-```bash
-pytest --cov=src --cov-report=xml
-```
-
 ## CI/CD 工作流程
 
 本專案使用 GitHub Actions 自動化下列流程：
@@ -176,14 +150,12 @@ pytest --cov=src --cov-report=xml
 
 - **LINE 簽名驗證失敗**：檢查 LINE_CHANNEL_SECRET 設定
 - **OpenAI API 回應異常**：確認 API 金鑰與使用額度
-- **PowerBI 嵌入失敗**：檢查 PowerBI 相關設定與權限
 - **設備監控問題**：確認資料庫初始化與排程器狀態
 
 ## 相關資源
 
 - [LINE 開發者平台](https://developers.line.biz/zh-hant/)
 - [OpenAI API 文件](https://platform.openai.com/docs/)
-- [PowerBI REST API](https://docs.microsoft.com/zh-tw/power-bi/developer/)
 - [Flask 文件](https://flask.palletsprojects.com/)
 
 更多詳細資訊，請參閱專案中的 [Documentary.md](Documentary.md)
