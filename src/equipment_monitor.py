@@ -1,4 +1,3 @@
-# src/equipment_monitor.py
 import logging
 import sqlite3
 from datetime import datetime, timedelta
@@ -17,7 +16,7 @@ class EquipmentMonitor:
     DICER = "dicer"  # 切割機
 
     # 嚴重程度常數
-    SEVERITY_WARNING = "warning"  # 警告
+    SEVERITY_WARNING = "warning"    # 警告
     SEVERITY_CRITICAL = "critical"  # 嚴重
     SEVERITY_EMERGENCY = "emergency"  # 緊急
 
@@ -49,9 +48,9 @@ class EquipmentMonitor:
                 for equipment_id, name, equipment_type in equipments:
                     self._check_equipment_metrics(conn, equipment_id, name, equipment_type)
                     self._check_operation_status(conn, equipment_id, name, equipment_type)
-            logger.info("")
-        except Exception:
-            logger.error("")
+            logger.info("所有設備檢查完成。")
+        except Exception as e:
+            logger.exception("檢查所有設備時發生錯誤: %s", e)
 
     def _check_equipment_metrics(self, conn, equipment_id, name, equipment_type):
         """檢查設備的指標是否異常"""
@@ -81,11 +80,10 @@ class EquipmentMonitor:
         # 檢查是否有異常
         anomalies = []
         for metric_type, data in latest_metrics.items():
-            # 檢查值是否超出可接受的閾值範圍
             if (data["min"] is not None and data["value"] < data["min"]) or (
                 data["max"] is not None and data["value"] > data["max"]
             ):
-                # 決定嚴重程度
+                # 根據指標決定嚴重程度
                 severity = self._determine_severity(
                     metric_type, data["value"], data["min"], data["max"]
                 )
@@ -103,28 +101,20 @@ class EquipmentMonitor:
             highest_severity = max(
                 [a["severity"] for a in anomalies], key=self._severity_level
             )
-            message = ""
-            message += ""
+            message = f"設備 {name} 異常提醒:\n"
             for anomaly in anomalies:
-                message += ""
-                if anomaly["unit"]:
-                    message += ""
                 if anomaly["min"] is not None and anomaly["value"] < anomaly["min"]:
-                    message += ""
-                    if anomaly["unit"]:
-                        message += ""
-                    message += ")\n"
+                    message += (f"{anomaly['metric']} 值 {anomaly['value']}"
+                                f" 低於最小閾值 {anomaly['min']} {anomaly['unit'] or ''}\n")
                 elif anomaly["max"] is not None and anomaly["value"] > anomaly["max"]:
-                    message += ""
-                    if anomaly["unit"]:
-                        message += ""
-                    message += ")\n"
+                    message += (f"{anomaly['metric']} 值 {anomaly['value']}"
+                                f" 超出最大閾值 {anomaly['max']} {anomaly['unit'] or ''}\n")
             # 生成 AI 分析建議（選用）
             if hasattr(self, "_generate_ai_recommendation"):
                 equipment_data = self._get_equipment_data(conn, equipment_id)
                 ai_recommendation = self._generate_ai_recommendation(anomalies, equipment_data)
                 if ai_recommendation:
-                    message += ""
+                    message += f"\n建議: {ai_recommendation}"
             # 記錄此警告
             for anomaly in anomalies:
                 cursor.execute(
@@ -134,7 +124,7 @@ class EquipmentMonitor:
                     """,
                     (
                         equipment_id,
-                        "",
+                        "metric_alert",
                         anomaly["severity"],
                         message,
                     ),
@@ -156,12 +146,11 @@ class EquipmentMonitor:
             conn.commit()
             # 發送 LINE 通知給相關使用者
             self._send_alert_notification(equipment_id, message, highest_severity)
-            logger.info("")
+            logger.info("設備 %s 異常已記錄及通知。", name)
 
     def _check_operation_status(self, conn, equipment_id, name, equipment_type):
         """檢查設備運行狀態，包括長時間運行、異常停機等"""
         cursor = conn.cursor()
-        # 檢查是否有正在進行且運行超過預期的作業
         cursor.execute(
             """
             SELECT id, operation_type, start_time, lot_id, product_id
@@ -186,18 +175,10 @@ class EquipmentMonitor:
                 self.WIRE_BONDER: 8,
                 self.DICER: 4,
             }.get(equipment_type, 8)
-            # 檢查是否超過最大運行時間
             if operation_duration > timedelta(hours=max_duration_hours):
-                # 定義 severity，確保在使用前就已賦值
                 severity = self.SEVERITY_WARNING
-                message = ""
-                message += ""
-                message += ""
-                message += ""
-                if lot_id:
-                    message += ""
-                if product_id:
-                    message += ""
+                message = (f"設備 {name} 運行已超預期時間 {operation_duration}，"
+                           f"請注意檢查。")
                 cursor.execute(
                     """
                     INSERT INTO alert_history (equipment_id, alert_type, severity, message)
@@ -207,12 +188,11 @@ class EquipmentMonitor:
                 )
                 conn.commit()
                 self._send_alert_notification(equipment_id, message, severity)
-                logger.info("")
-                return equipment_type, equipment_type
+                logger.info("設備 %s 長時間運行異常已通知。", name)
+                return
 
     def _determine_severity(self, metric_type, value, threshold_min, threshold_max):
         if metric_type in ["溫度", "壓力", "轉速"]:
-            # 關鍵安全相關指標
             if threshold_max and value >= threshold_max * 1.2:
                 return self.SEVERITY_EMERGENCY
             elif threshold_max and value >= threshold_max * 1.1:
@@ -220,17 +200,14 @@ class EquipmentMonitor:
             else:
                 return self.SEVERITY_WARNING
         elif metric_type in ["良率", "Pick準確率", "切割精度"]:
-            # 品質相關指標
             if threshold_min and value <= threshold_min * 0.8:
                 return self.SEVERITY_CRITICAL
             else:
                 return self.SEVERITY_WARNING
         else:
-            # 其他一般指標
             return self.SEVERITY_WARNING
 
     def _severity_level(self, severity):
-        """將嚴重程度轉換為數值以便比較"""
         levels = {
             self.SEVERITY_WARNING: 1,
             self.SEVERITY_CRITICAL: 2,
@@ -239,7 +216,6 @@ class EquipmentMonitor:
         return levels.get(severity, 0)
 
     def _severity_emoji(self, severity):
-        """根據嚴重程度返回對應的表情符號"""
         emojis = {
             self.SEVERITY_WARNING: "⚠️",
             self.SEVERITY_CRITICAL: "🔴",
@@ -248,7 +224,6 @@ class EquipmentMonitor:
         return emojis.get(severity, "⚠️")
 
     def _get_equipment_data(self, conn, equipment_id):
-        """取得設備詳細資料"""
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -277,32 +252,18 @@ class EquipmentMonitor:
         """產生 AI 增強的異常描述和建議（使用現有的 OpenAI 服務）"""
         try:
             from src.main import OpenAIService
-            # 為 ChatGPT 建立情境訊息
-            context = ""
-            context += "偵測到的異常狀況:\n"
+            context = "偵測到的異常狀況:\n"
             for anomaly in anomalies:
-                context += ""
-                if anomaly["unit"]:
-                    context += ""
-                context += ", "
-                if anomaly["min"] is not None:
-                    context += ""
-                    if anomaly["unit"]:
-                        context += ""
-                    context += ", "
-                if anomaly["max"] is not None:
-                    context += ""
-                    if anomaly["unit"]:
-                        context += ""
-                    context += ", "
-                context += ""
-            prompt = ""
-            # 使用現有的 OpenAI 服務
+                context += (f"{anomaly['metric']}: {anomaly['value']} "
+                            f"(閾值: {anomaly['min']} - {anomaly['max']}, "
+                            f"單位: {anomaly['unit'] or '無'})\n")
+            prompt = (f"請根據以下資料提供建議：\n設備資料：{equipment_data}\n"
+                      f"異常狀況：\n{context}")
             service = OpenAIService(message=prompt, user_id="system")
             response = service.get_response()
             return response
-        except Exception:
-            logger.error("")
+        except Exception as e:
+            logger.exception("產生 AI 建議時發生錯誤: %s", e)
             return None
 
     def _send_alert_notification(self, equipment_id, message, severity):
@@ -311,7 +272,6 @@ class EquipmentMonitor:
             from src.linebot_connect import send_notification
             with sqlite3.connect(self.db.db_path) as conn:
                 cursor = conn.cursor()
-                # 取得負責該設備的使用者，根據嚴重程度過濾
                 if severity == self.SEVERITY_WARNING:
                     cursor.execute(
                         """
@@ -329,7 +289,6 @@ class EquipmentMonitor:
                         (equipment_id,),
                     )
                 users = cursor.fetchall()
-                # 也通知該設備類型的責任人
                 cursor.execute(
                     """
                     SELECT e.type FROM equipment e WHERE e.equipment_id = ?
@@ -359,6 +318,6 @@ class EquipmentMonitor:
                     unique_users = set(user_id for (user_id,) in admin_users)
                 for user_id in unique_users:
                     send_notification(user_id, message)
-                    logger.info("")
-        except Exception:
-            logger.error("")
+                    logger.info("通知已發送給使用者: %s", user_id)
+        except Exception as e:
+            logger.exception("發送設備 %s 的通知時出錯: %s", equipment_id, e)
