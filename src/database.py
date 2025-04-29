@@ -21,6 +21,7 @@ class Database:
             db_dir = os.path.dirname(self.db_path)
             if db_dir and not os.path.exists(db_dir):
                 os.makedirs(db_dir)
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
 
@@ -36,6 +37,7 @@ class Database:
                     )
                     """
                 )
+
                 # 建立使用者偏好表
                 cursor.execute(
                     """
@@ -46,6 +48,7 @@ class Database:
                     )
                     """
                 )
+
                 # 建立設備表
                 cursor.execute(
                     """
@@ -60,6 +63,7 @@ class Database:
                     )
                     """
                 )
+
                 # 建立設備監測指標表
                 cursor.execute(
                     """
@@ -76,6 +80,7 @@ class Database:
                     )
                     """
                 )
+
                 # 建立設備運轉紀錄表
                 cursor.execute(
                     """
@@ -94,6 +99,7 @@ class Database:
                     )
                     """
                 )
+
                 # 建立警報記錄表
                 cursor.execute(
                     """
@@ -112,6 +118,7 @@ class Database:
                     )
                     """
                 )
+
                 # 建立使用者訂閱設備表
                 cursor.execute(
                     """
@@ -125,19 +132,26 @@ class Database:
                     )
                     """
                 )
-                # 為 user_preferences 表新增 is_admin 與 responsible_area 欄位（若尚未存在）
+
+                # 為 user_preferences 表新增欄位（若尚未存在）
                 try:
                     cursor.execute("SELECT is_admin FROM user_preferences LIMIT 1")
                 except sqlite3.OperationalError:
                     cursor.execute(
-                        "ALTER TABLE user_preferences ADD COLUMN is_admin INTEGER DEFAULT 0"
+                        "ALTER TABLE user_preferences "
+                        "ADD COLUMN is_admin INTEGER DEFAULT 0"
                     )
+
                 try:
-                    cursor.execute("SELECT responsible_area FROM user_preferences LIMIT 1")
+                    cursor.execute(
+                        "SELECT responsible_area FROM user_preferences LIMIT 1"
+                    )
                 except sqlite3.OperationalError:
                     cursor.execute(
-                        "ALTER TABLE user_preferences ADD COLUMN responsible_area TEXT"
+                        "ALTER TABLE user_preferences "
+                        "ADD COLUMN responsible_area TEXT"
                     )
+
                 conn.commit()
                 logger.info("資料庫初始化成功，包含設備監控相關資料表")
         except Exception as e:
@@ -150,7 +164,8 @@ class Database:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT INTO conversations (user_id, role, content) VALUES (?, ?, ?)",
+                    "INSERT INTO conversations (user_id, role, content) "
+                    "VALUES (?, ?, ?)",
                     (user_id, role, content),
                 )
                 conn.commit()
@@ -165,7 +180,8 @@ class Database:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT role, content FROM conversations WHERE user_id = ? "
+                    "SELECT role, content FROM conversations "
+                    "WHERE user_id = ? "
                     "ORDER BY timestamp DESC LIMIT ?",
                     (user_id, limit),
                 )
@@ -184,12 +200,12 @@ class Database:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                # 先檢查使用者是否已存在
                 cursor.execute(
                     "SELECT user_id FROM user_preferences WHERE user_id = ?",
                     (user_id,),
                 )
                 user_exists = cursor.fetchone()
+
                 if user_exists:
                     updates = []
                     params = []
@@ -197,11 +213,10 @@ class Database:
                         updates.append("language = ?")
                         params.append(language)
                     if updates:
-                        # 將 last_active 欄位更新為 CURRENT_TIMESTAMP
                         updates.append("last_active = CURRENT_TIMESTAMP")
                         query = (
-                            "UPDATE user_preferences SET " + ", ".join(updates) +
-                            " WHERE user_id = ?"
+                            "UPDATE user_preferences SET "
+                            f"{', '.join(updates)} WHERE user_id = ?"
                         )
                         params.append(user_id)
                         cursor.execute(query, params)
@@ -213,7 +228,10 @@ class Database:
                         values.append(language)
                     fields_str = ", ".join(fields)
                     placeholders = ", ".join(["?"] * len(values))
-                    query = f"INSERT INTO user_preferences ({fields_str}) VALUES ({placeholders})"
+                    query = (
+                        f"INSERT INTO user_preferences ({fields_str}) "
+                        f"VALUES ({placeholders})"
+                    )
                     cursor.execute(query, tuple(values))
                 conn.commit()
                 return True
@@ -248,17 +266,23 @@ class Database:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM conversations")
                 total_messages = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(DISTINCT user_id) FROM conversations")
+
+                cursor.execute(
+                    "SELECT COUNT(DISTINCT user_id) FROM conversations"
+                )
                 unique_users = cursor.fetchone()[0]
+
                 cursor.execute(
                     "SELECT COUNT(*) FROM conversations "
                     "WHERE timestamp > datetime('now', '-1 day')"
                 )
                 last_24h = cursor.fetchone()[0]
+
                 cursor.execute(
                     "SELECT role, COUNT(*) FROM conversations GROUP BY role"
                 )
                 role_counts = dict(cursor.fetchall())
+
                 return {
                     "total_messages": total_messages,
                     "unique_users": unique_users,
@@ -285,7 +309,10 @@ class Database:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT DISTINCT c.user_id, p.language, MAX(c.timestamp) as last_message
+                    SELECT DISTINCT
+                        c.user_id,
+                        p.language,
+                        MAX(c.timestamp) as last_message
                     FROM conversations c
                     LEFT JOIN user_preferences p ON c.user_id = p.user_id
                     GROUP BY c.user_id
@@ -301,6 +328,7 @@ class Database:
                         (user_id,),
                     )
                     message_count = cursor.fetchone()[0]
+
                     cursor.execute(
                         """
                         SELECT content FROM conversations
@@ -310,15 +338,13 @@ class Database:
                         (user_id,),
                     )
                     last_message = cursor.fetchone()
-                    results.append(
-                        {
-                            "user_id": user_id,
-                            "language": language or "zh-Hant",
-                            "last_activity": timestamp,
-                            "message_count": message_count,
-                            "last_message": last_message[0] if last_message else "",
-                        }
-                    )
+                    results.append({
+                        "user_id": user_id,
+                        "language": language or "zh-Hant",
+                        "last_activity": timestamp,
+                        "message_count": message_count,
+                        "last_message": last_message[0] if last_message else "",
+                    })
                 return results
         except Exception:
             logger.exception("取得最近對話失敗")
