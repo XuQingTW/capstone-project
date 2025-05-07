@@ -31,7 +31,6 @@
 │   ├── config.py                 # 集中式配置管理模組
 │   ├── main.py                   # 核心邏輯與 OpenAI 服務
 │   ├── linebot_connect.py        # LINE Bot 事件處理
-│   ├── powerbi_integration.py    # PowerBI API 整合
 │   ├── database.py               # 資料庫操作
 │   ├── analytics.py              # 數據分析模組
 │   ├── equipment_monitor.py      # 設備監控與異常偵測
