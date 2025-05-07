@@ -235,5 +235,8 @@ if __name__ == "__main__":
     linebot_connect = importlib.util.module_from_spec(spec)
     sys.modules["linebot_connect"] = linebot_connect
     spec.loader.exec_module(linebot_connect)
-    port = int(os.environ.get("PORT", 5000))
-    linebot_connect.app.run(host="0.0.0.0", port=port, debug=False)
+    port = int(os.environ.get("PORT", 443))
+    linebot_connect.app.run(ssl_context=(
+        'certs/capstone-project.me-chain.pem',  # fullchain
+        'certs/capstone-project.me-key.pem'),  # key
+        host="0.0.0.0", port=port, debug=False)
