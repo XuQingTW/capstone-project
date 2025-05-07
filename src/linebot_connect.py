@@ -837,6 +837,9 @@ if __name__ == "__main__":
     initialize_equipment_data()
     start_scheduler()
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", os.getenv("HTTPS_PORT", 443)))
     print("啟動伺服器中……")
-    app.run(host="0.0.0.0", port=port, debug=debug_mode)
+    app.run(ssl_context=(
+        os.environ.get('SSL_CERT_PATH', 'certs/capstone-project.me-chain.pem'),  # fullchain
+        os.environ.get('SSL_KEY_PATH', 'certs/capstone-project.me-key.pem')),  # key
+        host="0.0.0.0", port=port, debug=debug_mode)
