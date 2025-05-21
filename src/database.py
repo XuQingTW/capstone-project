@@ -1,11 +1,14 @@
 import logging
+
 import pyodbc
 
 # 設定日誌紀錄器
 logger = logging.getLogger(__name__)
 
+
 class Database:
     """處理對話記錄與使用者偏好儲存的資料庫處理程序"""
+
     def __init__(self, server="localhost", database="conversations"):
         """初始化資料庫連線"""
         self.connection_string = (
