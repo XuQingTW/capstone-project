@@ -261,17 +261,17 @@ class Database:
             raise
 
     # conversations 相關 method (sender_id/receiver_id 版本)
-    def add_message(self, sender_id, receiver_id, role, content):
+    def add_message(self, sender_id, receiver_id, content):
         """加入一筆新的對話記錄（sender/receiver 架構）"""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    INSERT INTO conversations (sender_id, receiver_id, role, content)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO conversations (sender_id, receiver_id, content)
+                    VALUES (?, ?, ?)
                     """,
-                    (sender_id, receiver_id, role, content)
+                    (sender_id, receiver_id, content)
                 )
                 conn.commit()
                 return True
@@ -286,7 +286,7 @@ class Database:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT TOP (?) role, content
+                    SELECT TOP (?) content
                     FROM conversations
                     WHERE sender_id = ?
                     ORDER BY timestamp DESC
@@ -294,8 +294,8 @@ class Database:
                     (limit, sender_id)
                 )
                 messages = [
-                    {"role": role, "content": content}
-                    for role, content in cursor.fetchall()
+                    {"content": content}
+                    for content in cursor.fetchall()
                 ]
                 messages.reverse()
                 return messages
@@ -321,17 +321,10 @@ class Database:
                     """
                 )
                 last_24h = cursor.fetchone()[0]
-                cursor.execute(
-                    "SELECT role, COUNT(*) FROM conversations GROUP BY role"
-                )
-                role_counts = dict(cursor.fetchall())
                 return {
                     "total_messages": total_messages,
                     "unique_users": unique_users,
                     "last_24h": last_24h,
-                    "user_messages": role_counts.get("user", 0),
-                    "assistant_messages": role_counts.get("assistant", 0),
-                    "system_messages": role_counts.get("system", 0),
                 }
         except Exception:
             logger.exception("取得對話統計資料失敗")
@@ -339,9 +332,6 @@ class Database:
                 "total_messages": 0,
                 "unique_users": 0,
                 "last_24h": 0,
-                "user_messages": 0,
-                "assistant_messages": 0,
-                "system_messages": 0,
             }
 
     def get_recent_conversations(self, limit=20):
@@ -372,7 +362,7 @@ class Database:
                     cursor.execute(
                         """
                         SELECT TOP 1 content FROM conversations
-                        WHERE sender_id = ? AND role = 'user'
+                        WHERE sender_id = ?
                         ORDER BY timestamp DESC
                         """,
                         (sender_id,)
