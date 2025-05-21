@@ -34,7 +34,7 @@ class Database:
                     CREATE TABLE conversations (
                         id INT IDENTITY(1,1) PRIMARY KEY,
                         sender_id NVARCHAR(255) NOT NULL,
-                        receiver_id NVARCHAR(255),
+                        receiver_id NVARCHAR(255) NOT NULL,
                         content NVARCHAR(MAX) NOT NULL,
                         timestamp DATETIME2 DEFAULT GETDATE(),
                         FOREIGN KEY (sender_id) REFERENCES user_preferences(user_id),
@@ -86,11 +86,11 @@ class Database:
                         equipment_id NVARCHAR(255) NOT NULL,
                         deformation_mm FLOAT,
                         rpm INT,
-                        event_time NVARCHAR(255),
+                        event_time TIME,
                         abnormal_type NVARCHAR(255),
                         downtime INT,
-                        recovered_time NVARCHAR(255),
-                        notes NVARCHAR(255),
+                        recovered_time TIME,
+                        notes NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
@@ -146,7 +146,7 @@ class Database:
                         total_operation_time INT, -- 總運作時長（分鐘）
                         total_downtime INT,       -- 停機總時長（分鐘）
                         downtime_rate FLOAT,
-                        description NVARCHAR(255),
+                        description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
@@ -167,7 +167,7 @@ class Database:
                         total_operation_time INT,
                         total_downtime INT,
                         downtime_rate FLOAT,
-                        description NVARCHAR(255),
+                        description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
@@ -187,7 +187,7 @@ class Database:
                         total_operation_time INT,
                         total_downtime INT,
                         downtime_rate FLOAT,
-                        description NVARCHAR(255),
+                        description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
@@ -208,7 +208,7 @@ class Database:
                         abnormal_type NVARCHAR(255), -- 異常類型
                         downtime INT,               -- 停機時長（分鐘）
                         downtime_rate FLOAT,
-                        description NVARCHAR(255),
+                        description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
@@ -229,7 +229,7 @@ class Database:
                         abnormal_type NVARCHAR(255),
                         downtime INT,
                         downtime_rate FLOAT,
-                        description NVARCHAR(255),
+                        description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
@@ -249,7 +249,7 @@ class Database:
                         abnormal_type NVARCHAR(255),
                         downtime INT,
                         downtime_rate FLOAT,
-                        description NVARCHAR(255),
+                        description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
                     """
