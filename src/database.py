@@ -1,8 +1,6 @@
 import logging
-
 import pyodbc
 
-# 設定日誌紀錄器
 logger = logging.getLogger(__name__)
 
 
@@ -29,8 +27,7 @@ class Database:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 # 建立對話記錄表
-                cursor.execute(
-                    """
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'conversations'
                     )
@@ -43,11 +40,9 @@ class Database:
                         FOREIGN KEY (sender_id) REFERENCES user_preferences(user_id),
                         FOREIGN KEY (receiver_id) REFERENCES user_preferences(user_id)
                     )
-                    """
-                )
+                """)
                 # 建立使用者偏好表
-                cursor.execute(
-                    """
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'user_preferences'
                     )
@@ -58,11 +53,9 @@ class Database:
                         is_admin BIT DEFAULT 0,
                         responsible_area NVARCHAR(255)
                     )
-                    """
-                )
+                """)
                 # 建立設備表
-                cursor.execute(
-                    """
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'equipment'
                     )
@@ -75,11 +68,9 @@ class Database:
                         status NVARCHAR(255) DEFAULT N'normal',
                         last_updated DATETIME2 DEFAULT GETDATE()
                     )
-                    """
-                )
+                """)
                 # 建立異常紀錄表
-                cursor.execute(
-                    """
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'abnormal_logs'
                     )
@@ -96,11 +87,9 @@ class Database:
                         notes NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-                #  建立警報記錄表
-                cursor.execute(
-                    """
+                """)
+                # 建立警報記錄表
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'alert_history'
                     )
@@ -117,13 +106,12 @@ class Database:
                         resolution_notes NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-                # 建立使用者訂閱設備表
-                cursor.execute(
-                    """
+                """)
+                # 使用者訂閱設備表
+                cursor.execute("""
                     IF NOT EXISTS (
-                        SELECT * FROM sys.tables WHERE name = 'user_equipment_subscriptions'
+                        SELECT * FROM sys.tables
+                        WHERE name = 'user_equipment_subscriptions'
                     )
                     CREATE TABLE user_equipment_subscriptions (
                         id INT IDENTITY(1,1) PRIMARY KEY,
@@ -133,11 +121,9 @@ class Database:
                         subscribed_at DATETIME2 DEFAULT GETDATE(),
                         CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id)
                     )
-                    """
-                )
-                 # 建立設備運作統計（月）
-                cursor.execute(
-                    """
+                """)
+                # 運作統計（月）
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'operation_stats_monthly'
                     )
@@ -146,19 +132,15 @@ class Database:
                         equipment_id NVARCHAR(255) NOT NULL,
                         year INT,
                         month INT,
-                        total_operation_time INT, -- 總運作時長（分鐘）
-                        total_downtime INT,       -- 停機總時長（分鐘）
+                        total_operation_time INT,
+                        total_downtime INT,
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-    
-
-                # 建立設備運作統計（季）
-                cursor.execute(
-                    """
+                """)
+                # 運作統計（季）
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'operation_stats_quarterly'
                     )
@@ -173,13 +155,9 @@ class Database:
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-    
-
-                # 建立設備運作統計（年）
-                cursor.execute(
-                    """
+                """)
+                # 運作統計（年）
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'operation_stats_yearly'
                     )
@@ -193,13 +171,9 @@ class Database:
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-    
-
-                # 建立各異常統計（月）
-                cursor.execute(
-                    """
+                """)
+                # 各異常統計（月）
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'fault_stats_monthly'
                     )
@@ -208,19 +182,15 @@ class Database:
                         equipment_id NVARCHAR(255) NOT NULL,
                         year INT,
                         month INT,
-                        abnormal_type NVARCHAR(255), -- 異常類型
-                        downtime INT,               -- 停機時長（分鐘）
+                        abnormal_type NVARCHAR(255),
+                        downtime INT,
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-    
-
-                # 建立各異常統計（季）
-                cursor.execute(
-                    """
+                """)
+                # 各異常統計（季）
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'fault_stats_quarterly'
                     )
@@ -235,13 +205,9 @@ class Database:
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
-    
-
-                # 建立各異常統計（年）
-                cursor.execute(
-                    """
+                """)
+                # 各異常統計（年）
+                cursor.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'fault_stats_yearly'
                     )
@@ -255,15 +221,14 @@ class Database:
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     )
-                    """
-                )
+                """)
                 conn.commit()
                 logger.info("資料庫初始化成功，包含所有自訂資料表")
-        except Exception as e:
-            logger.exception(f"資料庫初始化失敗：{e}")
+        except Exception as exc:
+            logger.exception(f"資料庫初始化失敗：{exc}")
             raise
 
-    # conversations 相關 method (sender_id/receiver_id 版本)
+    # conversations 相關 method
     def add_message(self, sender_id, receiver_id, content):
         """加入一筆新的對話記錄（sender/receiver 架構）"""
         try:
@@ -297,7 +262,7 @@ class Database:
                     (limit, sender_id)
                 )
                 messages = [
-                    {"content": content}
+                    {"content": content[0]}
                     for content in cursor.fetchall()
                 ]
                 messages.reverse()
@@ -383,7 +348,6 @@ class Database:
             logger.exception("取得最近對話失敗")
             return []
 
-    # user_preferences method（保持原樣）
     def set_user_preference(self, user_id, language=None):
         """設定或更新使用者偏好"""
         try:
@@ -410,7 +374,7 @@ class Database:
                         INSERT INTO user_preferences (user_id, language)
                         VALUES (?, ?)
                         """,
-                        (user_id, language or 'zh-Hant')
+                        (user_id, language or "zh-Hant")
                     )
                 conn.commit()
                 return True
@@ -437,5 +401,5 @@ class Database:
             logger.exception("取得使用者偏好失敗")
             return {"language": "zh-Hant"}
 
-# 建立單例資料庫實例
+
 db = Database()
