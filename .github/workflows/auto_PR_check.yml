@@ -1,51 +1,58 @@
-name: Auto Tag Release PR
+name: PR Checker
 
 on:
-  pull_request:
-    branches:
-      - main
-    types:
-      - closed
-  workflow_dispatch:
-    inputs:
-      tag:
-        type: string
-        required: true
+  pull_request_target:
+    types: [opened, edited, ready_for_review, reopened, synchronize]
 
 jobs:
-  auto_tag_release:
-    if: github.event.pull_request.merged == true && (startsWith(github.event.pull_request.title, 'Release v') || startsWith(github.event.pull_request.title, 'release v')) || github.event_name == 'workflow_dispatch'
+  check_commit_name_in_pr:
+    if: ${{ !github.event.pull_request.merged && github.base_ref != 'master' }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Cleanup Previous Comment
+        uses: actions/github-script@v7
         with:
-          fetch-depth: 0
-          token: ${{ secrets.MAARELEASE_RELEASE }}
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
 
-      - name: Git config
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+            const previousComment = comments.find(comment => comment.user.login === 'github-actions[bot]' && comment.body.includes('invalid commit(s)'));
+            if (previousComment) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previousComment.id
+              });
+            }
+      - name: Check Commits
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100
+            });
 
-      - name: Extract tag name
-        id: extract_tag
-        run: |
-          if ${{ github.event_name != 'workflow_dispatch' }}; then
-            tag_name=$(echo "${{ github.event.pull_request.title }}" | sed -E 's/(Release|release)//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-            echo "tag_name=$tag_name" >> $GITHUB_OUTPUT
-          else
-            echo "tag_name=${{ inputs.tag }}" >> $GITHUB_OUTPUT
-          fi
+            const regex = /^((build|chore|ci|docs?|feat!?|fix|perf|refactor|rft|style|test|i18n|typo|debug)[\:\.\(\,]|[Rr]evert|[Rr]elease|[Rr]eapply)/;
+            const invalidCommits = commits.filter(commit => !regex.test(commit.commit.message) || commit.parents.length > 1);
 
-      - name: Create release tag and push
-        run: |
-          git tag -a "${{ steps.extract_tag.outputs.tag_name }}" -m "${{ steps.extract_tag.outputs.tag_name }}" -f
-          git push origin "${{ steps.extract_tag.outputs.tag_name }}"
+            console.log(`Checked ${commits.length} commit(s)`);
 
-      - name: Merge into dev and push
-        run: |
-          git switch dev
-          git merge "${{ steps.extract_tag.outputs.tag_name }}"
-          git push origin dev
+            if (invalidCommits.length > 0) {
+              const invalidCommitNames = invalidCommits.map(commit => commit.commit.message);
+              const invalidCommitInfoList = invalidCommits.map(commit => `- ${commit.commit.message.split("\n")[0]} [\`${commit.sha.substring(0, 7)}\`](${commit.html_url})`).join("\n");
+
+              github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `## ⚠️ Found ${invalidCommits.length} invalid commit(s):\n\n${invalidCommitInfoList}\n\n---\nPlease follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format, and **DO NOT** use merge commits.\n请遵循 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) 格式，以及**不要**使用Merge Commit（修改 Commit Message 无法绕过检测）。`
+              });
+
+              core.setFailed(`Found ${invalidCommits.length} invalid commit(s):\n${invalidCommitNames.join("\n-------------------\n")}`);
+            }
