@@ -25,9 +25,9 @@ class Database:
         """如果資料表尚未存在，則建立必要的表格"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
+                init_cur = conn.cursor()
                 # 建立對話記錄表
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'conversations'
                     )
@@ -35,14 +35,15 @@ class Database:
                         id INT IDENTITY(1,1) PRIMARY KEY,
                         sender_id NVARCHAR(255) NOT NULL,
                         receiver_id NVARCHAR(255) NOT NULL,
+                        sender_role NVARCHAR(50) NOT NULL,
                         content NVARCHAR(MAX) NOT NULL,
                         timestamp DATETIME2 DEFAULT GETDATE(),
                         FOREIGN KEY (sender_id) REFERENCES user_preferences(user_id),
                         FOREIGN KEY (receiver_id) REFERENCES user_preferences(user_id)
                     )
                 """)
-                # 建立使用者偏好表
-                cursor.execute("""
+                # 建立使用者偏好表（增加 role 欄位）
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'user_preferences'
                     )
@@ -51,11 +52,12 @@ class Database:
                         language NVARCHAR(10) DEFAULT N'zh-Hant',
                         last_active DATETIME2 DEFAULT GETDATE(),
                         is_admin BIT DEFAULT 0,
-                        responsible_area NVARCHAR(255)
+                        responsible_area NVARCHAR(255),
+                        role NVARCHAR(50) DEFAULT N'user'
                     )
                 """)
                 # 建立設備表
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'equipment'
                     )
@@ -70,7 +72,7 @@ class Database:
                     )
                 """)
                 # 建立異常紀錄表
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'abnormal_logs'
                     )
@@ -89,7 +91,7 @@ class Database:
                     )
                 """)
                 # 建立警報記錄表
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'alert_history'
                     )
@@ -108,7 +110,7 @@ class Database:
                     )
                 """)
                 # 使用者訂閱設備表
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables
                         WHERE name = 'user_equipment_subscriptions'
@@ -123,7 +125,7 @@ class Database:
                     )
                 """)
                 # 運作統計（月）
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'operation_stats_monthly'
                     )
@@ -140,7 +142,7 @@ class Database:
                     )
                 """)
                 # 運作統計（季）
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'operation_stats_quarterly'
                     )
@@ -157,7 +159,7 @@ class Database:
                     )
                 """)
                 # 運作統計（年）
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'operation_stats_yearly'
                     )
@@ -173,7 +175,7 @@ class Database:
                     )
                 """)
                 # 各異常統計（月）
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'fault_stats_monthly'
                     )
@@ -190,7 +192,7 @@ class Database:
                     )
                 """)
                 # 各異常統計（季）
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'fault_stats_quarterly'
                     )
@@ -207,7 +209,7 @@ class Database:
                     )
                 """)
                 # 各異常統計（年）
-                cursor.execute("""
+                init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'fault_stats_yearly'
                     )
@@ -228,18 +230,18 @@ class Database:
             logger.exception(f"資料庫初始化失敗：{exc}")
             raise
 
-    # conversations 相關 method
-    def add_message(self, sender_id, receiver_id, content):
-        """加入一筆新的對話記錄（sender/receiver 架構）"""
+    def add_message(self, sender_id, receiver_id, sender_role, content):
+        """加入一筆新的對話記錄（包含發送者角色）"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
+                conv_add_cur = conn.cursor()
+                conv_add_cur.execute(
                     """
-                    INSERT INTO conversations (sender_id, receiver_id, content)
-                    VALUES (?, ?, ?)
+                    INSERT INTO conversations
+                        (sender_id, receiver_id, sender_role, content)
+                    VALUES (?, ?, ?, ?)
                     """,
-                    (sender_id, receiver_id, content)
+                    (sender_id, receiver_id, sender_role, content)
                 )
                 conn.commit()
                 return True
@@ -251,10 +253,10 @@ class Database:
         """取得指定 sender 的對話記錄"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
+                conv_hist_cur = conn.cursor()
+                conv_hist_cur.execute(
                     """
-                    SELECT TOP (?) content
+                    SELECT TOP (?) sender_role, content
                     FROM conversations
                     WHERE sender_id = ?
                     ORDER BY timestamp DESC
@@ -262,8 +264,8 @@ class Database:
                     (limit, sender_id)
                 )
                 messages = [
-                    {"content": content[0]}
-                    for content in cursor.fetchall()
+                    {"sender_role": sender_role, "content": content}
+                    for sender_role, content in conv_hist_cur.fetchall()
                 ]
                 messages.reverse()
                 return messages
@@ -275,39 +277,54 @@ class Database:
         """取得對話記錄統計資料"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM conversations")
-                total_messages = cursor.fetchone()[0]
-                cursor.execute(
+                conv_stats_cur = conn.cursor()
+                conv_stats_cur.execute("SELECT COUNT(*) FROM conversations")
+                total_messages = conv_stats_cur.fetchone()[0]
+                conv_stats_cur.execute(
                     "SELECT COUNT(DISTINCT sender_id) FROM conversations"
                 )
-                unique_users = cursor.fetchone()[0]
-                cursor.execute(
+                unique_senders = conv_stats_cur.fetchone()[0]
+                conv_stats_cur.execute(
                     """
                     SELECT COUNT(*) FROM conversations
                     WHERE timestamp >= DATEADD(day, -1, GETDATE())
                     """
                 )
-                last_24h = cursor.fetchone()[0]
+                last_24h = conv_stats_cur.fetchone()[0]
+                conv_stats_cur.execute(
+                    "SELECT sender_role, COUNT(*) FROM conversations GROUP BY sender_role"
+                )
+                role_counts = dict(conv_stats_cur.fetchall())
                 return {
                     "total_messages": total_messages,
-                    "unique_users": unique_users,
+                    "unique_senders": unique_senders,
                     "last_24h": last_24h,
+                    "user_messages": role_counts.get("user", 0),
+                    "assistant_messages": role_counts.get("assistant", 0),
+                    "system_messages": role_counts.get("system", 0),
+                    "other_messages": sum(
+                        count for role, count in role_counts.items()
+                        if role not in ["user", "assistant", "system"]
+                    )
                 }
         except Exception:
             logger.exception("取得對話統計資料失敗")
             return {
                 "total_messages": 0,
-                "unique_users": 0,
+                "unique_senders": 0,
                 "last_24h": 0,
+                "user_messages": 0,
+                "assistant_messages": 0,
+                "system_messages": 0,
+                "other_messages": 0,
             }
 
     def get_recent_conversations(self, limit=20):
         """取得最近的對話列表（依 sender_id）"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
+                recent_conv_cur = conn.cursor()
+                recent_conv_cur.execute(
                     """
                     SELECT DISTINCT TOP (?)
                         c.sender_id,
@@ -321,21 +338,21 @@ class Database:
                     (limit,)
                 )
                 results = []
-                for sender_id, language, timestamp in cursor.fetchall():
-                    cursor.execute(
+                for sender_id, language, timestamp in recent_conv_cur.fetchall():
+                    recent_conv_cur.execute(
                         "SELECT COUNT(*) FROM conversations WHERE sender_id = ?",
                         (sender_id,)
                     )
-                    message_count = cursor.fetchone()[0]
-                    cursor.execute(
+                    message_count = recent_conv_cur.fetchone()[0]
+                    recent_conv_cur.execute(
                         """
                         SELECT TOP 1 content FROM conversations
-                        WHERE sender_id = ?
+                        WHERE sender_id = ? AND sender_role = 'user'
                         ORDER BY timestamp DESC
                         """,
                         (sender_id,)
                     )
-                    last_message = cursor.fetchone()
+                    last_message = recent_conv_cur.fetchone()
                     results.append({
                         "sender_id": sender_id,
                         "language": language or "zh-Hant",
@@ -348,33 +365,35 @@ class Database:
             logger.exception("取得最近對話失敗")
             return []
 
-    def set_user_preference(self, user_id, language=None):
-        """設定或更新使用者偏好"""
+    def set_user_preference(self, user_id, language=None, role=None):
+        """設定或更新使用者偏好與角色"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
+                user_pref_set_cur = conn.cursor()
+                user_pref_set_cur.execute(
                     "SELECT user_id FROM user_preferences WHERE user_id = ?",
                     (user_id,)
                 )
-                user_exists = cursor.fetchone()
+                user_exists = user_pref_set_cur.fetchone()
                 if user_exists:
+                    sql = "UPDATE user_preferences SET last_active = GETDATE()"
+                    params = []
                     if language:
-                        cursor.execute(
-                            """
-                            UPDATE user_preferences
-                            SET language = ?, last_active = GETDATE()
-                            WHERE user_id = ?
-                            """,
-                            (language, user_id)
-                        )
+                        sql += ", language = ?"
+                        params.append(language)
+                    if role:
+                        sql += ", role = ?"
+                        params.append(role)
+                    sql += " WHERE user_id = ?"
+                    params.append(user_id)
+                    user_pref_set_cur.execute(sql, tuple(params))
                 else:
-                    cursor.execute(
+                    user_pref_set_cur.execute(
                         """
-                        INSERT INTO user_preferences (user_id, language)
-                        VALUES (?, ?)
+                        INSERT INTO user_preferences (user_id, language, role)
+                        VALUES (?, ?, ?)
                         """,
-                        (user_id, language or "zh-Hant")
+                        (user_id, language or "zh-Hant", role or "user")
                     )
                 conn.commit()
                 return True
@@ -383,23 +402,23 @@ class Database:
             return False
 
     def get_user_preference(self, user_id):
-        """取得使用者偏好"""
+        """取得使用者偏好與角色"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT language FROM user_preferences WHERE user_id = ?",
+                user_pref_get_cur = conn.cursor()
+                user_pref_get_cur.execute(
+                    "SELECT language, role FROM user_preferences WHERE user_id = ?",
                     (user_id,)
                 )
-                result = cursor.fetchone()
+                result = user_pref_get_cur.fetchone()
                 if result:
-                    return {"language": result[0]}
+                    return {"language": result[0], "role": result[1]}
                 # 如未找到則創建預設偏好
                 self.set_user_preference(user_id)
-                return {"language": "zh-Hant"}
+                return {"language": "zh-Hant", "role": "user"}
         except Exception:
             logger.exception("取得使用者偏好失敗")
-            return {"language": "zh-Hant"}
+            return {"language": "zh-Hant", "role": "user"}
 
 
 db = Database()
