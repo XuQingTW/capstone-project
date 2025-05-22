@@ -1,5 +1,6 @@
 import logging
 import pyodbc
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -7,13 +8,15 @@ logger = logging.getLogger(__name__)
 class Database:
     """處理對話記錄與使用者偏好儲存的資料庫處理程序"""
 
-    def __init__(self, server="localhost", database="conversations"):
+    def __init__(self, server=None, database=None):
         """初始化資料庫連線"""
+        resolved_server = server if server is not None else Config.DB_SERVER
+        resolved_database = database if database is not None else Config.DB_NAME
         self.connection_string = (
-            "DRIVER={ODBC Driver 17 for SQL Server};"
-            f"SERVER={server};"
-            f"DATABASE={database};"
-            "Trusted_Connection=yes;"
+            "DRIVER={ODBC Driver 17 for SQL Server};"  # Escaped braces for f-string
+            f"SERVER={resolved_server};"
+            f"DATABASE={resolved_database};"
+            "Trusted_Connection=yes;" # Keep trusted connection for now
         )
         self._initialize_db()
 
@@ -124,6 +127,35 @@ class Database:
                         CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id)
                     )
                 """)
+                # 建立設備指標表
+                init_cur.execute("""
+                    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'equipment_metrics')
+                    CREATE TABLE equipment_metrics (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        equipment_id NVARCHAR(255) NOT NULL,
+                        metric_type NVARCHAR(100) NOT NULL,
+                        value FLOAT NOT NULL,
+                        threshold_min FLOAT,
+                        threshold_max FLOAT,
+                        unit NVARCHAR(50),
+                        timestamp DATETIME2 DEFAULT GETDATE(),
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+                    )
+                """)
+                # 建立設備運作記錄表
+                init_cur.execute("""
+                    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'equipment_operation_logs')
+                    CREATE TABLE equipment_operation_logs (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        equipment_id NVARCHAR(255) NOT NULL,
+                        operation_type NVARCHAR(100) NOT NULL,
+                        start_time DATETIME2 NOT NULL,
+                        end_time DATETIME2,
+                        lot_id NVARCHAR(100),
+                        product_id NVARCHAR(100),
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+                    )
+                """)
                 # 運作統計（月）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -226,7 +258,7 @@ class Database:
                 """)
                 conn.commit()
                 logger.info("資料庫初始化成功，包含所有自訂資料表")
-        except Exception as exc:
+        except pyodbc.Error as exc:
             logger.exception(f"資料庫初始化失敗：{exc}")
             raise
 
@@ -245,8 +277,8 @@ class Database:
                 )
                 conn.commit()
                 return True
-        except Exception:
-            logger.exception("新增對話記錄失敗")
+        except pyodbc.Error as e:
+            logger.exception(f"新增對話記錄失敗: {e}")
             return False
 
     def get_conversation_history(self, sender_id, limit=10):
@@ -269,8 +301,8 @@ class Database:
                 ]
                 messages.reverse()
                 return messages
-        except Exception:
-            logger.exception("取得對話記錄失敗")
+        except pyodbc.Error as e:
+            logger.exception(f"取得對話記錄失敗: {e}")
             return []
 
     def get_conversation_stats(self):
@@ -307,8 +339,8 @@ class Database:
                         if role not in ["user", "assistant", "system"]
                     )
                 }
-        except Exception:
-            logger.exception("取得對話統計資料失敗")
+        except pyodbc.Error as e:
+            logger.exception(f"取得對話統計資料失敗: {e}")
             return {
                 "total_messages": 0,
                 "unique_senders": 0,
@@ -361,8 +393,8 @@ class Database:
                         "last_message": last_message[0] if last_message else "",
                     })
                 return results
-        except Exception:
-            logger.exception("取得最近對話失敗")
+        except pyodbc.Error as e:
+            logger.exception(f"取得最近對話失敗: {e}")
             return []
 
     def set_user_preference(self, user_id, language=None, role=None):
@@ -397,8 +429,8 @@ class Database:
                     )
                 conn.commit()
                 return True
-        except Exception:
-            logger.exception("設定使用者偏好失敗")
+        except pyodbc.Error as e:
+            logger.exception(f"設定使用者偏好失敗: {e}")
             return False
 
     def get_user_preference(self, user_id):
@@ -416,8 +448,8 @@ class Database:
                 # 如未找到則創建預設偏好
                 self.set_user_preference(user_id)
                 return {"language": "zh-Hant", "role": "user"}
-        except Exception:
-            logger.exception("取得使用者偏好失敗")
+        except pyodbc.Error as e:
+            logger.exception(f"取得使用者偏好失敗: {e}")
             return {"language": "zh-Hant", "role": "user"}
 
 

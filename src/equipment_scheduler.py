@@ -55,7 +55,6 @@ def stop_scheduler():
     else:
         logger.info("設備監控排程器已成功停止")
         scheduler_thread = None
-        os._exit(0)
 
 
 def stop_scheduler_on_signal(signum, frame):
