@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-
+import pyodbc  # Added to resolve F821 and for type hinting if used
 from database import db
 
 logger = logging.getLogger(__name__)
@@ -266,7 +266,7 @@ class EquipmentMonitor:
         except ImportError as imp_err:
             logger.error(f"無法導入 OpenAIService: {imp_err}")
             return None
-        except Exception as e: # Keep a general Exception for OpenAI client errors for now
+        except Exception as e:  # Keep a general Exception for OpenAI client errors for now
             logger.exception(f"產生 AI 建議時發生錯誤: {e}")
             return None
 

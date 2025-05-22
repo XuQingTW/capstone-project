@@ -138,7 +138,7 @@ class OpenAIService:
 
     def __init__(self, message, user_id):
         self.user_id = user_id  # Changed: sanitize_input removed for user_id
-        self.message = sanitize_input(message) # No change for message
+        self.message = sanitize_input(message)  # No change for message
         # 從環境變數獲取 OpenAI API 金鑰
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:

@@ -16,7 +16,7 @@ class Database:
             "DRIVER={ODBC Driver 17 for SQL Server};"  # Escaped braces for f-string
             f"SERVER={resolved_server};"
             f"DATABASE={resolved_database};"
-            "Trusted_Connection=yes;" # Keep trusted connection for now
+            "Trusted_Connection=yes;"  # Keep trusted connection for now
         )
         self._initialize_db()
 

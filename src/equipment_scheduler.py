@@ -1,6 +1,5 @@
 # src/equipment_scheduler.py
 import logging
-import os
 import signal
 import threading
 import time

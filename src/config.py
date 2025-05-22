@@ -27,10 +27,10 @@ class Config:
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
     LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
     # Database 配置
-    DB_SERVER = os.getenv("DB_SERVER", "localhost")
-    DB_NAME = os.getenv("DB_NAME", "conversations")
+    DB_SERVER = os.getenv("DB_SERVER", "localhost")  # Default
+    DB_NAME = os.getenv("DB_NAME", "conversations")  # Default
     DB_USER = os.getenv("DB_USER")  # For potential future use with non-trusted connections
-    DB_PASSWORD = os.getenv("DB_PASSWORD") # For potential future use
+    DB_PASSWORD = os.getenv("DB_PASSWORD")  # For potential future use
     # 驗證模式：嚴格 (strict) 或寬鬆 (loose)
     VALIDATION_MODE = os.getenv("VALIDATION_MODE", "strict")
 
