@@ -329,7 +329,7 @@ class Database:
             limit (int, optional): 最多回傳的對話訊息數。預設 10。
 
         Returns:
-            list of dict: 
+            list of dict:
                 對話紀錄列表，每筆為 dict，格式如：
                 [
                     {
@@ -446,7 +446,7 @@ class Database:
             limit (int, optional): 最多回傳的 sender_id 數量。預設 20。
 
         Returns:
-            list of dict: 
+            list of dict:
                 每筆資料包含下列欄位：
                 - sender_id (str): 發送訊息者的 user_id。
                 - language (str): 該使用者的語言偏好，若無則預設為 "zh-Hant"。
@@ -509,4 +509,3 @@ class Database:
 
 
 db = Database()
-
