@@ -45,7 +45,7 @@ class Database:
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM equipment")
         """
-        return pyodbc.connect(self.connection_string)  # 建立並回傳資料庫連線物件
+        return pyodbc.connect(self.connection_string)
 
     def _initialize_db(self):
         """
@@ -362,7 +362,7 @@ class Database:
                     {"sender_role": sender_role, "content": content}
                     for sender_role, content in conv_hist_cur.fetchall()
                 ]
-                messages.reverse()  # 反轉順序讓最舊的訊息排在前面
+                messages.reverse()
                 return messages
         except Exception:
             logger.exception("取得對話記錄失敗")
@@ -507,100 +507,6 @@ class Database:
             logger.exception("取得最近對話失敗")
             return []
 
-    def set_user_preference(self, user_id, language=None, role=None):
-        """
-        設定或更新指定使用者的語言偏好與角色資訊。
 
-        Args:
-            user_id (str): 使用者唯一識別碼。
-            language (str, optional): 語言偏好設定，如 'zh-Hant'、'en-US'。預設不變更（新增時為 'zh-Hant'）。
-            role (str, optional): 使用者角色，如 'user'、'admin' 等。預設不變更（新增時為 'user'）。
-
-        Returns:
-            bool: 若成功寫入或更新資料，回傳 True；若過程有錯誤則回傳 False。
-
-        例外處理:
-            若執行過程發生例外（如資料庫連線失敗），會自動記錄於 logger 並回傳 False。
-
-        說明:
-            - 若 user_id 已存在則僅更新 last_active（及語言、角色）。
-            - 若 user_id 不存在則新增一筆 user_preferences 記錄。
-
-        範例:
-            db.set_user_preference("U123", language="zh-Hant", role="admin")
-        """
-        try:
-            with self._get_connection() as conn:
-                user_pref_set_cur = conn.cursor()
-                user_pref_set_cur.execute(
-                    "SELECT user_id FROM user_preferences WHERE user_id = ?",
-                    (user_id,)
-                )
-                user_exists = user_pref_set_cur.fetchone()
-                if user_exists:
-                    sql = "UPDATE user_preferences SET last_active = GETDATE()"
-                    params = []
-                    if language:
-                        sql += ", language = ?"
-                        params.append(language)
-                    if role:
-                        sql += ", role = ?"
-                        params.append(role)
-                    sql += " WHERE user_id = ?"
-                    params.append(user_id)
-                    user_pref_set_cur.execute(sql, tuple(params))
-                else:
-                    user_pref_set_cur.execute(
-                        """
-                        INSERT INTO user_preferences (user_id, language, role)
-                        VALUES (?, ?, ?)
-                        """,
-                        (user_id, language or "zh-Hant", role or "user")
-                    )
-                conn.commit()
-                return True
-        except Exception:
-            logger.exception("設定使用者偏好失敗")
-            return False
-
-    def get_user_preference(self, user_id):
-        """
-        取得指定使用者的語言與角色偏好資訊，若資料不存在則自動建立預設值。
-
-        Args:
-            user_id (str): 使用者唯一識別碼。
-
-        Returns:
-            dict: 偏好設定，包含下列欄位：
-                - language (str): 語言偏好（如 'zh-Hant'）。
-                - role (str): 使用者角色（如 'user', 'admin'）。
-
-            若資料庫查無此 user_id，則自動建立預設值並回傳預設結果（{'language': 'zh-Hant', 'role': 'user'}）。
-
-        例外處理:
-            查詢或新增時若發生例外，會自動記錄於 logger，並回傳預設偏好設定。
-
-        範例:
-            pref = db.get_user_preference("U123")
-            # 可能結果：{'language': 'zh-Hant', 'role': 'user'}
-        """
-        try:
-            with self._get_connection() as conn:
-                user_pref_get_cur = conn.cursor()
-                user_pref_get_cur.execute(
-                    "SELECT language, role FROM user_preferences WHERE user_id = ?",
-                    (user_id,)
-                )
-                result = user_pref_get_cur.fetchone()
-                if result:
-                    return {"language": result[0], "role": result[1]}
-                # 如未找到則創建預設偏好
-                self.set_user_preference(user_id)
-                return {"language": "zh-Hant", "role": "user"}
-        except Exception:
-            logger.exception("取得使用者偏好失敗")
-            return {"language": "zh-Hant", "role": "user"}
-
-
-# 模組初始化時建立 Database 實例
 db = Database()
+
