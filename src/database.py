@@ -5,24 +5,80 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    """處理對話記錄與使用者偏好儲存的資料庫處理程序"""
+    """
+    處理對話記錄、使用者偏好、設備資訊與異常統計等相關資料庫操作的主要類別。
+    內含自動建立所有必要表格的功能，並提供高層級資料存取介面。
+    """
 
     def __init__(self, server="localhost", database="conversations"):
-        """初始化資料庫連線"""
+        """
+        初始化 Database 物件，設定連線字串並自動建立所有必要的資料表。
+
+        Args:
+            server (str, optional): 資料庫伺服器名稱或 IP。預設為 "localhost"。
+            database (str, optional): 要連接的資料庫名稱。預設為 "conversations"。
+
+        動作說明:
+            - 會根據指定的伺服器與資料庫名稱，建立 SQL Server 的連線字串。
+            - 物件初始化時自動執行 self._initialize_db()，檢查並建立所有所需資料表。
+
+        Returns:
+            無
+        """
         self.connection_string = (
             "DRIVER={ODBC Driver 17 for SQL Server};"
             f"SERVER={server};"
             f"DATABASE={database};"
             "Trusted_Connection=yes;"
         )
-        self._initialize_db()
+        self._initialize_db()  # 建立必要資料表（如尚未存在時）
 
     def _get_connection(self):
-        """建立並回傳資料庫連線"""
-        return pyodbc.connect(self.connection_string)
+        """
+        建立並回傳一個 SQL Server 資料庫連線物件。
+
+        Returns:
+            pyodbc.Connection: 可用於查詢或寫入的 pyodbc 連線物件。
+
+        範例:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM equipment")
+        """
+        return pyodbc.connect(self.connection_string)  # 建立並回傳資料庫連線物件
 
     def _initialize_db(self):
-        """如果資料表尚未存在，則建立必要的表格"""
+        """
+        檢查並自動建立所有系統所需資料表（若尚未存在）。
+
+        說明:
+            本方法會檢查並建立如下資料表：
+                - conversations: 對話記錄
+                - user_preferences: 使用者偏好與角色
+                - equipment: 設備資訊
+                - abnormal_logs: 異常紀錄
+                - alert_history: 警報歷史
+                - user_equipment_subscriptions: 使用者設備訂閱
+                - operation_stats_monthly/quarterly/yearly: 各時段運作統計
+                - fault_stats_monthly/quarterly/yearly: 各時段異常統計
+
+            若資料表已存在則不會重複建立，確保資料結構完整。
+
+        Args:
+            無
+
+        Returns:
+            無
+
+        Raises:
+            Exception: 若資料庫連線或 SQL 操作發生錯誤會拋出例外。
+
+        例外處理:
+            若任何建表過程出錯，會自動記錄詳細錯誤與 traceback 至 logger，並再次 raise 例外給外部。
+
+        使用範例:
+            db = Database()  # 初始化時自動呼叫本方法
+        """
         try:
             with self._get_connection() as conn:
                 init_cur = conn.cursor()
@@ -231,7 +287,22 @@ class Database:
             raise
 
     def add_message(self, sender_id, receiver_id, sender_role, content):
-        """加入一筆新的對話記錄（包含發送者角色）"""
+        """
+        新增一筆對話記錄到 conversations 資料表。
+
+        Args:
+            sender_id (str): 發送訊息的 user_id（必須已存在於 user_preferences）。
+            receiver_id (str): 接收訊息的 user_id（必須已存在於 user_preferences）。
+            sender_role (str): 發送者的角色，例如 'user'、'assistant'、'system'。
+            content (str): 傳送的訊息內容。
+
+        Returns:
+            bool: 新增成功回傳 True，若過程中出現錯誤則回傳 False。
+
+        例外處理:
+            若過程中發生任何例外（如資料庫連線失敗、外鍵不存在等），
+            會自動記錄於 logger 並回傳 False。
+        """
         try:
             with self._get_connection() as conn:
                 conv_add_cur = conn.cursor()
@@ -250,7 +321,31 @@ class Database:
             return False
 
     def get_conversation_history(self, sender_id, limit=10):
-        """取得指定 sender 的對話記錄"""
+        """
+        取得指定發送者（sender_id）的對話紀錄清單，依時間由新到舊排序，回傳字典列表。
+
+        Args:
+            sender_id (str): 查詢發送訊息者的 user_id。
+            limit (int, optional): 最多回傳的對話訊息數。預設 10。
+
+        Returns:
+            list of dict: 
+                對話紀錄列表，每筆為 dict，格式如：
+                [
+                    {
+                        "sender_role": str,  # 訊息的發送角色（'user', 'assistant', 'system', ...）
+                        "content": str       # 訊息內容
+                    },
+                    ...
+                ]
+                若查無紀錄或發生錯誤則回傳空列表。
+
+        例外處理:
+            若資料庫存取失敗，會自動記錄於 logger，並回傳空列表 []。
+
+        範例:
+            history = db.get_conversation_history("U123", limit=5)
+        """
         try:
             with self._get_connection() as conn:
                 conv_hist_cur = conn.cursor()
@@ -274,7 +369,31 @@ class Database:
             return []
 
     def get_conversation_stats(self):
-        """取得對話記錄統計資料"""
+        """
+        取得 conversations 對話紀錄的綜合統計資料。
+
+        本方法會計算整體訊息數量、唯一發送者數、最近 24 小時訊息數，
+        以及各角色（user、assistant、system、其他）發送的訊息數。
+
+        Args:
+            無
+
+        Returns:
+            dict: 對話統計資訊，包括以下欄位：
+                - total_messages (int): 全部訊息總數
+                - unique_senders (int): 發送訊息的唯一 sender_id 數
+                - last_24h (int): 最近 24 小時訊息數
+                - user_messages (int): user 角色發送訊息數
+                - assistant_messages (int): assistant 角色發送訊息數
+                - system_messages (int): system 角色發送訊息數
+                - other_messages (int): 其他角色發送訊息數
+
+        例外處理:
+            若查詢失敗（如資料庫錯誤），會自動記錄於 logger，並回傳所有統計為 0 的預設 dict。
+
+        範例:
+            stats = db.get_conversation_stats()
+        """
         try:
             with self._get_connection() as conn:
                 conv_stats_cur = conn.cursor()
@@ -319,106 +438,73 @@ class Database:
                 "other_messages": 0,
             }
 
-    def get_recent_conversations(self, limit=20):
-        """取得最近的對話列表（依 sender_id）"""
-        try:
-            with self._get_connection() as conn:
-                recent_conv_cur = conn.cursor()
+def get_recent_conversations(self, limit=20):
+    """
+    取得最近互動過（依 sender_id 聚合）的對話資訊清單，依最後訊息時間排序。
+
+    Args:
+        limit (int, optional): 最多回傳的 sender_id 數量。預設 20。
+
+    Returns:
+        list of dict: 
+            每筆資料包含下列欄位：
+            - sender_id (str): 發送訊息者的 user_id。
+            - language (str): 該使用者的語言偏好，若無則預設為 "zh-Hant"。
+            - last_activity (datetime): 該 sender 最後訊息時間。
+            - message_count (int): 此 sender_id 的訊息總數。
+            - last_message (str): 最後一筆 user 訊息內容，若無則為空字串。
+
+            回傳結果依 last_activity 由新到舊排序。若查詢失敗則回傳空列表。
+
+    例外處理:
+        若查詢過程發生例外（如資料庫連線錯誤），
+        會自動記錄於 logger，並回傳空列表 []。
+
+    範例:
+        conversations = db.get_recent_conversations(limit=10)
+    """
+    try:
+        with self._get_connection() as conn:
+            recent_conv_cur = conn.cursor()
+            recent_conv_cur.execute(
+                """
+                SELECT DISTINCT TOP (?)
+                    c.sender_id,
+                    p.language,
+                    MAX(c.timestamp) as last_message
+                FROM conversations c
+                LEFT JOIN user_preferences p ON c.sender_id = p.user_id
+                GROUP BY c.sender_id, p.language
+                ORDER BY last_message DESC
+                """,
+                (limit,)
+            )
+            results = []
+            for sender_id, language, timestamp in recent_conv_cur.fetchall():
+                recent_conv_cur.execute(
+                    "SELECT COUNT(*) FROM conversations WHERE sender_id = ?",
+                    (sender_id,)
+                )
+                message_count = recent_conv_cur.fetchone()[0]
                 recent_conv_cur.execute(
                     """
-                    SELECT DISTINCT TOP (?)
-                        c.sender_id,
-                        p.language,
-                        MAX(c.timestamp) as last_message
-                    FROM conversations c
-                    LEFT JOIN user_preferences p ON c.sender_id = p.user_id
-                    GROUP BY c.sender_id, p.language
-                    ORDER BY last_message DESC
+                    SELECT TOP 1 content FROM conversations
+                    WHERE sender_id = ? AND sender_role = 'user'
+                    ORDER BY timestamp DESC
                     """,
-                    (limit,)
+                    (sender_id,)
                 )
-                results = []
-                for sender_id, language, timestamp in recent_conv_cur.fetchall():
-                    recent_conv_cur.execute(
-                        "SELECT COUNT(*) FROM conversations WHERE sender_id = ?",
-                        (sender_id,)
-                    )
-                    message_count = recent_conv_cur.fetchone()[0]
-                    recent_conv_cur.execute(
-                        """
-                        SELECT TOP 1 content FROM conversations
-                        WHERE sender_id = ? AND sender_role = 'user'
-                        ORDER BY timestamp DESC
-                        """,
-                        (sender_id,)
-                    )
-                    last_message = recent_conv_cur.fetchone()
-                    results.append({
-                        "sender_id": sender_id,
-                        "language": language or "zh-Hant",
-                        "last_activity": timestamp,
-                        "message_count": message_count,
-                        "last_message": last_message[0] if last_message else "",
-                    })
-                return results
-        except Exception:
-            logger.exception("取得最近對話失敗")
-            return []
-
-    def set_user_preference(self, user_id, language=None, role=None):
-        """設定或更新使用者偏好與角色"""
-        try:
-            with self._get_connection() as conn:
-                user_pref_set_cur = conn.cursor()
-                user_pref_set_cur.execute(
-                    "SELECT user_id FROM user_preferences WHERE user_id = ?",
-                    (user_id,)
-                )
-                user_exists = user_pref_set_cur.fetchone()
-                if user_exists:
-                    sql = "UPDATE user_preferences SET last_active = GETDATE()"
-                    params = []
-                    if language:
-                        sql += ", language = ?"
-                        params.append(language)
-                    if role:
-                        sql += ", role = ?"
-                        params.append(role)
-                    sql += " WHERE user_id = ?"
-                    params.append(user_id)
-                    user_pref_set_cur.execute(sql, tuple(params))
-                else:
-                    user_pref_set_cur.execute(
-                        """
-                        INSERT INTO user_preferences (user_id, language, role)
-                        VALUES (?, ?, ?)
-                        """,
-                        (user_id, language or "zh-Hant", role or "user")
-                    )
-                conn.commit()
-                return True
-        except Exception:
-            logger.exception("設定使用者偏好失敗")
-            return False
-
-    def get_user_preference(self, user_id):
-        """取得使用者偏好與角色"""
-        try:
-            with self._get_connection() as conn:
-                user_pref_get_cur = conn.cursor()
-                user_pref_get_cur.execute(
-                    "SELECT language, role FROM user_preferences WHERE user_id = ?",
-                    (user_id,)
-                )
-                result = user_pref_get_cur.fetchone()
-                if result:
-                    return {"language": result[0], "role": result[1]}
-                # 如未找到則創建預設偏好
-                self.set_user_preference(user_id)
-                return {"language": "zh-Hant", "role": "user"}
-        except Exception:
-            logger.exception("取得使用者偏好失敗")
-            return {"language": "zh-Hant", "role": "user"}
-
+                last_message = recent_conv_cur.fetchone()
+                results.append({
+                    "sender_id": sender_id,
+                    "language": language or "zh-Hant",
+                    "last_activity": timestamp,
+                    "message_count": message_count,
+                    "last_message": last_message[0] if last_message else "",
+                })
+            return results
+    except Exception:
+        logger.exception("取得最近對話失敗")
+        return []
 
 db = Database()
