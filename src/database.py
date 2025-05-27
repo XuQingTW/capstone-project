@@ -447,7 +447,7 @@ class Database:
                     # 新增使用者
                     user_pref_set_cur.execute(
                         """
-                        INSERT INTO user_preferences 
+                        INSERT INTO user_preferences
                             (user_id, language, role, last_active, is_admin, responsible_area)
                         VALUES (?, ?, ?, GETDATE(), 0, NULL);
                         """,
