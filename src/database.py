@@ -10,7 +10,7 @@ class Database:
     內含自動建立所有必要表格的功能，並提供高層級資料存取介面。
     """
 
-    def __init__(self, server="localhost", database="conversations"):
+    def __init__(self, server=None, database=None):
         """
         初始化 Database 物件，設定連線字串並自動建立所有必要的資料表。
 
@@ -25,13 +25,15 @@ class Database:
         Returns:
             無
         """
+        resolved_server = server if server is not None else Config.DB_SERVER
+        resolved_database = database if database is not None else Config.DB_NAME
         self.connection_string = (
             "DRIVER={ODBC Driver 17 for SQL Server};"
-            f"SERVER={server};"
-            f"DATABASE={database};"
+            f"SERVER={resolved_server};"
+            f"DATABASE={resolved_database};"
             "Trusted_Connection=yes;"
         )
-        self._initialize_db()  # 建立必要資料表（如尚未存在時）
+        self._initialize_db()
 
     def _get_connection(self):
         """
@@ -339,30 +341,26 @@ class Database:
                     ...
                 ]
                 若查無紀錄或發生錯誤則回傳空列表。
-
-        例外處理:
-            若資料庫存取失敗，會自動記錄於 logger，並回傳空列表 []。
-
-        範例:
-            history = db.get_conversation_history("U123", limit=5)
         """
         try:
             with self._get_connection() as conn:
                 conv_hist_cur = conn.cursor()
-                conv_hist_cur.execute(
-                    """
-                    SELECT TOP (?) sender_role, content
+                # 修正後的 SQL 查詢
+                sql_query = """
+                    SELECT sender_role, content
                     FROM conversations
                     WHERE sender_id = ?
                     ORDER BY timestamp DESC
-                    """,
-                    (limit, sender_id)
-                )
+                    OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
+                """
+                # 參數順序：第一個 ? 是 sender_id，第二個 ? 是 limit
+                conv_hist_cur.execute(sql_query, (sender_id, limit))
+                
                 messages = [
-                    {"sender_role": sender_role, "content": content}
-                    for sender_role, content in conv_hist_cur.fetchall()
+                    {"sender_role": row.sender_role, "content": row.content} # 假設回傳的 row 物件可以直接透過欄位名稱存取
+                    for row in conv_hist_cur.fetchall()
                 ]
-                messages.reverse()
+                messages.reverse()  # 因為 OpenAI 需要的順序是時間由舊到新
                 return messages
         except Exception:
             logger.exception("取得對話記錄失敗")
@@ -438,55 +436,38 @@ class Database:
                 "other_messages": 0,
             }
 
-    def get_recent_conversations(self, limit=20):
+    def get_recent_conversations(self, limit: int = 5) -> list:
         """
-        取得最近互動過（依 sender_id 聚合）的對話資訊清單，依最後訊息時間排序。
-
+        獲取最近的對話紀錄。
         Args:
-            limit (int, optional): 最多回傳的 sender_id 數量。預設 20。
-
+            limit (int, optional): 返回的對話數量。預設 5。
         Returns:
-            list of dict:
-                每筆資料包含下列欄位：
-                - sender_id (str): 發送訊息者的 user_id。
-                - language (str): 該使用者的語言偏好，若無則預設為 "zh-Hant"。
-                - last_activity (datetime): 該 sender 最後訊息時間。
-                - message_count (int): 此 sender_id 的訊息總數。
-                - last_message (str): 最後一筆 user 訊息內容，若無則為空字串。
-
-                回傳結果依 last_activity 由新到舊排序。若查詢失敗則回傳空列表。
-
-        例外處理:
-            若查詢過程發生例外（如資料庫連線錯誤），
-            會自動記錄於 logger，並回傳空列表 []。
-
-        範例:
-            conversations = db.get_recent_conversations(limit=10)
+            list: 最近對話的列表，每個元素是一個字典。
         """
         try:
             with self._get_connection() as conn:
-                recent_conv_cur = conn.cursor()
-                recent_conv_cur.execute(
+                cursor = conn.cursor()
+                cursor.execute(
                     """
-                    SELECT DISTINCT TOP (?)
-                        c.sender_id,
-                        p.language,
-                        MAX(c.timestamp) as last_message
+                    SELECT c.sender_id, p.language, MAX(c.timestamp) AS last_message
                     FROM conversations c
                     LEFT JOIN user_preferences p ON c.sender_id = p.user_id
                     GROUP BY c.sender_id, p.language
                     ORDER BY last_message DESC
+                    OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
                     """,
                     (limit,)
                 )
                 results = []
-                for sender_id, language, timestamp in recent_conv_cur.fetchall():
-                    recent_conv_cur.execute(
+                # 獲取最近對話的核心邏輯不變，只是分頁語法修改
+                for sender_id, language, timestamp in cursor.fetchall():
+                    # 以下兩個查詢保持不變，因為它們不是分頁查詢的主體
+                    cursor.execute(
                         "SELECT COUNT(*) FROM conversations WHERE sender_id = ?",
                         (sender_id,)
                     )
-                    message_count = recent_conv_cur.fetchone()[0]
-                    recent_conv_cur.execute(
+                    message_count = cursor.fetchone()[0]
+                    cursor.execute(
                         """
                         SELECT TOP 1 content FROM conversations
                         WHERE sender_id = ? AND sender_role = 'user'
@@ -494,7 +475,7 @@ class Database:
                         """,
                         (sender_id,)
                     )
-                    last_message = recent_conv_cur.fetchone()
+                    last_message = cursor.fetchone()
                     results.append({
                         "sender_id": sender_id,
                         "language": language or "zh-Hant",
@@ -505,6 +486,167 @@ class Database:
                 return results
         except Exception:
             logger.exception("取得最近對話失敗")
+            return []
+
+    def set_user_preference(self, user_id: str, **kwargs) -> bool:
+        """
+        設定或更新指定使用者的偏好設定。
+
+        Args:
+            user_id (str): 使用者的唯一識別碼。
+            **kwargs: 偏好設定的鍵值對，例如 language='zh-Hant', responsible_area='生產線A'。
+                      支援的鍵包括 'language', 'responsible_area', 'is_admin'。
+
+        Returns:
+            bool: 如果設定成功則為 True，否則為 False。
+
+        Raises:
+            Exception: 如果資料庫操作失敗。
+
+        範例:
+            ```python
+            db.set_user_preference("U1234567890abcdef", language="en", responsible_area="A區")
+            ```
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                # 檢查使用者是否存在
+                cursor.execute("SELECT 1 FROM user_preferences WHERE user_id = ?", (user_id,))
+                exists = cursor.fetchone()
+
+                update_fields = []
+                update_values = []
+                for key, value in kwargs.items():
+                    # 限制可更新的欄位，防止注入不支援的欄位
+                    if key in ["language", "responsible_area", "is_admin"]:
+                        update_fields.append(f"{key} = ?")
+                        update_values.append(value)
+
+                if not update_fields:
+                    logger.warning(f"沒有可更新的偏好設定給使用者 {user_id}。")
+                    return False
+
+                if exists:
+                    # 更新現有偏好
+                    query = f"UPDATE user_preferences SET {', '.join(update_fields)} WHERE user_id = ?"
+                    update_values.append(user_id)
+                    cursor.execute(query, tuple(update_values))
+                    logger.info(f"使用者 {user_id} 的偏好設定已更新: {kwargs}")
+                else:
+                    # 插入新偏好
+                    insert_fields = ["user_id"] + list(kwargs.keys())
+                    insert_placeholders = ["?"] * len(insert_fields)
+                    insert_values = [user_id] + list(kwargs.values())
+
+                    # 過濾掉不支援的欄位，只插入 user_preferences 表中實際存在的欄位
+                    # 這裡假設 kwargs 已經被上層限制，或你需要在此處增加檢查
+                    valid_insert_fields = []
+                    valid_insert_values = []
+                    for i, field in enumerate(insert_fields):
+                        if field in ["user_id", "language", "responsible_area", "is_admin"]:
+                            valid_insert_fields.append(field)
+                            valid_insert_values.append(insert_values[i])
+
+                    query = f"INSERT INTO user_preferences ({', '.join(valid_insert_fields)}) VALUES ({', '.join(['?']*len(valid_insert_fields))})"
+                    cursor.execute(query, tuple(valid_insert_values))
+                    logger.info(f"使用者 {user_id} 的偏好設定已新增: {kwargs}")
+
+                conn.commit()
+                return True
+        except pyodbc.Error as db_err:
+            logger.exception(f"設定使用者偏好 {user_id} 時發生資料庫錯誤: {db_err}")
+            return False
+        except Exception as e:
+            logger.exception(f"設定使用者偏好 {user_id} 時發生未預期錯誤: {e}")
+            return False
+
+    def get_user_preference(self, user_id: str) -> dict:
+        """
+        取得指定使用者的偏好設定。
+
+        Args:
+            user_id (str): 使用者的唯一識別碼。
+
+        Returns:
+            dict: 包含使用者偏好設定的字典，如果找不到則回傳空字典。
+
+        Raises:
+            Exception: 如果資料庫操作失敗。
+
+        範例:
+            ```python
+            prefs = db.get_user_preference("U1234567890abcdef")
+            print(prefs.get("language", "zh-Hant"))
+            ```
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT language, responsible_area, is_admin FROM user_preferences WHERE user_id = ?",
+                    (user_id,),
+                )
+                result = cursor.fetchone()
+                if result:
+                    # 回傳一個字典，包含所有的偏好設定
+                    return {
+                        "language": result[0],
+                        "responsible_area": result[1],
+                        "is_admin": bool(result[2]) # 將 int 轉為 bool
+                    }
+                return {} # 如果找不到使用者，回傳空字典
+        except pyodbc.Error as db_err:
+            logger.exception(f"取得使用者偏好 {user_id} 時發生資料庫錯誤: {db_err}")
+            return {}
+        except Exception as e:
+            logger.exception(f"取得使用者偏好 {user_id} 時發生未預期錯誤: {e}")
+            return {}
+
+    def get_all_equipment(self) -> list:
+        """
+        從資料庫獲取所有設備的基本資訊。
+
+        Returns:
+            list: 包含所有設備資訊字典的列表。
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT equipment_id, equipment_name, equipment_type, location, status FROM equipment")
+                columns = [column[0] for column in cursor.description]
+                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception:
+            logger.exception("獲取所有設備資訊失敗")
+            return []
+        
+    def get_abnormal_logs(self, equipment_id: str, limit: int = 5) -> list:
+        """
+        從資料庫獲取指定設備的異常紀錄。
+        Args:
+            equipment_id (str): 設備的唯一識別碼。
+            limit (int, optional): 最多回傳的紀錄數。預設 5。
+        Returns:
+            list: 包含異常紀錄字典的列表。
+                  每個字典包含 'event_date', 'abnormal_type', 'notes'。
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT event_date, abnormal_type, notes
+                    FROM abnormal_logs
+                    WHERE equipment_id = ?
+                    ORDER BY event_date DESC
+                    OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
+                    """,
+                    (equipment_id, limit) # 注意這裡參數的順序
+                )
+                columns = [column[0] for column in cursor.description]
+                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception:
+            logger.exception(f"獲取設備 {equipment_id} 的異常紀錄失敗")
             return []
 
 
