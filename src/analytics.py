@@ -392,7 +392,6 @@ class Analytics:
             logger.exception(f"取得使用者統計數據時發生未知錯誤: {e}")
             return {}
 
-
 # 全域 analytics 實例
 analytics = Analytics()
 
