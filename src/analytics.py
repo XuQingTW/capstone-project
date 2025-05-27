@@ -395,3 +395,4 @@ class Analytics:
 
 # 全域 analytics 實例
 analytics = Analytics()
+
