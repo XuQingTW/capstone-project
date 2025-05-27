@@ -1,6 +1,6 @@
 import logging
 import pyodbc
-from config import Config # 重新加入 Config 的匯入
+from config import Config  # 重新加入 Config 的匯入
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class Database:
                         timestamp DATETIME2 DEFAULT GETDATE(),
                         FOREIGN KEY (sender_id) REFERENCES user_preferences(user_id),
                         FOREIGN KEY (receiver_id) REFERENCES user_preferences(user_id)
-                    )
+                    );
                 """)
                 # 建立使用者偏好表（增加 role 欄位）
                 init_cur.execute("""
@@ -58,7 +58,7 @@ class Database:
                         is_admin BIT DEFAULT 0,
                         responsible_area NVARCHAR(255),
                         role NVARCHAR(50) DEFAULT N'user'
-                    )
+                    );
                 """)
                 # 建立設備表
                 init_cur.execute("""
@@ -73,7 +73,7 @@ class Database:
                         location NVARCHAR(255),
                         status NVARCHAR(255) DEFAULT N'normal',
                         last_updated DATETIME2 DEFAULT GETDATE()
-                    )
+                    );
                 """)
                 # 建立異常紀錄表
                 init_cur.execute("""
@@ -92,7 +92,7 @@ class Database:
                         recovered_time TIME,
                         notes NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 建立警報記錄表
                 init_cur.execute("""
@@ -111,7 +111,7 @@ class Database:
                         resolved_by NVARCHAR(255),
                         resolution_notes NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 使用者訂閱設備表
                 init_cur.execute("""
@@ -126,7 +126,7 @@ class Database:
                         notification_level NVARCHAR(255) DEFAULT N'all',
                         subscribed_at DATETIME2 DEFAULT GETDATE(),
                         CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id)
-                    )
+                    );
                 """)
                 # 建立設備指標表
                 init_cur.execute("""
@@ -141,7 +141,7 @@ class Database:
                         unit NVARCHAR(50),
                         timestamp DATETIME2 DEFAULT GETDATE(),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 建立設備運作記錄表
                 init_cur.execute("""
@@ -155,7 +155,7 @@ class Database:
                         lot_id NVARCHAR(100),
                         product_id NVARCHAR(100),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 運作統計（月）
                 init_cur.execute("""
@@ -172,7 +172,7 @@ class Database:
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 運作統計（季）
                 init_cur.execute("""
@@ -189,7 +189,7 @@ class Database:
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 運作統計（年）
                 init_cur.execute("""
@@ -205,7 +205,7 @@ class Database:
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 各異常統計（月）
                 init_cur.execute("""
@@ -222,7 +222,7 @@ class Database:
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 各異常統計（季）
                 init_cur.execute("""
@@ -239,7 +239,7 @@ class Database:
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 # 各異常統計（年）
                 init_cur.execute("""
@@ -255,7 +255,7 @@ class Database:
                         downtime_rate FLOAT,
                         description NVARCHAR(MAX),
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-                    )
+                    );
                 """)
                 conn.commit()
                 logger.info("資料庫初始化成功，包含所有自訂資料表")
@@ -272,7 +272,7 @@ class Database:
                     """
                     INSERT INTO conversations
                         (sender_id, receiver_id, sender_role, content)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?);
                     """,
                     (sender_id, receiver_id, sender_role, content)
                 )
@@ -295,17 +295,18 @@ class Database:
                     SELECT TOP (?) sender_role, content
                     FROM conversations
                     WHERE sender_id = ?
-                    ORDER BY timestamp DESC
+                    ORDER BY timestamp DESC;
                     """,
                     (limit, sender_id)
                 )
                 # 從資料庫讀取是 DESC，但通常聊天室顯示是 ASC (舊的在上面)
                 # 所以先 reverse
                 messages = [
-                    {"role": sender_role, "content": content} # 統一鍵名為 'role' 以符合 OpenAI 格式
+                    # 統一鍵名為 'role' 以符合 OpenAI 格式
+                    {"role": sender_role, "content": content}
                     for sender_role, content in conv_hist_cur.fetchall()
                 ]
-                messages.reverse() # 反轉順序，讓最新的訊息在最後
+                messages.reverse()  # 反轉順序，讓最新的訊息在最後
                 return messages
         except pyodbc.Error as e:
             logger.exception(f"取得對話記錄失敗: {e}")
@@ -316,30 +317,31 @@ class Database:
         try:
             with self._get_connection() as conn:
                 conv_stats_cur = conn.cursor()
-                conv_stats_cur.execute("SELECT COUNT(*) FROM conversations")
+                conv_stats_cur.execute("SELECT COUNT(*) FROM conversations;")
                 total_messages = conv_stats_cur.fetchone()[0]
                 conv_stats_cur.execute(
-                    "SELECT COUNT(DISTINCT sender_id) FROM conversations"
+                    "SELECT COUNT(DISTINCT sender_id) FROM conversations;"
                 )
-                unique_senders = conv_stats_cur.fetchone()[0] # 這裡的 sender_id 應該是指 user_id
+                unique_senders = conv_stats_cur.fetchone()[0]  # 這裡的 sender_id 應該是指 user_id
                 conv_stats_cur.execute(
                     """
                     SELECT COUNT(*) FROM conversations
-                    WHERE timestamp >= DATEADD(day, -1, GETDATE())
+                    WHERE timestamp >= DATEADD(day, -1, GETDATE());
                     """
                 )
                 last_24h = conv_stats_cur.fetchone()[0]
                 conv_stats_cur.execute(
-                    "SELECT sender_role, COUNT(*) FROM conversations GROUP BY sender_role"
+                    "SELECT sender_role, COUNT(*) FROM conversations GROUP BY sender_role;"
                 )
                 role_counts = dict(conv_stats_cur.fetchall())
                 return {
                     "total_messages": total_messages,
-                    "unique_users": unique_senders, # 改名為 unique_users 更清晰
+                    "unique_users": unique_senders,  # 改名為 unique_users 更清晰
                     "last_24h": last_24h,
                     "user_messages": role_counts.get("user", 0),
                     "assistant_messages": role_counts.get("assistant", 0),
-                    "system_messages": role_counts.get("system", 0), # 如果您有 system role 的訊息
+                    # 如果您有 system role 的訊息
+                    "system_messages": role_counts.get("system", 0),
                     "other_messages": sum(
                         count for role, count in role_counts.items()
                         if role not in ["user", "assistant", "system"]
@@ -363,39 +365,38 @@ class Database:
             with self._get_connection() as conn:
                 recent_conv_cur = conn.cursor()
                 # 這裡的 sender_id 實際上是指 user_id
-                recent_conv_cur.execute(
-                    """
+                sql_query = """
                     SELECT DISTINCT TOP (?)
-                        c.sender_id, -- 這其實是 user_id
+                        c.sender_id,  -- 這其實是 user_id
                         p.language,
-                        MAX(c.timestamp) as last_activity_ts -- 改名以區分 last_message 內容
+                        MAX(c.timestamp) as last_activity_ts  -- 改名以區分 last_message 內容
                     FROM conversations c
-                    LEFT JOIN user_preferences p ON c.sender_id = p.user_id -- 連接基於 sender_id = user_id
+                    LEFT JOIN user_preferences p ON c.sender_id = p.user_id  -- 連接基於 sender_id = user_id
                     GROUP BY c.sender_id, p.language
-                    ORDER BY last_activity_ts DESC
-                    """,
-                    (limit,)
-                )
+                    ORDER BY last_activity_ts DESC;
+                """
+                recent_conv_cur.execute(sql_query, (limit,))
                 results = []
                 for user_id_val, language, timestamp_val in recent_conv_cur.fetchall():
+                    # sender_id 即 user_id
                     recent_conv_cur.execute(
-                        "SELECT COUNT(*) FROM conversations WHERE sender_id = ?", # sender_id 即 user_id
+                        "SELECT COUNT(*) FROM conversations WHERE sender_id = ?;",
                         (user_id_val,)
                     )
                     message_count = recent_conv_cur.fetchone()[0]
                     recent_conv_cur.execute(
                         """
                         SELECT TOP 1 content FROM conversations
-                        WHERE sender_id = ? AND sender_role = 'user' -- 通常看 user 的最後一句話
-                        ORDER BY timestamp DESC
+                        WHERE sender_id = ? AND sender_role = 'user'  -- 通常看 user 的最後一句話
+                        ORDER BY timestamp DESC;
                         """,
                         (user_id_val,)
                     )
                     last_message_content = recent_conv_cur.fetchone()
                     results.append({
-                        "user_id": user_id_val, # 改名為 user_id
-                        "language": language or "zh-Hant", # 預設語言
-                        "last_activity": timestamp_val, # 直接使用 timestamp
+                        "user_id": user_id_val,  # 改名為 user_id
+                        "language": language or "zh-Hant",  # 預設語言
+                        "last_activity": timestamp_val,  # 直接使用 timestamp
                         "message_count": message_count,
                         "last_message": last_message_content[0] if last_message_content else "",
                     })
@@ -411,7 +412,7 @@ class Database:
             with self._get_connection() as conn:
                 user_pref_set_cur = conn.cursor()
                 user_pref_set_cur.execute(
-                    "SELECT user_id FROM user_preferences WHERE user_id = ?",
+                    "SELECT user_id FROM user_preferences WHERE user_id = ?;",
                     (user_id,)
                 )
                 user_exists = user_pref_set_cur.fetchone()
@@ -427,21 +428,28 @@ class Database:
                         update_parts.append("role = ?")
                         params.append(role)
 
-                    if not update_parts: # 如果沒有要更新的欄位，至少更新 last_active
+                    # 如果沒有要更新的欄位，至少更新 last_active
+                    if not update_parts:
                         user_pref_set_cur.execute(
-                            "UPDATE user_preferences SET last_active = GETDATE() WHERE user_id = ?",
+                            "UPDATE user_preferences SET last_active = GETDATE() "
+                            "WHERE user_id = ?;",
                             (user_id,)
                         )
                     else:
-                        sql = "UPDATE user_preferences SET last_active = GETDATE(), " + ", ".join(update_parts) + " WHERE user_id = ?"
+                        sql = (
+                            "UPDATE user_preferences SET last_active = GETDATE(), "
+                            + ", ".join(update_parts)
+                            + " WHERE user_id = ?;"
+                        )
                         params.append(user_id)
                         user_pref_set_cur.execute(sql, tuple(params))
                 else:
                     # 新增使用者
                     user_pref_set_cur.execute(
                         """
-                        INSERT INTO user_preferences (user_id, language, role, last_active, is_admin, responsible_area)
-                        VALUES (?, ?, ?, GETDATE(), 0, NULL)
+                        INSERT INTO user_preferences 
+                            (user_id, language, role, last_active, is_admin, responsible_area)
+                        VALUES (?, ?, ?, GETDATE(), 0, NULL);
                         """,
                         (user_id, language or "zh-Hant", role or "user")
                     )
@@ -458,7 +466,8 @@ class Database:
             with self._get_connection() as conn:
                 user_pref_get_cur = conn.cursor()
                 user_pref_get_cur.execute(
-                    "SELECT language, role, is_admin, responsible_area FROM user_preferences WHERE user_id = ?",
+                    "SELECT language, role, is_admin, responsible_area "
+                    "FROM user_preferences WHERE user_id = ?;",
                     (user_id,)
                 )
                 result = user_pref_get_cur.fetchone()
@@ -468,15 +477,25 @@ class Database:
                         "role": result[1],
                         "is_admin": result[2],
                         "responsible_area": result[3]
-                        }
+                    }
                 # 如果未找到則創建預設偏好
                 logger.info(f"User {user_id} not found in preferences, creating with defaults.")
-                self.set_user_preference(user_id) # 這會創建預設的 user, zh-Hant
-                return {"language": "zh-Hant", "role": "user", "is_admin": False, "responsible_area": None}
+                self.set_user_preference(user_id)  # 這會創建預設的 user, zh-Hant
+                return {
+                    "language": "zh-Hant",
+                    "role": "user",
+                    "is_admin": False,
+                    "responsible_area": None
+                }
         except pyodbc.Error as e:
             logger.exception(f"取得使用者偏好失敗: {e}")
             # 發生錯誤時回傳一個安全的預設值
-            return {"language": "zh-Hant", "role": "user", "is_admin": False, "responsible_area": None}
+            return {
+                "language": "zh-Hant",
+                "role": "user",
+                "is_admin": False,
+                "responsible_area": None
+            }
 
 
 db = Database()
