@@ -1,6 +1,7 @@
 import logging
-# 移除 import sqlite3
-from database import db # db 物件現在是 MS SQL Server 的接口
+import pyodbc  # 為了捕獲 pyodbc.Error，需要匯入
+from database import db  # db 物件現在是 MS SQL Server 的接口
+
 logger = logging.getLogger(__name__)
 
 
@@ -11,7 +12,7 @@ def initialize_equipment_data():
         with db._get_connection() as conn:
             cursor = conn.cursor()
             # 檢查是否已有設備資料
-            cursor.execute("SELECT COUNT(*) FROM equipment")
+            cursor.execute("SELECT COUNT(*) FROM equipment;")
             if cursor.fetchone()[0] > 0:
                 logger.info("設備資料已存在，略過初始化 (MS SQL Server)")
                 return
@@ -40,7 +41,7 @@ def initialize_equipment_data():
                 cursor.execute(
                     """
                     INSERT INTO equipment (equipment_id, name, type, location, status)
-                    VALUES (?, ?, ?, ?, 'normal')
+                    VALUES (?, ?, ?, ?, 'normal');
                     """,
                     (equipment_id, name, equipment_type, location),
                 )
@@ -55,7 +56,7 @@ def initialize_equipment_data():
                 ("DB001", "壓力", 1.5, 1.0, 2.0, "MPa"),
                 ("DB001", "Pick準確率", 99.2, 98.0, None, "%"),
                 ("DB001", "良率", 99.5, 98.0, None, "%"),
-                ("DB001", "運轉時間", 120.0, None, None, "分鐘"), # 確保 value 是 FLOAT
+                ("DB001", "運轉時間", 120.0, None, None, "分鐘"),  # 確保 value 是 FLOAT
                 ("DB002", "溫度", 24.2, 18.0, 28.0, "°C"),
                 # ... (其他 DB002, DB003 的指標) ...
 
@@ -66,7 +67,7 @@ def initialize_equipment_data():
 
                 # 切割機指標
                 ("DC001", "溫度", 24.7, 20.0, 28.0, "°C"),
-                ("DC001", "轉速", 30000.0, 25000.0, 35000.0, "RPM"), # 確保 value 是 FLOAT
+                ("DC001", "轉速", 30000.0, 25000.0, 35000.0, "RPM"),  # 確保 value 是 FLOAT
                 # ... (其他 DC001, DC002 的指標) ...
             ]
             # 插入前檢查 equipment_metrics 是否為空，避免 cursor.executemany 出錯
@@ -75,13 +76,12 @@ def initialize_equipment_data():
                     """
                     INSERT INTO equipment_metrics
                     (equipment_id, metric_type, value, threshold_min, threshold_max, unit)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?);
                     """,
                     equipment_metrics_data,
                 )
 
-            # 模擬一些運行中的作業 (使用 MS SQL Server 的 datetime('now', '-2 hours') 語法不適用)
-            # 改為使用 DATEADD
+            # 模擬一些運行中的作業 (使用 MS SQL Server 的語法)
             operations = [
                 ("DB001", "常規生產", "LOT-2023-11-001", "PROD-A123"),
                 ("WB001", "常規生產", "LOT-2023-11-002", "PROD-B456"),
@@ -92,17 +92,18 @@ def initialize_equipment_data():
                     """
                     INSERT INTO equipment_operation_logs
                     (equipment_id, operation_type, start_time, lot_id, product_id)
-                    VALUES (?, ?, DATEADD(hour, -2, GETDATE()), ?, ?)
+                    VALUES (?, ?, DATEADD(hour, -2, GETDATE()), ?, ?);
                     """,
                     (eq_id, op_type, lot_id, prod_id),
                 )
 
             conn.commit()
             logger.info("設備資料初始化完成 (MS SQL Server)")
-    except pyodbc.Error as e: # 捕獲 pyodbc 的錯誤
+    except pyodbc.Error as e:  # 捕獲 pyodbc 的錯誤
         logger.error(f"初始化設備資料失敗 (MS SQL Server): {e}")
     except Exception as e:
         logger.error(f"初始化設備資料時發生未知錯誤 (MS SQL Server): {e}")
+
 
 if __name__ == '__main__':
     # 為了能夠獨立執行此腳本進行測試或初始化
