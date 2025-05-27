@@ -3,11 +3,12 @@ import functools
 import logging
 import os
 import secrets
-# import sqlite3  # <<<<<<< REMOVE THIS LINE
-import threading
+# 移除 import sqlite3 (不再需要)
+import threading # 保留 threading
 import time
 from collections import defaultdict
 
+import pyodbc # 引入 pyodbc 用於捕獲其特定的錯誤
 from flask import (
     Flask,
     abort,
@@ -38,10 +39,9 @@ from linebot.v3.webhook import WebhookHandler
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from database import db
+from database import db # db 物件現在是 MS SQL Server 的接口
 from equipment_scheduler import start_scheduler
 from initial_data import initialize_equipment_data
-from config import Config # <<<<<<< ADD THIS LINE
 
 # 設定 logging
 logging.basicConfig(level=logging.INFO)
@@ -53,193 +53,689 @@ channel_secret = os.getenv("LINE_CHANNEL_SECRET")
 
 if not channel_access_token or not channel_secret:
     raise ValueError(
-        "LINE_CHANNEL_ACCESS_TOKEN and LINE_CHANNEL_SECRET environment variables must be set."
+        "LINE 金鑰未正確設置。請確定環境變數 LINE_CHANNEL_ACCESS_TOKEN、LINE_CHANNEL_SECRET 已設定。"
     )
 
-# Line Bot API 設定
-configuration = Configuration(
-    access_token=channel_access_token,
-)
+# 判斷是否在測試環境 - 避免在測試期間啟用 Talisman 重定向
+is_testing = os.environ.get("TESTING", "False").lower() == "true"
+
+# 固定的密鑰文件路徑
+SECRET_KEY_FILE = "data/secret_key.txt"
+
+
+def get_or_create_secret_key():
+    """獲取或創建一個固定的 secret key"""
+    env_key = os.getenv("SECRET_KEY")
+    if env_key:
+        return env_key
+
+    os.makedirs(os.path.dirname(SECRET_KEY_FILE), exist_ok=True)
+    try:
+        if os.path.exists(SECRET_KEY_FILE):
+            with open(SECRET_KEY_FILE, "r") as f:
+                key = f.read().strip()
+                if key:
+                    return key
+        key = secrets.token_hex(24)
+        with open(SECRET_KEY_FILE, "w") as f:
+            f.write(key)
+        return key
+    except Exception as e:
+        logger.warning(f"無法讀取或寫入密鑰文件: {e}，使用臨時密鑰")
+        return secrets.token_hex(24)
+
+
+# 全局請求計數器與鎖 (線程安全)
+request_counts = defaultdict(list)
+last_cleanup_time = time.time()
+request_counts_lock = threading.Lock()
+
+
+def cleanup_request_counts():
+    """清理長時間未使用的 IP 地址"""
+    global last_cleanup_time
+    current_time = time.time()
+
+    if current_time - last_cleanup_time < 3600:
+        return
+
+    with request_counts_lock:
+        ips_to_remove = [
+            ip for ip, timestamps in request_counts.items()
+            if not timestamps or current_time - max(timestamps) > 3600
+        ]
+        for ip in ips_to_remove:
+            del request_counts[ip]
+        last_cleanup_time = current_time
+        logger.info("已清理過期請求記錄")
+
+
+def rate_limit_check(ip, max_requests=30, window_seconds=60):
+    """
+    簡單的 IP 請求限制，防止暴力攻擊
+    """
+    current_time = time.time()
+    cleanup_request_counts()
+    with request_counts_lock:
+        request_counts[ip] = [
+            timestamp for timestamp in request_counts[ip]
+            if current_time - timestamp < window_seconds
+        ]
+        if len(request_counts[ip]) >= max_requests:
+            return False
+        request_counts[ip].append(current_time)
+        return True
+
+
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "password")
+
+
+def admin_required(f):
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("admin_login", next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def create_app():
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"),
+        static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+    )
+    app.secret_key = get_or_create_secret_key()
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+    csp = {
+        "default-src": "'self'",
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.powerbi.com"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:"],
+        "frame-src": ["https://app.powerbi.com"],
+        "connect-src": ["'self'", "https://api.powerbi.com", "https://login.microsoftonline.com"],
+    }
+
+    if not is_testing:
+        Talisman(
+            app,
+            content_security_policy=csp,
+            content_security_policy_nonce_in=["script-src"],
+            force_https=True,
+            session_cookie_secure=True,
+            session_cookie_http_only=True,
+            feature_policy="geolocation 'none'; microphone 'none'; camera 'none'",
+        )
+    else:
+        logger.info("Running in test mode - Talisman security features disabled")
+    return app
+
+app = create_app()
+
+configuration = Configuration(access_token=channel_access_token)
+api_client = ApiClient(configuration)
+line_bot_api = MessagingApi(api_client)
 handler = WebhookHandler(channel_secret)
 
-app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1, x_proto=1)
-app.secret_key = os.urandom(24)  # 設定 Flask session 的密鑰
 
-# 設定 Flask-Talisman for security headers
-csp = {
-    'default-src': ["'self'"],
-    'script-src': ["'self'", "https://cdnjs.cloudflare.com"],
-    'style-src': ["'self'", "https://cdnjs.cloudflare.com"],
-    'img-src': ["'self'", "data:", "https://*.line-scdn.net"],
-    'connect-src': ["'self'", "https://api.line.me"]
-}
-Talisman(app, content_security_policy=csp)
+def register_routes(app_instance):
+    @app_instance.route("/callback", methods=["POST"])
+    def callback():
+        signature = request.headers.get("X-Line-Signature")
+        body = request.get_data(as_text=True)
+        if not signature:
+            logger.error("缺少 X-Line-Signature 標頭。")
+            abort(400)
+        try:
+            handler.handle(body, signature)
+        except InvalidSignatureError:
+            logger.error("無效的簽名")
+            abort(400)
+        return "OK"
 
+    @app_instance.route("/")
+    def index():
+        return render_template("index.html")
 
-# 儲存每個聊天室的最後一次訊息時間和狀態 (用於速率限制和狀態管理)
-last_message_time = defaultdict(datetime.datetime.min)
-chat_states = defaultdict(lambda: {"state": "initial"})  # 為每個聊天室初始化狀態
+    @app_instance.route("/admin/login", methods=["GET", "POST"])
+    def admin_login():
+        if request.method == "POST":
+            username = request.form.get("username")
+            password = request.form.get("password")
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                session["admin_logged_in"] = True
+                session.permanent = True
+                app_instance.permanent_session_lifetime = datetime.timedelta(days=7)
+                return redirect(request.args.get("next") or url_for("admin_dashboard"))
+            else:
+                flash("登入失敗，請確認帳號密碼是否正確", "error")
+        return render_template("admin_login.html")
 
-# 速率限制設定
-RATE_LIMIT_INTERVAL = 1  # 每個使用者發送訊息的最小間隔 (秒)
+    @app_instance.route("/admin/logout")
+    def admin_logout():
+        session.pop("admin_logged_in", None)
+        return redirect(url_for("admin_login"))
 
-@app.route("/", methods=["GET"])
-def index():
-    return "Hello Line Bot"
+    @app_instance.route("/admin/dashboard")
+    @admin_required
+    def admin_dashboard():
+        conversation_stats = db.get_conversation_stats()
+        recent_conversations = db.get_recent_conversations(limit=20)
+        system_info = {
+            "openai_api_key": "已設置" if os.getenv("OPENAI_API_KEY") else "未設置",
+            "line_channel_secret": "已設置" if os.getenv("LINE_CHANNEL_SECRET") else "未設置",
+            "db_server": os.getenv("DB_SERVER", "localhost"),
+            "db_name": os.getenv("DB_NAME", "conversations")
+        }
+        return render_template(
+            "admin_dashboard.html",
+            stats=conversation_stats,
+            recent=recent_conversations,
+            system_info=system_info,
+        )
 
-@app.route("/callback", methods=["POST"])
-def callback():
-    signature = request.headers["X-Line-Signature"]
-    body = request.get_data(as_text=True)
-    app.logger.info("Request body: %s", body)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        app.logger.error("Invalid signature. Please check your channel access token/channel secret.")
-        abort(400)
-    return "OK"
+    @app_instance.route("/admin/conversation/<user_id>")
+    @admin_required
+    def admin_view_conversation(user_id):
+        conversation = db.get_conversation_history(user_id, limit=50)
+        user_info = db.get_user_preference(user_id)
+        return render_template(
+            "admin_conversation.html",
+            conversation=conversation,
+            user_id=user_id,
+            user_info=user_info,
+        )
+
+    @app_instance.template_filter("nl2br")
+    def nl2br(value):
+        if not value:
+            return ""
+        return value.replace("\n", "<br>")
+
+    @app_instance.context_processor
+    def utility_processor():
+        def now_func():
+            return datetime.datetime.now()
+        return dict(now=now_func)
+
+register_routes(app) # 確保傳入的是在 create_app 中創建的 app 實例
+
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
+    text = event.message.text.strip()
+    text_lower = text.lower()
     user_id = event.source.user_id
-    user_message = event.message.text
 
-    # 記錄使用者訊息
-    db.add_message(
-        sender_id=user_id,
-        receiver_id="bot",  # 假設 bot 為接收者
-        sender_role="user",
-        content=user_message,
-    )
+    db.get_user_preference(user_id) 
 
-    # Removed try-except block here. Let reply_message handle its own errors or let them propagate.
-    response_text = reply_message(event)
-    message = TextMessage(text=response_text)
-    reply_request = ReplyMessageRequest(
-        reply_token=event.reply_token, messages=[message]
-    )
-    line_bot_api.reply_message_with_http_info(reply_request)
+    reply_message_obj = None
+    equipment_name = "" # 初始化 equipment_name
 
-    # 記錄機器人回覆
-    db.add_message(
-        sender_id="bot",
-        receiver_id=user_id,
-        sender_role="assistant",
-        content=response_text,
-    )
+    if text_lower in ["help", "幫助", "選單", "menu"]:
+        quick_reply = QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="查看報表", text="powerbi")),
+                QuickReplyItem(action=MessageAction(label="我的訂閱", text="我的訂閱")),
+                QuickReplyItem(action=MessageAction(label="訂閱設備", text="訂閱設備")),
+                QuickReplyItem(action=MessageAction(label="設備狀態", text="設備狀態")),
+                QuickReplyItem(action=MessageAction(label="使用說明", text="使用說明")),
+            ]
+        )
+        reply_message_obj = TextMessage(
+            text="您可以選擇以下選項或直接輸入您的問題：", quick_reply=quick_reply
+        )
 
+    elif text_lower in ["使用說明", "說明", "教學", "指南", "guide"]:
+        carousel_template = CarouselTemplate(
+            columns=[
+                CarouselColumn(
+                    title="如何使用聊天機器人",
+                    text="直接輸入您的問題，AI 將為您提供解答。",
+                    actions=[
+                        MessageAction(label="試試問問題", text="如何建立一個簡單的網頁？")
+                    ],
+                ),
+                CarouselColumn(
+                    title="設備訂閱功能",
+                    text="訂閱您需要監控的設備，接收警報並查看報表。",
+                    actions=[MessageAction(label="我的訂閱", text="我的訂閱")],
+                ),
+                CarouselColumn(
+                    title="設備監控功能",
+                    text="查看半導體設備的狀態和異常警告。",
+                    actions=[MessageAction(label="查看設備狀態", text="設備狀態")],
+                ),
+                CarouselColumn(
+                    title="語言設定",
+                    text="輸入 'language:語言代碼' 更改語言。\n目前支援：\nlanguage:zh-Hant (繁中)",
+                    actions=[MessageAction(label="設定為繁體中文", text="language:zh-Hant")],
+                ),
+            ]
+        )
+        reply_message_obj = TemplateMessage(
+            alt_text="使用說明", template=carousel_template
+        )
 
-def reply_message(event) -> str:
-    user_id = event.source.user_id
-    user_message = event.message.text
+    elif text_lower in ["關於", "about"]:
+        reply_message_obj = TextMessage(
+            text=(
+                "這是一個整合 LINE Bot 與 OpenAI 的智能助理，"
+                "可以回答您的技術問題、監控半導體設備狀態並展示。"
+                "您可以輸入 'help' 查看更多功能。"
+            )
+        )
 
-    # 獲取使用者偏好設定 (為了語言和其他個人化)
-    user_prefs = db.get_user_preference(user_id)
-    user_language = user_prefs.get("language", Config.DEFAULT_LANGUAGE) # 從 Config 獲取預設語言
+    elif text_lower == "language":
+        reply_message_obj = TextMessage(
+            text=(
+                "您可以通過輸入以下命令設置語言：\n\n"
+                "language:zh-Hant - 繁體中文"
+            )
+        )
 
-    # 處理語言設定
-    if user_message.startswith("設定語言"):
-        parts = user_message.split()
-        if len(parts) == 2:
-            lang = parts[1].lower()
-            if lang == "英文":
-                db.set_user_preference(user_id, language="en")
-                return "Language set to English." if user_language == "en" else "語言已設定為英文。"
-            elif lang == "中文":
-                db.set_user_preference(user_id, language="zh-Hant")
-                return "語言已設定為中文。" if user_language == "zh-Hant" else "Language set to Chinese."
+    elif text_lower.startswith("language:") or text.startswith("語言:"):
+        lang_code_input = text.split(":", 1)[1].strip().lower()
+        valid_langs = { "zh-hant": "zh-Hant", "zh": "zh-Hant" }
+        lang_to_set = valid_langs.get(lang_code_input)
+
+        if lang_to_set:
+            if db.set_user_preference(user_id, language=lang_to_set):
+                confirmation_map = { "zh-Hant": "語言已切換至 繁體中文" }
+                reply_message_obj = TextMessage(text=confirmation_map.get(lang_to_set, f"語言已設定為 {lang_to_set}"))
             else:
-                return "不支援的語言設定。請輸入 '設定語言 英文' 或 '設定語言 中文'。" if user_language == "zh-Hant" else "Unsupported language. Please type 'Set language English' or 'Set language Chinese'."
+                reply_message_obj = TextMessage(text="語言設定失敗，請稍後再試。")
         else:
-            return "請指定語言，例如：'設定語言 英文' 或 '設定語言 中文'。" if user_language == "zh-Hant" else "Please specify language, e.g., 'Set language English' or 'Set language Chinese'."
+            reply_message_obj = TextMessage(
+                text="不支援的語言代碼。目前支援：zh-Hant (繁體中文)"
+            )
 
-    # 處理設備資訊查詢
-    elif user_message == "設備詳情":
-        equipments = db.get_all_equipment() # 使用新的 get_all_equipment 方法
-        if not equipments:
-            return "目前沒有設備資訊。" if user_language == "zh-Hant" else "No equipment information available."
+    elif text_lower in ["設備狀態", "機台狀態", "equipment status"]:
+        try:
+            with db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT e.type, COUNT(*) as total,
+                           SUM(CASE WHEN e.status = 'normal' THEN 1 ELSE 0 END) as normal_count,
+                           SUM(CASE WHEN e.status = 'warning' THEN 1 ELSE 0 END) as warning_count,
+                           SUM(CASE WHEN e.status = 'critical' THEN 1 ELSE 0 END) as critical_count,
+                           SUM(CASE WHEN e.status = 'emergency' THEN 1 ELSE 0 END) as emergency_count,
+                           SUM(CASE WHEN e.status = 'offline' THEN 1 ELSE 0 END) as offline_count
+                    FROM equipment e
+                    GROUP BY e.type
+                    """
+                )
+                stats = cursor.fetchall()
+                if not stats:
+                    reply_message_obj = TextMessage(text="目前尚未設定任何設備。")
+                else:
+                    response_text = "📊 設備狀態摘要：\n\n"
+                    for row in stats:
+                        equipment_type_db, total, normal_count, warning_count, critical_count, emergency_count, offline_count = row
+                        type_name = {"die_bonder": "黏晶機", "wire_bonder": "打線機", "dicer": "切割機"}.get(equipment_type_db, equipment_type_db)
+                        response_text += f"{type_name}：總數 {total}, 正常 {normal_count}"
+                        if warning_count > 0: response_text += f", 警告 {warning_count}"
+                        if critical_count > 0: response_text += f", 嚴重 {critical_count}"
+                        if emergency_count > 0: response_text += f", 緊急 {emergency_count}"
+                        if offline_count > 0: response_text += f", 離線 {offline_count}"
+                        response_text += "\n"
 
-        reply = "目前設備狀態：\n" if user_language == "zh-Hant" else "Current Equipment Status:\n"
-        for eq in equipments:
-            reply += f"ID: {eq.get('equipment_id', 'N/A')}, "
-            reply += f"名稱: {eq.get('name', 'N/A')}, " if user_language == "zh-Hant" else f"Name: {eq.get('name', 'N/A')}, "
-            reply += f"類型: {eq.get('type', 'N/A')}, " if user_language == "zh-Hant" else f"Type: {eq.get('type', 'N/A')}, "
-            reply += f"位置: {eq.get('location', 'N/A')}, " if user_language == "zh-Hant" else f"Location: {eq.get('location', 'N/A')}, "
-            reply += f"狀態: {eq.get('status', 'N/A')}\n" if user_language == "zh-Hant" else f"Status: {eq.get('status', 'N/A')}\n"
-        return reply
+                    cursor.execute(
+                        """
+                        SELECT TOP 5 e.name, e.type, e.status, e.equipment_id, ah.alert_type, ah.created_at
+                        FROM equipment e
+                        LEFT JOIN alert_history ah ON e.equipment_id = ah.equipment_id
+                                                AND ah.is_resolved = 0
+                                                AND ah.id = (SELECT MAX(ah_inner.id) FROM alert_history ah_inner WHERE ah_inner.equipment_id = e.equipment_id AND ah_inner.is_resolved = 0)
+                        WHERE e.status NOT IN ('normal', 'offline')
+                        ORDER BY CASE e.status
+                            WHEN 'emergency' THEN 1
+                            WHEN 'critical' THEN 2
+                            WHEN 'warning' THEN 3
+                            ELSE 4
+                        END, ah.created_at DESC;
+                        """
+                    ) # 確保 SQL 語句以分號結尾
+                    abnormal_equipments = cursor.fetchall()
+                    if abnormal_equipments:
+                        response_text += "\n⚠️ 近期異常設備 (最多5筆)：\n\n"
+                        for name, eq_type, status, eq_id, alert_type_val, alert_time_val in abnormal_equipments:
+                            type_name = {"die_bonder": "黏晶機", "wire_bonder": "打線機", "dicer": "切割機"}.get(eq_type, eq_type)
+                            status_emoji = {"warning": "⚠️", "critical": "🔴", "emergency": "🚨"}.get(status, "❓")
+                            response_text += f"{name} ({type_name}) 狀態: {status_emoji} {status}\n"
+                            if alert_type_val and alert_time_val:
+                                response_text += f"  最新警告: {alert_type_val} 於 {alert_time_val.strftime('%Y-%m-%d %H:%M')}\n"
+                        response_text += "\n輸入「設備詳情 [設備名稱]」可查看更多資訊。"
+                    reply_message_obj = TextMessage(text=response_text)
+        except pyodbc.Error as db_err:
+            logger.error(f"取得設備狀態失敗 (MS SQL Server): {db_err}")
+            reply_message_obj = TextMessage(text="取得設備狀態失敗，請稍後再試。")
+        except Exception as e:
+            logger.error(f"處理設備狀態查詢時發生未知錯誤: {e}")
+            reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
 
-    # 處理異常查詢（只需查詢 abnormal_logs 表）
-    elif user_message.startswith("查詢異常"):
-        parts = user_message.split()
-        if len(parts) < 2:
-            return "請指定設備 ID，例如：'查詢異常 E-001'。" if user_language == "zh-Hant" else "Please specify equipment ID, e.g., 'Query anomaly E-001'."
-
-        equipment_id = parts[1]
-
-        abnormal_logs = db.get_abnormal_logs(equipment_id) # 呼叫 database.py 中已實現的方法
-
-        if not abnormal_logs:
-            return f"設備 {equipment_id} 沒有異常紀錄。" if user_language == "zh-Hant" else f"No anomaly records for equipment {equipment_id}."
-
-        reply = f"設備 {equipment_id} 的最近異常紀錄：\n" if user_language == "zh-Hant" else f"Recent anomaly records for equipment {equipment_id}:\n"
-        for log in abnormal_logs:
-            # 確保日期時間物件正確格式化
-            event_date_str = log['event_date'].strftime('%Y-%m-%d %H:%M') if isinstance(log['event_date'], (datetime.datetime, datetime.date)) else str(log['event_date'])
-            reply += f"日期: {event_date_str}, "
-            reply += f"類型: {log.get('abnormal_type', 'N/A')}, " if user_language == "zh-Hant" else f"Type: {log.get('abnormal_type', 'N/A')}, "
-            reply += f"說明: {log.get('notes', 'N/A')}\n" if user_language == "zh-Hant" else f"Notes: {log.get('notes', 'N/A')}\n"
-        return reply
-
-    # 處理一般問候語
-    elif user_message in ["哈囉", "你好", "hi", "hello"]:
-        if user_language == "en":
-            return "Hello! How can I help you today?"
+    elif text_lower.startswith("設備詳情") or text_lower.startswith("機台詳情"):
+        command_parts = text.split(" ", 1)
+        if len(command_parts) < 2 or not command_parts[1].strip():
+            command_parts_zh = text.split(" ", 1)
+            if len(command_parts_zh) < 2 or not command_parts_zh[1].strip():
+                reply_message_obj = TextMessage(text="請指定設備名稱或ID，例如「設備詳情 黏晶機A1」或「設備詳情 DB001」")
+            else:
+                equipment_name = command_parts_zh[1].strip()
         else:
-            return "哈囉！您好，有什麼可以幫您的嗎？"
+            equipment_name = command_parts[1].strip()
 
-    # 其他未識別的訊息
+        if equipment_name:
+            try:
+                with db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT e.equipment_id, e.name, e.type, e.status, e.location, e.last_updated
+                        FROM equipment e
+                        WHERE e.name LIKE ? OR e.equipment_id = ?
+                        """,
+                        (f"%{equipment_name}%", equipment_name.upper()) # ID 通常為大寫
+                    )
+                    equipment = cursor.fetchone()
+                    if not equipment:
+                        reply_message_obj = TextMessage(text=f"查無設備「{equipment_name}」的資料。")
+                    else:
+                        eq_id, name_db, eq_type, status, location, last_updated = equipment
+                        type_name = {"die_bonder": "黏晶機", "wire_bonder": "打線機", "dicer": "切割機"}.get(eq_type, eq_type)
+                        status_emoji = {"normal": "✅", "warning": "⚠️", "critical": "🔴", "emergency": "🚨", "offline": "⚫"}.get(status, "❓")
+                        response_text = (
+                            f"設備詳情： {name_db} ({eq_id})\n"
+                            f"類型: {type_name}\n"
+                            f"狀態: {status_emoji} {status}\n"
+                            f"地點: {location or '未提供'}\n"
+                            f"最後更新: {last_updated.strftime('%Y-%m-%d %H:%M:%S') if last_updated else '未記錄'}\n\n"
+                        )
+                        cursor.execute(
+                            """
+                            WITH RankedMetrics AS (
+                                SELECT
+                                    em.metric_type, em.value, em.unit, em.timestamp,
+                                    ROW_NUMBER() OVER(PARTITION BY em.metric_type ORDER BY em.timestamp DESC) as rn
+                                FROM equipment_metrics em
+                                WHERE em.equipment_id = ?
+                            )
+                            SELECT metric_type, value, unit, timestamp
+                            FROM RankedMetrics
+                            WHERE rn = 1
+                            ORDER BY metric_type;
+                            """, (eq_id,)
+                        )
+                        metrics = cursor.fetchall()
+                        if metrics:
+                            response_text += "📊 最新監測值：\n"
+                            for metric_type, value, unit, ts in metrics:
+                                response_text += f"  {metric_type}: {value:.2f} {unit or ''} ({ts.strftime('%H:%M:%S')})\n"
+                        else: response_text += "暫無最新監測指標。\n"
+                        cursor.execute(
+                            """
+                            SELECT TOP 3 alert_type, severity, created_at, message
+                            FROM alert_history
+                            WHERE equipment_id = ? AND is_resolved = 0
+                            ORDER BY created_at DESC;
+                            """, (eq_id,)
+                        )
+                        alerts = cursor.fetchall()
+                        if alerts:
+                            response_text += "\n⚠️ 未解決的警報：\n"
+                            for alert_t, severity, alert_time, msg_content in alerts:
+                                severity_emoji = {"warning": "⚠️", "critical": "🔴", "emergency": "🚨"}.get(severity, "ℹ️")
+                                response_text += f"  {severity_emoji} {alert_t} ({severity}) 於 {alert_time.strftime('%Y-%m-%d %H:%M')}\n"
+                        else: response_text += "\n目前無未解決的警報。\n"
+                        cursor.execute(
+                            """
+                            SELECT TOP 1 operation_type, start_time, lot_id, product_id
+                            FROM equipment_operation_logs
+                            WHERE equipment_id = ? AND end_time IS NULL
+                            ORDER BY start_time DESC;
+                            """, (eq_id,)
+                        )
+                        operation = cursor.fetchone()
+                        if operation:
+                            op_t, start_t, lot, prod = operation
+                            response_text += "\n🔄 目前運行中的作業：\n"
+                            response_text += f"  作業類型: {op_t}\n  開始時間: {start_t.strftime('%Y-%m-%d %H:%M')}\n"
+                            if lot: response_text += f"  批次: {lot}\n"
+                            if prod: response_text += f"  產品: {prod}\n"
+                        else: response_text += "\n目前無運行中的作業。\n"
+                        reply_message_obj = TextMessage(text=response_text.strip())
+            except pyodbc.Error as db_err:
+                logger.error(f"取得設備詳情失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="取得設備詳情失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理設備詳情查詢時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+
+    elif text_lower.startswith("訂閱設備") or text_lower.startswith("subscribe equipment"):
+        parts = text.split(" ", 1)
+        if len(parts) < 2 or not parts[1].strip():
+            try:
+                with db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT equipment_id, name, type, location FROM equipment ORDER BY type, name;"
+                    )
+                    equipments = cursor.fetchall()
+                    if not equipments:
+                        reply_message_obj = TextMessage(text="目前沒有可用的設備進行訂閱。")
+                    else:
+                        quick_reply_items = []
+                        response_text_header = "請選擇要訂閱的設備 (或輸入 '訂閱設備 [設備ID]'):\n\n"
+                        response_text_list = ""
+                        for eq_id, name_db, eq_type, location in equipments[:13]:
+                            type_name = {"die_bonder": "黏晶機", "wire_bonder": "打線機", "dicer": "切割機"}.get(eq_type, eq_type)
+                            label = f"{name_db} ({type_name})"
+                            quick_reply_items.append(QuickReplyItem(action=MessageAction(label=label[:20], text=f"訂閱設備 {eq_id}")))
+                            response_text_list += f"- {name_db} ({type_name}, {location or 'N/A'}), ID: {eq_id}\n"
+                        if quick_reply_items:
+                             reply_message_obj = TextMessage(text=response_text_header + response_text_list, quick_reply=QuickReply(items=quick_reply_items))
+                        else:
+                             reply_message_obj = TextMessage(text=response_text_header + response_text_list + "\n使用方式: 訂閱設備 [設備ID]\n例如: 訂閱設備 DB001")
+            except pyodbc.Error as db_err:
+                logger.error(f"獲取設備清單失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="獲取設備清單失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理訂閱設備列表時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+        else:
+            equipment_id_to_subscribe = parts[1].strip().upper()
+            try:
+                with db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM equipment WHERE equipment_id = ?;", (equipment_id_to_subscribe,))
+                    equipment = cursor.fetchone()
+                    if not equipment:
+                        reply_message_obj = TextMessage(text=f"查無設備 ID「{equipment_id_to_subscribe}」。請檢查 ID 是否正確。")
+                    else:
+                        equipment_name_db = equipment[0]
+                        cursor.execute("SELECT id FROM user_equipment_subscriptions WHERE user_id = ? AND equipment_id = ?;", (user_id, equipment_id_to_subscribe))
+                        if cursor.fetchone():
+                            reply_message_obj = TextMessage(text=f"您已訂閱設備 {equipment_name_db} ({equipment_id_to_subscribe})。")
+                        else:
+                            cursor.execute(
+                                "INSERT INTO user_equipment_subscriptions (user_id, equipment_id, notification_level) VALUES (?, ?, 'all');",
+                                (user_id, equipment_id_to_subscribe)
+                            )
+                            conn.commit()
+                            reply_message_obj = TextMessage(text=f"已成功訂閱設備 {equipment_name_db} ({equipment_id_to_subscribe})！")
+            except pyodbc.IntegrityError:
+                 logger.warning(f"嘗試重複訂閱設備 {equipment_id_to_subscribe} for user {user_id}")
+                 reply_message_obj = TextMessage(text=f"您似乎已訂閱設備 {equipment_id_to_subscribe}。")
+            except pyodbc.Error as db_err:
+                logger.error(f"訂閱設備失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="訂閱設備失敗，資料庫操作錯誤，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理訂閱設備時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+
+    elif text_lower.startswith("取消訂閱") or text_lower.startswith("unsubscribe"):
+        parts = text.split(" ", 1)
+        if len(parts) < 2 or not parts[1].strip():
+            try:
+                with db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT s.equipment_id, e.name, e.type
+                        FROM user_equipment_subscriptions s
+                        JOIN equipment e ON s.equipment_id = e.equipment_id
+                        WHERE s.user_id = ?
+                        ORDER BY e.type, e.name;
+                        """, (user_id,)
+                    )
+                    subscriptions = cursor.fetchall()
+                    if not subscriptions:
+                        reply_message_obj = TextMessage(text="您目前沒有訂閱任何設備。")
+                    else:
+                        quick_reply_items = []
+                        response_text_header = "您已訂閱的設備 (點擊取消訂閱或輸入 '取消訂閱 [設備ID]'):\n\n"
+                        response_text_list = ""
+                        for eq_id, name_db, eq_type in subscriptions[:13]:
+                            type_name = {"die_bonder": "黏晶機", "wire_bonder": "打線機", "dicer": "切割機"}.get(eq_type, eq_type)
+                            label = f"{name_db} ({type_name})"
+                            quick_reply_items.append(QuickReplyItem(action=MessageAction(label=label[:20], text=f"取消訂閱 {eq_id}")))
+                            response_text_list += f"- {name_db} ({type_name}), ID: {eq_id}\n"
+                        if quick_reply_items:
+                            reply_message_obj = TextMessage(text=response_text_header + response_text_list, quick_reply=QuickReply(items=quick_reply_items))
+                        else:
+                            reply_message_obj = TextMessage(text=response_text_header + response_text_list + "\n使用方式: 取消訂閱 [設備ID]\n例如: 取消訂閱 DB001")
+            except pyodbc.Error as db_err:
+                logger.error(f"獲取訂閱清單失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="獲取訂閱清單失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理取消訂閱列表時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+        else:
+            equipment_id_to_unsubscribe = parts[1].strip().upper()
+            try:
+                with db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM equipment WHERE equipment_id = ?;", (equipment_id_to_unsubscribe,))
+                    equipment_info = cursor.fetchone()
+                    if not equipment_info:
+                        reply_message_obj = TextMessage(text=f"查無設備 ID「{equipment_id_to_unsubscribe}」。")
+                    else:
+                        # equipment_name_db = equipment_info[0] # 這裡的 equipment_name_db 變數未使用
+                        cursor.execute(
+                            "DELETE FROM user_equipment_subscriptions WHERE user_id = ? AND equipment_id = ?;",
+                            (user_id, equipment_id_to_unsubscribe)
+                        )
+                        conn.commit()
+                        if cursor.rowcount > 0:
+                            reply_message_obj = TextMessage(text=f"已成功取消訂閱設備 {equipment_id_to_unsubscribe}。")
+                        else:
+                            reply_message_obj = TextMessage(text=f"您並未訂閱設備 {equipment_id_to_unsubscribe}。")
+            except pyodbc.Error as db_err:
+                logger.error(f"取消訂閱失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="取消訂閱設備失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理取消訂閱時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+
+    elif text_lower in ["我的訂閱", "my subscriptions"]:
+        try:
+            with db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT s.equipment_id, e.name, e.type, e.location, e.status
+                    FROM user_equipment_subscriptions s
+                    JOIN equipment e ON s.equipment_id = e.equipment_id
+                    WHERE s.user_id = ?
+                    ORDER BY e.type, e.name;
+                    """, (user_id,)
+                )
+                subscriptions = cursor.fetchall()
+                if not subscriptions:
+                    response_text = "您目前沒有訂閱任何設備。\n\n請使用「訂閱設備」指令查看可訂閱的設備列表。"
+                else:
+                    response_text = "您已訂閱的設備：\n\n"
+                    for eq_id, name_db, eq_type, location, status in subscriptions:
+                        type_name = {"die_bonder": "黏晶機", "wire_bonder": "打線機", "dicer": "切割機"}.get(eq_type, eq_type)
+                        status_emoji = {"normal": "✅", "warning": "⚠️", "critical": "🔴", "emergency": "🚨", "offline": "⚫"}.get(status, "❓")
+                        response_text += f"- {name_db} ({type_name}, {location or 'N/A'}), ID: {eq_id}, 狀態: {status_emoji}\n"
+                    response_text += "\n管理訂閱:\n• 訂閱設備 [設備ID]\n• 取消訂閱 [設備ID]"
+                reply_message_obj = TextMessage(text=response_text)
+        except pyodbc.Error as db_err:
+            logger.error(f"獲取我的訂閱清單失敗 (MS SQL Server): {db_err}")
+            reply_message_obj = TextMessage(text="獲取訂閱清單失敗，請稍後再試。")
+        except Exception as e:
+            logger.error(f"處理我的訂閱時發生未知錯誤: {e}")
+            reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+
+    # 預設：從 OpenAI (main.py) 取得回應
     else:
-        if user_language == "en":
-            return (
-                "I'm sorry, I don't understand that command. "
-                "You can try 'Equipment Details' or 'Query Anomaly [Equipment ID]' or 'Set Language [English/Chinese]'."
+        try:
+            # 確保 main.py 中的 reply_message 可以正確運作
+            from src.main import reply_message as main_reply_message # 重新命名以避免衝突
+            response_text = main_reply_message(event)
+            reply_message_obj = TextMessage(text=response_text)
+        except ImportError:
+            logger.error("無法導入 src.main.reply_message")
+            reply_message_obj = TextMessage(text="抱歉，AI 對話功能暫時無法使用。")
+        except Exception as e:
+            logger.error(f"調用 OpenAI 回覆訊息失敗: {e}")
+            reply_message_obj = TextMessage(text="抱歉，處理您的請求時發生了錯誤，AI 功能可能暫時無法使用。")
+
+    # 統一發送回覆
+    if reply_message_obj:
+        try:
+            reply_request = ReplyMessageRequest(
+                reply_token=event.reply_token, messages=[reply_message_obj]
             )
-        else:
-            return (
-                "抱歉，我無法理解您的指令。您試試看輸入 '設備詳情'、"
-                "'查詢異常 [設備ID]' 或 '設定語言 [英文/中文]'。"
+            line_bot_api.reply_message_with_http_info(reply_request)
+        except Exception as e:
+            logger.error(f"最終回覆訊息失敗: {e}")
+    else:
+        # 如果没有任何命令匹配，可以提供一个默认的未知命令回复
+        logger.info(f"未處理的訊息: {text} from user {user_id}")
+        unknown_command_reply = TextMessage(text="抱歉，我不太明白您的意思。您可以輸入 'help' 查看我能做些什麼。")
+        try:
+            reply_request = ReplyMessageRequest(
+                reply_token=event.reply_token, messages=[unknown_command_reply]
             )
+            line_bot_api.reply_message_with_http_info(reply_request)
+        except Exception as e:
+            logger.error(f"發送未知命令回覆失敗: {e}")
 
 
-# Line Messaging API instance
-line_bot_api = MessagingApi(ApiClient(configuration))
-
-
-def send_notification(user_id, message):
+def send_notification(user_id_to_notify, message_text):
     """發送 LINE 訊息給特定使用者"""
     try:
-        message_obj = TextMessage(text=message)
-        push_request = PushMessageRequest(to=user_id, messages=[message_obj])
+        message_obj = TextMessage(text=message_text)
+        push_request = PushMessageRequest(to=user_id_to_notify, messages=[message_obj])
         line_bot_api.push_message_with_http_info(push_request)
+        logger.info(f"通知已成功發送給 user_id: {user_id_to_notify}")
         return True
-    except Exception:
-        logger.error("發送通知失敗")
+    except Exception as e:
+        logger.error(f"發送通知給 user_id {user_id_to_notify} 失敗: {e}")
         return False
 
 
 if __name__ == "__main__":
-    # 確保 Config 模組在 Database 之前被載入，以便 Database 可以使用 Config.DB_SERVER 等
-    from config import Config # 再次確認導入 Config
-    # 首次啟動時初始化資料庫（會建立表，如果它們不存在）
-    # db 已經在 database.py 中初始化為 Database() 實例，所以這裡無需再次調用
+    # 這些初始化應該在 app.py 或主啟動腳本中完成
+    # initialize_equipment_data()
+    # start_scheduler()
 
-    # 載入初始設備資料
-    initialize_equipment_data()
-    # 啟動排程器（可能用於定期檢查設備狀態等）
-    start_scheduler()
-
-    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-    port = int(os.environ.get("PORT", os.getenv("HTTPS_PORT", 443)))
-    print(f"Flask app running on port {port} with debug mode: {debug_mode}")
-    app.run(host="0.0.0.0", port=port, debug=debug_mode)
+    # app.run() 應該由 app.py 或類似的主腳本來執行
+    # debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+    # port = int(os.environ.get("PORT", os.getenv("HTTPS_PORT", 443)))
+    # print("直接執行 linebot_connect.py (不建議用於生產環境)")
+    # app.run(
+    #     ssl_context=(
+    #         os.environ.get('SSL_CERT_PATH', 'certs/capstone-project.me-chain.pem'),
+    #         os.environ.get('SSL_KEY_PATH', 'certs/capstone-project.me-key.pem')
+    #     ) if os.environ.get('SSL_CERT_PATH') and os.environ.get('SSL_KEY_PATH') else "adhoc",
+    #     host="0.0.0.0",
+    #     port=port,
+    #     debug=debug_mode
+    # )
+    logger.info("linebot_connect.py 被直接執行。建議透過 app.py 啟動應用程式。")
