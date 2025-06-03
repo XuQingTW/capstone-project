@@ -6,6 +6,7 @@ import secrets
 import threading  # 保留 threading
 import time
 from collections import defaultdict
+from initial_data import initialize_equipment_data  # 引入初始化設備數據的函數
 
 import pyodbc  # 引入 pyodbc 用於捕獲其特定的錯誤
 from flask import (
@@ -176,6 +177,8 @@ def create_app():
         )
     else:
         logger.info("Running in test mode - Talisman security features disabled")
+        
+    initialize_equipment_data()  # 初始化設備數據
     return app
 
 
