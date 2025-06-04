@@ -177,7 +177,6 @@ def create_app():
         )
     else:
         logger.info("Running in test mode - Talisman security features disabled")
-        
     initialize_equipment_data()  # 初始化設備數據
     return app
 
