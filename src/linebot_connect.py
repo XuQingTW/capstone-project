@@ -7,6 +7,7 @@ import threading  # 保留 threading
 import time
 from collections import defaultdict
 
+
 import pyodbc  # 引入 pyodbc 用於捕獲其特定的錯誤
 from flask import (
     Flask,
