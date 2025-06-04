@@ -30,7 +30,43 @@ class Database:
         try:
             with self._get_connection() as conn:
                 init_cur = conn.cursor()
-                # 建立對話記錄表
+
+                # --- 1. 建立無依賴的基礎資料表 ---
+
+                # 建立使用者偏好表 (被 conversations 和 user_equipment_subscriptions 參考)
+                init_cur.execute("""
+                    IF NOT EXISTS (
+                        SELECT * FROM sys.tables WHERE name = 'user_preferences'
+                    )
+                    CREATE TABLE user_preferences (
+                        user_id NVARCHAR(255) PRIMARY KEY,
+                        language NVARCHAR(10) DEFAULT N'zh-Hant',
+                        last_active DATETIME2 DEFAULT GETDATE(),
+                        is_admin BIT DEFAULT 0,
+                        responsible_area NVARCHAR(255),
+                        role NVARCHAR(50) DEFAULT N'user'
+                    );
+                """)
+                
+                # 建立設備表 (被多個資料表參考)
+                init_cur.execute("""
+                    IF NOT EXISTS (
+                        SELECT * FROM sys.tables WHERE name = 'equipment'
+                    )
+                    CREATE TABLE equipment (
+                        id INT IDENTITY(1,1) PRIMARY KEY,
+                        equipment_id NVARCHAR(255) NOT NULL UNIQUE,
+                        name NVARCHAR(255) NOT NULL,
+                        type NVARCHAR(255) NOT NULL,
+                        location NVARCHAR(255),
+                        status NVARCHAR(255) DEFAULT N'normal',
+                        last_updated DATETIME2 DEFAULT GETDATE()
+                    );
+                """)
+
+                # --- 2. 建立依賴基礎資料表的從屬資料表 ---
+
+                # 建立對話記錄表 (依賴 user_preferences)
                 init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'conversations'
@@ -46,36 +82,8 @@ class Database:
                         FOREIGN KEY (receiver_id) REFERENCES user_preferences(user_id)
                     );
                 """)
-                # 建立使用者偏好表（增加 role 欄位）
-                init_cur.execute("""
-                    IF NOT EXISTS (
-                        SELECT * FROM sys.tables WHERE name = 'user_preferences'
-                    )
-                    CREATE TABLE user_preferences (
-                        user_id NVARCHAR(255) PRIMARY KEY,
-                        language NVARCHAR(10) DEFAULT N'zh-Hant',
-                        last_active DATETIME2 DEFAULT GETDATE(),
-                        is_admin BIT DEFAULT 0,
-                        responsible_area NVARCHAR(255),
-                        role NVARCHAR(50) DEFAULT N'user'
-                    );
-                """)
-                # 建立設備表
-                init_cur.execute("""
-                    IF NOT EXISTS (
-                        SELECT * FROM sys.tables WHERE name = 'equipment'
-                    )
-                    CREATE TABLE equipment (
-                        id INT IDENTITY(1,1) PRIMARY KEY,
-                        equipment_id NVARCHAR(255) NOT NULL UNIQUE,
-                        name NVARCHAR(255) NOT NULL,
-                        type NVARCHAR(255) NOT NULL,
-                        location NVARCHAR(255),
-                        status NVARCHAR(255) DEFAULT N'normal',
-                        last_updated DATETIME2 DEFAULT GETDATE()
-                    );
-                """)
-                # 建立異常紀錄表
+                
+                # 建立異常紀錄表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'abnormal_logs'
@@ -94,7 +102,8 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                # 建立警報記錄表
+                
+                # 建立警報記錄表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables WHERE name = 'alert_history'
@@ -113,7 +122,8 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                # 使用者訂閱設備表
+                
+                # 使用者訂閱設備表 (邏輯上依賴 user_preferences 和 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (
                         SELECT * FROM sys.tables
@@ -125,10 +135,13 @@ class Database:
                         equipment_id NVARCHAR(255) NOT NULL,
                         notification_level NVARCHAR(255) DEFAULT N'all',
                         subscribed_at DATETIME2 DEFAULT GETDATE(),
-                        CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id)
+                        CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id),
+                        FOREIGN KEY (user_id) REFERENCES user_preferences(user_id),
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                # 建立設備指標表
+                
+                # 建立設備指標表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'equipment_metrics')
                     CREATE TABLE equipment_metrics (
@@ -143,7 +156,8 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                # 建立設備運作記錄表
+                
+                # 建立設備運作記錄表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'equipment_operation_logs')
                     CREATE TABLE equipment_operation_logs (
@@ -157,6 +171,9 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
+                # --- 3. 建立統計相關資料表 (皆依賴 equipment) ---
+                
                 # 運作統計（月）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -174,6 +191,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
                 # 運作統計（季）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -191,6 +209,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
                 # 運作統計（年）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -207,6 +226,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
                 # 各異常統計（月）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -224,6 +244,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
                 # 各異常統計（季）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -241,6 +262,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
                 # 各異常統計（年）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -257,6 +279,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
+                
                 conn.commit()
                 logger.info("資料庫初始化成功，包含所有自訂資料表")
         except pyodbc.Error as exc:
