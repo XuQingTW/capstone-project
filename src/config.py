@@ -27,7 +27,7 @@ class Config:
     LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
     LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
     # Database 配置
-    DB_SERVER = os.getenv("DB_SERVER", "120.105.80.37")  # Default
+    DB_SERVER = os.getenv("DB_SERVER", "DESKTOP-3V9IJVT")  # Default
     DB_NAME = os.getenv("DB_NAME", "Project")  # Default
     DB_USER = os.getenv("DB_USER")  # For potential future use with non-trusted connections
     DB_PASSWORD = os.getenv("DB_PASSWORD")  # For potential future use
