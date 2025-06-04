@@ -1,6 +1,6 @@
 import logging
 import pyodbc
-from config import Config  # 重新加入 Config 的匯入
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class Database:
                         role NVARCHAR(50) DEFAULT N'user'
                     );
                 """)
-                
+
                 # 建立設備表 (被多個資料表參考)
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -82,7 +82,7 @@ class Database:
                         FOREIGN KEY (receiver_id) REFERENCES user_preferences(user_id)
                     );
                 """)
-                
+
                 # 建立異常紀錄表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -102,7 +102,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 建立警報記錄表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -122,7 +122,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 使用者訂閱設備表 (邏輯上依賴 user_preferences 和 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -140,7 +140,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 建立設備指標表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'equipment_metrics')
@@ -156,7 +156,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 建立設備運作記錄表 (依賴 equipment)
                 init_cur.execute("""
                     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'equipment_operation_logs')
@@ -171,9 +171,9 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # --- 3. 建立統計相關資料表 (皆依賴 equipment) ---
-                
+
                 # 運作統計（月）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -191,7 +191,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 運作統計（季）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -209,7 +209,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 運作統計（年）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -226,7 +226,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 各異常統計（月）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -244,7 +244,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 各異常統計（季）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -262,7 +262,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 # 各異常統計（年）
                 init_cur.execute("""
                     IF NOT EXISTS (
@@ -279,7 +279,7 @@ class Database:
                         FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                     );
                 """)
-                
+
                 conn.commit()
                 logger.info("資料庫初始化成功，包含所有自訂資料表")
         except pyodbc.Error as exc:
@@ -390,11 +390,11 @@ class Database:
                 # 這裡的 sender_id 實際上是指 user_id
                 sql_query = """
                     SELECT DISTINCT TOP (?)
-                        c.sender_id,  -- 這其實是 user_id
+                        c.sender_id,   -- 這其實是 user_id
                         p.language,
-                        MAX(c.timestamp) as last_activity_ts  -- 改名以區分 last_message 內容
+                        MAX(c.timestamp) as last_activity_ts   -- 改名以區分 last_message 內容
                     FROM conversations c
-                    LEFT JOIN user_preferences p ON c.sender_id = p.user_id  -- 連接基於 sender_id = user_id
+                    LEFT JOIN user_preferences p ON c.sender_id = p.user_id   -- 連接基於 sender_id = user_id
                     GROUP BY c.sender_id, p.language
                     ORDER BY last_activity_ts DESC;
                 """
@@ -410,7 +410,7 @@ class Database:
                     recent_conv_cur.execute(
                         """
                         SELECT TOP 1 content FROM conversations
-                        WHERE sender_id = ? AND sender_role = 'user'  -- 通常看 user 的最後一句話
+                        WHERE sender_id = ? AND sender_role = 'user'   -- 通常看 user 的最後一句話
                         ORDER BY timestamp DESC;
                         """,
                         (user_id_val,)
