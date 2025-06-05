@@ -37,10 +37,7 @@ class Database:
             with self._get_connection() as conn:
                 init_cur = conn.cursor()
 
-                # 1. user_preferences (來自 user_preferences.csv)
-                # 欄位假設: user_id, language, role, is_admin,
-                # responsible_area, created_at, display_name, email,
-                # last_active
+                # 1. user_preferences (來自 user_preferences.csv) - 保持不變
                 user_preferences_cols = """
                     [user_id] NVARCHAR(255) NULL,
                     [language] VARCHAR(50) NULL,
@@ -58,20 +55,15 @@ class Database:
                     user_preferences_cols
                 )
 
-                # 2. equipment (來自 equipment.csv)
-                # 欄位假設: eq_id, name, eq_type, location, status,
-                # created_at, model_number, purchase_date,
-                # last_maintenance_date
+                # 2. equipment (來自 equipment.csv) - 已根據您的要求修改
                 equipment_cols = """
+                    [id] INT NULL,
                     [eq_id] NVARCHAR(255) NULL,
                     [name] NVARCHAR(255) NULL,
-                    [eq_type] NVARCHAR(100) NULL,
+                    [eq_type] NVARCHAR(255) NULL,
                     [location] NVARCHAR(255) NULL,
-                    [status] NVARCHAR(100) NULL,
-                    [created_at] DATETIME2 NULL,
-                    [model_number] NVARCHAR(100) NULL,
-                    [purchase_date] DATETIME2 NULL,
-                    [last_maintenance_date] DATETIME2 NULL
+                    [status] NVARCHAR(255) NULL, -- 對應 Excel 的第二個 'location' 或 'location.1'
+                    [last_updated] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -79,12 +71,7 @@ class Database:
                     equipment_cols
                 )
 
-                # 3. conversations (來自 conversations.csv)
-                # 欄位假設 (請核對您的 CSV): message_id, user_id (或 sender_id),
-                # receiver_id, sender_role, content, timestamp,
-                # message_type, is_user_message, intent, entities,
-                # response_text, response_generated_at, feedback_score, notes
-                # 根據您先前的方法簽名，簡化為:
+                # 3. conversations (來自 conversations.csv) - 保持不變
                 conversations_cols = """
                     [message_id] NVARCHAR(255) NULL,
                     [sender_id] NVARCHAR(255) NULL,
@@ -110,10 +97,7 @@ class Database:
                     conversations_cols
                 )
 
-                # 4. user_equipment_subscriptions
-                # (來自 user_equipment_subscriptions.csv)
-                # 欄位假設: subscription_id, user_id, eq_id,
-                # notification_types, subscribed_at
+                # 4. user_equipment_subscriptions (來自 user_equipment_subscriptions.csv) - 保持不變
                 user_equipment_subscriptions_cols = """
                     [subscription_id] INT NULL,
                     [user_id] NVARCHAR(255) NULL,
@@ -127,18 +111,13 @@ class Database:
                     user_equipment_subscriptions_cols
                 )
 
-                # 5. alert_history (來自 alert_history.csv)
-                # 欄位假設: alert_id, eq_id, alert_type_code, timestamp,
-                # description, severity, status, resolved_at, notes
+                # 5. alert_history (來自 alert_history.csv) - 已根據您的要求修改
                 alert_history_cols = """
-                    [alert_id] NVARCHAR(255) NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [timestamp] DATETIME2 NULL,
-                    [description] NVARCHAR(MAX) NULL,
-                    [severity] NVARCHAR(50) NULL,
-                    [status] NVARCHAR(50) NULL,
-                    [resolved_at] DATETIME2 NULL,
-                    [notes] NVARCHAR(MAX) NULL
+                    [id] INT NULL, -- 對應 CSV 的 'ID'
+                    [equipment_id] NVARCHAR(255) NULL,
+                    [alert_type] NVARCHAR(255) NULL,
+                    [severity] NVARCHAR(255) NULL,
+                    [message] NVARCHAR(255) NULL -- 對應 CSV 的 '訊息'
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -146,20 +125,17 @@ class Database:
                     alert_history_cols
                 )
 
-                # 6. error_logs (來自 異常紀錄.csv)
-                # 欄位假設: log_id, eq_id, timestamp, error_code,
-                # description, reporter, status, resolved_at,
-                # resolution_notes
+                # 6. error_logs (來自 error_log.csv) - 已根據您的要求修改
                 error_logs_cols = """
-                    [log_id] NVARCHAR(255) NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [timestamp] DATETIME2 NULL,
-                    [error_code] NVARCHAR(100) NULL,
-                    [description] NVARCHAR(MAX) NULL,
-                    [reporter] NVARCHAR(100) NULL,
-                    [status] NVARCHAR(50) NULL,
-                    [resolved_at] DATETIME2 NULL,
-                    [resolution_notes] NVARCHAR(MAX) NULL
+                    [log_date] DATETIME2 NULL,           -- 對應 CSV 中的日期資訊 (可能隱含在時間戳中或單獨列出)
+                    [eq_id] NVARCHAR(255) NULL,         -- 對應 CSV 中的設備 ID (可能隱含在其他欄位或單獨列出)
+                    [deformation_mm] FLOAT NULL,
+                    [rpm] INT NULL,
+                    [event_time_str] NVARCHAR(255) NULL,
+                    [detected_anomaly_type] NVARCHAR(255) NULL,
+                    [downtime_duration] NVARCHAR(255) NULL,
+                    [resolved_at_str] NVARCHAR(255) NULL,
+                    [resolution_notes] NVARCHAR(255) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -167,16 +143,15 @@ class Database:
                     error_logs_cols
                 )
 
-                # 7. stats_abnormal_monthly (來自 各異常統計(月).csv)
-                # 欄位假設: year, month, eq_id, abnormal_type, count,
-                # total_duration_minutes
+                # 7. stats_abnormal_monthly (來自 各異常統計(月).csv) - 已根據您的要求修改
                 stats_abnormal_monthly_cols = """
+                    [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
                     [month] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [abnormal_type] NVARCHAR(255) NULL,
-                    [count] INT NULL,
-                    [total_duration_minutes] INT NULL
+                    [detected_anomaly_type] NVARCHAR(255) NULL, -- 對應 CSV 的 '偵測異常類型'
+                    [downtime_duration] NVARCHAR(255) NULL,     -- 對應 CSV 的 '停機時長' (字符串格式)
+                    [downtime_rate_percent] NVARCHAR(255) NULL, -- 對應 CSV 的 '停機率(%)' (字符串格式)
+                    [description] NVARCHAR(255) NULL            -- 對應 CSV 的 '說明'
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -184,16 +159,15 @@ class Database:
                     stats_abnormal_monthly_cols
                 )
 
-                # 8. stats_abnormal_quarterly (來自 各異常統計(季).csv)
-                # 欄位假設: year, quarter, eq_id, abnormal_type, count,
-                # total_duration_minutes
+                # 8. stats_abnormal_quarterly (來自 各異常統計(季).csv) - 已根據您的要求修改
                 stats_abnormal_quarterly_cols = """
+                    [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
                     [quarter] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [abnormal_type] NVARCHAR(255) NULL,
-                    [count] INT NULL,
-                    [total_duration_minutes] INT NULL
+                    [detected_anomaly_type] NVARCHAR(255) NULL,
+                    [downtime_duration] NVARCHAR(255) NULL,
+                    [downtime_rate_percent] NVARCHAR(255) NULL,
+                    [description] NVARCHAR(255) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -201,15 +175,14 @@ class Database:
                     stats_abnormal_quarterly_cols
                 )
 
-                # 9. stats_abnormal_yearly (來自 各異常統計(年).csv)
-                # 欄位假設: year, eq_id, abnormal_type, count,
-                # total_duration_minutes
+                # 9. stats_abnormal_yearly (來自 各異常統計(年).csv) - 已根據您的要求修改
                 stats_abnormal_yearly_cols = """
+                    [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [abnormal_type] NVARCHAR(255) NULL,
-                    [count] INT NULL,
-                    [total_duration_minutes] INT NULL
+                    [detected_anomaly_type] NVARCHAR(255) NULL,
+                    [downtime_duration] NVARCHAR(255) NULL,
+                    [downtime_rate_percent] NVARCHAR(255) NULL,
+                    [description] NVARCHAR(255) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -217,16 +190,13 @@ class Database:
                     stats_abnormal_yearly_cols
                 )
 
-                # 10. stats_operational_monthly (來自 運作統計(月).csv)
-                # 欄位假設: year, month, eq_id, uptime_hours,
-                # downtime_hours, utilization_rate
+                # 10. stats_operational_monthly (來自 運作統計(月).csv) - 已根據您的要求修改
                 stats_operational_monthly_cols = """
-                    [year] INT NULL,
-                    [month] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [uptime_hours] FLOAT NULL,
-                    [downtime_hours] FLOAT NULL,
-                    [utilization_rate] FLOAT NULL
+                    [month] INT NULL, -- 對應 CSV 的 '月'
+                    [total_operation_duration] NVARCHAR(255) NULL, -- 對應 CSV 的 '總運作時長' (字符串格式)
+                    [total_downtime_duration] NVARCHAR(255) NULL,  -- 對應 CSV 的 '停機總時長' (字符串格式)
+                    [downtime_rate_percent] NVARCHAR(255) NULL,    -- 對應 CSV 的 '停機率(%)' (字符串格式)
+                    [description] NVARCHAR(255) NULL               -- 對應 CSV 的 '說明'
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -234,16 +204,15 @@ class Database:
                     stats_operational_monthly_cols
                 )
 
-                # 11. stats_operational_quarterly (來自 運作統計(季).csv)
-                # 欄位假設: year, quarter, eq_id, uptime_hours,
-                # downtime_hours, utilization_rate
+                # 11. stats_operational_quarterly (來自 運作統計(季).csv) - 已根據您的要求修改
                 stats_operational_quarterly_cols = """
+                    [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
                     [quarter] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [uptime_hours] FLOAT NULL,
-                    [downtime_hours] FLOAT NULL,
-                    [utilization_rate] FLOAT NULL
+                    [total_operation_duration] NVARCHAR(255) NULL,
+                    [total_downtime_duration] NVARCHAR(255) NULL,
+                    [downtime_rate_percent] NVARCHAR(255) NULL,
+                    [description] NVARCHAR(255) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -251,36 +220,19 @@ class Database:
                     stats_operational_quarterly_cols
                 )
 
-                # 12. stats_operational_yearly (來自 運作統計(年).csv)
-                # 欄位假設: year, eq_id, uptime_hours, downtime_hours,
-                # utilization_rate
+                # 12. stats_operational_yearly (來自 運作統計(年).csv) - 已根據您的要求修改
                 stats_operational_yearly_cols = """
+                    [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
-                    [uptime_hours] FLOAT NULL,
-                    [downtime_hours] FLOAT NULL,
-                    [utilization_rate] FLOAT NULL
+                    [total_operation_duration] NVARCHAR(255) NULL,
+                    [total_downtime_duration] NVARCHAR(255) NULL,
+                    [downtime_rate_percent] NVARCHAR(255) NULL,
+                    [description] NVARCHAR(255) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
                     "stats_operational_yearly",
                     stats_operational_yearly_cols
-                )
-
-                # 13. alert_types (手動定義，因為沒有提供 CSV，但先前討論過共13個表)
-                # 欄位假設: alert_type_code, type_name,
-                # description_template, default_severity, created_at
-                alert_types_cols = """
-                    [alert_type_code] NVARCHAR(100) NULL,
-                    [type_name] NVARCHAR(255) NULL,
-                    [description_template] NVARCHAR(MAX) NULL,
-                    [default_severity] NVARCHAR(50) NULL,
-                    [created_at] DATETIME2 NULL
-                """
-                self._create_table_if_not_exists(
-                    init_cur,
-                    "alert_types",
-                    alert_types_cols
                 )
 
                 conn.commit()
