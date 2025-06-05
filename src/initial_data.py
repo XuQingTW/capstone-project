@@ -1,6 +1,4 @@
 import os
-import re  # 用於解析時間字符串
-
 import pandas as pd
 import pyodbc
 
