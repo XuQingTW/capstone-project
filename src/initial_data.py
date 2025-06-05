@@ -1,64 +1,70 @@
+import os
+import re  # 用於解析時間字符串
+
 import pandas as pd
 import pyodbc
-import os
-import re # 用於解析時間字符串
 
 # 如果您使用 .env 檔案來管理資料庫憑證，請取消註釋下方兩行
 # from dotenv import load_dotenv
 # load_dotenv()
 
+
 # --- 1. 設定 Excel 檔案路徑與資料庫連線資訊 ---
 # 請確認此路徑是您模擬資料檔案的正確絕對路徑
-excel_file_path = r'C:\Users\sunny\Downloads\simulated_data (1).xlsx'
+EXCEL_FILE_PATH = r'C:\Users\sunny\Downloads\simulated_data (1).xlsx'
 
 DB_CONFIG = {
-    'driver': '{ODBC Driver 17 for SQL Server}', # 或其他您安裝的 ODBC 驅動程式
-    'server': os.getenv("DB_SERVER", "localhost"), # 從環境變數獲取，如果沒有則用 'localhost'
-    'database': os.getenv("DB_NAME", "Project"),   # 從環境變數獲取，如果沒有則用 'Project'
-    'uid': os.getenv("DB_USER"),                   # 從環境變數獲取
-    'pwd': os.getenv("DB_PASSWORD")                # 從環境變數獲取
+    'driver': '{ODBC Driver 17 for SQL Server}',  # 或其他您安裝的 ODBC 驅動程式
+    'server': os.getenv("DB_SERVER", "localhost"),  # 從環境變數獲取，如果沒有則用 'localhost'
+    'database': os.getenv("DB_NAME", "Project"),    # 從環境變數獲取，如果沒有則用 'Project'
+    'uid': os.getenv("DB_USER"),                    # 從環境變數獲取
+    'pwd': os.getenv("DB_PASSWORD")                 # 從環境變數獲取
 }
 
 # 檢查是否有缺失的環境變數
 if not all([DB_CONFIG['uid'], DB_CONFIG['pwd']]):
     print("錯誤：資料庫使用者名稱或密碼環境變數未設定。")
-    print("請檢查您的 .env 檔案或直接在程式碼中設定 DB_CONFIG['uid'] 和 DB_CONFIG['pwd']。")
+    print("請檢查您的 .env 檔案或直接在程式碼中設定 "
+          "DB_CONFIG['uid'] 和 DB_CONFIG['pwd']。")
     exit()
+
 
 # --- 2. 連接 MS SQL 資料庫 ---
 try:
-    conn = pyodbc.connect(
+    CONN = pyodbc.connect(
         f"DRIVER={DB_CONFIG['driver']};"
         f"SERVER={DB_CONFIG['server']};"
         f"DATABASE={DB_CONFIG['database']};"
         f"UID={DB_CONFIG['uid']};"
         f"PWD={DB_CONFIG['pwd']}"
     )
-    cursor = conn.cursor()
+    CURSOR = CONN.cursor()
     print("\n成功連接到 MS SQL 資料庫。")
 except pyodbc.Error as ex:
-    sqlstate = ex.args[0]
-    print(f"\n錯誤：無法連接到 MS SQL 資料庫。錯誤代碼: {sqlstate}")
+    SQL_STATE = ex.args[0]
+    print(f"\n錯誤：無法連接到 MS SQL 資料庫。錯誤代碼: {SQL_STATE}")
     print(ex)
     exit()
+
 
 # --- 3. 定義每個資料表的匯入配置 ---
 # 包含 Excel 工作表名稱、SQL 目標資料表名稱以及欄位映射與數據轉換邏輯
 # column_map: 從 Excel 欄位名稱 到 SQL 欄位名稱 的映射
 # transform_row_data: 一個函式，接收一個 Pandas DataFrame 的 row，返回一個 tuple，
-#                     其順序必須與 insert_sql 中的欄位順序完全一致，且包含數據轉換邏輯。
+#                     其順序必須與 insert_sql 中的欄位順序完全一致，
+#                     且包含數據轉換邏輯。
 
-table_configs = [
+TABLE_CONFIGS = [
     {
-        "excel_sheet_name": "equipment", # Excel 工作表名稱
-        "sql_table_name": "equipment",   # 對應的 SQL 資料表名稱
-        "column_map": {                 # Excel 欄位 -> SQL 欄位
+        "excel_sheet_name": "equipment",  # Excel 工作表名稱
+        "sql_table_name": "equipment",    # 對應的 SQL 資料表名稱
+        "column_map": {                   # Excel 欄位 -> SQL 欄位
             "ID": "id",
             "eq_id": "eq_id",
             "name": "name",
             "eq_type": "eq_type",
             "location": "location",
-            "location.1": "status", # 假設第二個 'location' 在 Pandas 中會讀作 'location.1'
+            "location.1": "status",  # 假設第二個 'location' 在 Pandas 中會讀作 'location.1'
             "last_updated": "last_updated"
         },
         "transform_row_data": lambda row: (
@@ -67,14 +73,15 @@ table_configs = [
             row.get('name', None) if pd.notna(row.get('name')) else None,
             row.get('eq_type', None) if pd.notna(row.get('eq_type')) else None,
             row.get('location', None) if pd.notna(row.get('location')) else None,
-            row.get('location.1', None) if pd.notna(row.get('location.1')) else None, # 對應到 status
-            pd.to_datetime(row.get('last_updated')) if pd.notna(row.get('last_updated')) else None
+            row.get('location.1', None) if pd.notna(row.get('location.1')) else None,
+            pd.to_datetime(row.get('last_updated'))
+            if pd.notna(row.get('last_updated')) else None
         )
     },
     {
-        "excel_sheet_name": "alert_history", # Excel 工作表名稱
-        "sql_table_name": "alert_history",   # 對應的 SQL 資料表名稱
-        "column_map": {                 # Excel 欄位 -> SQL 欄位
+        "excel_sheet_name": "alert_history",  # Excel 工作表名稱
+        "sql_table_name": "alert_history",    # 對應的 SQL 資料表名稱
+        "column_map": {                   # Excel 欄位 -> SQL 欄位
             "ID": "id",
             "equipment_id": "equipment_id",
             "alert_type": "alert_type",
@@ -89,30 +96,30 @@ table_configs = [
             row.get('訊息', None) if pd.notna(row.get('訊息')) else None
         )
     },
-{
-        "excel_sheet_name": "異常紀錄error_log", # Excel 工作表名稱
-        "sql_table_name": "error_logs",         # 對應的 SQL 資料表名稱
-        "column_map": {                 # Excel 欄位 -> SQL 欄位
+    {
+        "excel_sheet_name": "異常紀錄error_log",  # Excel 工作表名稱
+        "sql_table_name": "error_logs",          # 對應的 SQL 資料表名稱
+        "column_map": {                   # Excel 欄位 -> SQL 欄位
             "日期": "log_date",
-            "eq_id": "eq_id",
+            "EQ_ID": "eq_id",
             "變形量(mm)": "deformation_mm",
             "轉速": "rpm",
             "時間": "event_time_str",
             "偵測異常類型": "detected_anomaly_type",
             "停機時長": "downtime_duration",
-            "回復時間": "resolved_at_str",
-            "備註": "resolution_notes"
+            "resolved_at": "resolved_at_str",
+            "resolution_notes": "resolution_notes"
         },
         "transform_row_data": lambda row: (
             pd.to_datetime(row.get('日期')) if pd.notna(row.get('日期')) else None,
-            row.get('eq_id', None) if pd.notna(row.get('eq_id')) else None,
+            row.get('EQ_ID', None) if pd.notna(row.get('EQ_ID')) else None,
             row.get('變形量(mm)', None) if pd.notna(row.get('變形量(mm)')) else None,
             row.get('轉速', None) if pd.notna(row.get('轉速')) else None,
             row.get('時間', None) if pd.notna(row.get('時間')) else None,
             row.get('偵測異常類型', None) if pd.notna(row.get('偵測異常類型')) else None,
             row.get('停機時長', None) if pd.notna(row.get('停機時長')) else None,
-            row.get('回復時間', None) if pd.notna(row.get('回復時間')) else None,
-            row.get('備註', None) if pd.notna(row.get('備註')) else None
+            row.get('resolved_at', None) if pd.notna(row.get('resolved_at')) else None,
+            row.get('resolution_notes', None) if pd.notna(row.get('resolution_notes')) else None
         )
     },
     {
@@ -242,78 +249,82 @@ table_configs = [
 ]
 
 # --- 4. 迴圈遍歷配置並匯入資料 ---
-for config in table_configs:
+for config in TABLE_CONFIGS:
     sheet_name = config["excel_sheet_name"]
     sql_table_name = config["sql_table_name"]
-    column_map = config["column_map"]
+    # column_map = config["column_map"] # 不直接使用 column_map 來構建 insert_sql
     transform_row_data = config["transform_row_data"]
 
     print(f"\n--- 開始處理資料表: {sql_table_name} (來源 Excel 工作表: {sheet_name}) ---")
 
     try:
         # 讀取 Excel 檔案的特定工作表
-        df = pd.read_excel(excel_file_path, sheet_name=sheet_name)
-        
+        data_frame = pd.read_excel(EXCEL_FILE_PATH, sheet_name=sheet_name)
+
         # 檢查 DataFrame 是否為空（只有標頭沒有數據行）
-        if df.empty:
+        if data_frame.empty:
             print(f"警告：工作表 '{sheet_name}' 讀取後為空，跳過匯入。")
             continue
 
         print(f"成功讀取 '{sheet_name}' 工作表內容。")
-        print("DataFrame 實際欄位名稱：", df.columns.tolist())
+        print("DataFrame 實際欄位名稱：", data_frame.columns.tolist())
 
-        # 根據 column_map 準備 SQL INSERT 語句的欄位列表
-        sql_columns = ', '.join([f"[{sql_col}]" for sql_col in column_map.values()])
-        placeholders = ', '.join(['?' for _ in column_map.values()])
-        
+        # 根據 column_map 的 values（即 SQL 欄位名稱）來構建 SQL INSERT 語句
+        # 這要求 transform_row_data 的輸出順序與 column_map.values() 的順序一致
+        sql_columns_list = [f"[{sql_col}]" for sql_col in config["column_map"].values()]
+        sql_columns_str = ', '.join(sql_columns_list)
+        placeholders_str = ', '.join(['?' for _ in sql_columns_list])
+
         insert_sql = f"""
         INSERT INTO {sql_table_name} (
-            {sql_columns}
-        ) VALUES ({placeholders})
+            {sql_columns_str}
+        ) VALUES ({placeholders_str})
         """
 
         # 遍歷資料框並插入資料
         successful_inserts = 0
         failed_inserts = 0
-        for index, row in df.iterrows():
+        for index, row in data_frame.iterrows():
             try:
                 data_to_insert = transform_row_data(row)
-                cursor.execute(insert_sql, data_to_insert)
+                CURSOR.execute(insert_sql, data_to_insert)
                 successful_inserts += 1
             except Exception as e:
                 failed_inserts += 1
                 print(f"插入 {sql_table_name} 表格第 {index} 行資料時發生錯誤：{e}")
                 print(f"原始資料：{row.to_dict()}")
-                conn.rollback() # 回滾當前事務
-                continue # 跳過當前行，繼續處理下一行
-        
-        conn.commit()
-        print(f"\n'{sql_table_name}' 資料表資料匯入完成。成功: {successful_inserts} 行, 失敗: {failed_inserts} 行。")
+                CONN.rollback()  # 回滾當前事務
+                continue  # 跳過當前行，繼續處理下一行
+
+        CONN.commit()
+        print(f"\n'{sql_table_name}' 資料表資料匯入完成。成功: "
+              f"{successful_inserts} 行, 失敗: {failed_inserts} 行。")
 
         # 查詢資料以驗證
         try:
-            cursor.execute(f"SELECT COUNT(*) FROM {sql_table_name}")
-            count = cursor.fetchone()[0]
+            CURSOR.execute(f"SELECT COUNT(*) FROM {sql_table_name}")
+            count = CURSOR.fetchone()[0]
             print(f"'{sql_table_name}' 資料表中的總行數：{count}")
 
-            cursor.execute(f"SELECT TOP 5 * FROM {sql_table_name}")
-            rows = cursor.fetchall()
+            CURSOR.execute(f"SELECT TOP 5 * FROM {sql_table_name}")
+            rows = CURSOR.fetchall()
             print("前 5 行資料：")
-            for r in rows:
-                print(r)
+            for record in rows:  # Changed 'r' to 'record' for flake8
+                print(record)
         except Exception as e:
             print(f"查詢 '{sql_table_name}' 資料時發生錯誤：{e}")
 
     except FileNotFoundError:
-        print(f"錯誤：找不到 Excel 檔案 '{excel_file_path}'。請檢查路徑是否正確。")
-        break # 如果主 Excel 檔案找不到，則停止所有處理
-    except KeyError: # 當 sheet_name 不存在時
-        print(f"警告：Excel 工作表 '{sheet_name}' 不存在於 '{excel_file_path}' 中，跳過此資料表。")
+        print(f"錯誤：找不到 Excel 檔案 '{EXCEL_FILE_PATH}'。請檢查路徑是否正確。")
+        break  # 如果主 Excel 檔案找不到，則停止所有處理
+    except KeyError:  # 當 sheet_name 不存在時
+        print(f"警告：Excel 工作表 '{sheet_name}' 不存在於 '{EXCEL_FILE_PATH}' 中，"
+              "跳過此資料表。")
     except Exception as e:
         print(f"處理 '{sheet_name}' 工作表時發生其他錯誤：{e}")
-        continue # 繼續處理下一個資料表
+        continue  # 繼續處理下一個資料表
 
 # --- 5. 關閉連線 ---
-cursor.close()
-conn.close()
+CURSOR.close()
+CONN.close()
 print("\n所有資料表資料匯入完成。資料庫連線已關閉。")
