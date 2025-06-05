@@ -36,7 +36,8 @@ class Database:
                 init_cur = conn.cursor()
 
                 # 1. user_preferences (來自 user_preferences.csv)
-                # 欄位假設: user_id, language, role, is_admin, responsible_area, created_at, display_name, email, last_active
+                # 欄位假設: user_id, language, role, is_admin, responsible_area, created_at,
+                # display_name, email, last_active
                 user_preferences_cols = """
                     [user_id] NVARCHAR(255) NULL,
                     [language] VARCHAR(50) NULL,
@@ -48,10 +49,13 @@ class Database:
                     [email] NVARCHAR(255) NULL,
                     [last_active] DATETIME2 NULL
                 """
-                self._create_table_if_not_exists(init_cur, "user_preferences", user_preferences_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "user_preferences",
+                                                  user_preferences_cols)
 
                 # 2. equipment (來自 equipment.csv)
-                # 欄位假設: eq_id, name, eq_type, location, status, created_at, model_number, purchase_date, last_maintenance_date
+                # 欄位假設: eq_id, name, eq_type, location, status, created_at, model_number,
+                # purchase_date, last_maintenance_date
                 equipment_cols = """
                     [eq_id] NVARCHAR(255) NULL,
                     [name] NVARCHAR(255) NULL,
@@ -63,14 +67,18 @@ class Database:
                     [purchase_date] DATETIME2 NULL,
                     [last_maintenance_date] DATETIME2 NULL
                 """
-                self._create_table_if_not_exists(init_cur, "equipment", equipment_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "equipment",
+                                                  equipment_cols)
 
                 # 3. conversations (來自 conversations.csv)
-                # 欄位假設 (請核對您的 CSV): message_id, user_id (或 sender_id), receiver_id, sender_role, content, timestamp, 
-                # message_type, is_user_message, intent, entities, response_text, response_generated_at, feedback_score, notes
+                # 欄位假設 (請核對您的 CSV): message_id, user_id (或 sender_id), receiver_id,
+                # sender_role, content, timestamp,
+                # message_type, is_user_message, intent, entities, response_text,
+                # response_generated_at, feedback_score, notes
                 # 根據您先前的方法簽名，簡化為:
                 conversations_cols = """
-                    [message_id] NVARCHAR(255) NULL, 
+                    [message_id] NVARCHAR(255) NULL,
                     [sender_id] NVARCHAR(255) NULL,       -- 對應您 add_message 中的 sender_id
                     [receiver_id] NVARCHAR(255) NULL,     -- 對應您 add_message 中的 receiver_id
                     [sender_role] NVARCHAR(50) NULL,      -- 對應您 add_message 中的 sender_role
@@ -87,8 +95,9 @@ class Database:
                     -- [feedback_score] INT NULL,
                     -- [notes] NVARCHAR(MAX) NULL
                 """
-                self._create_table_if_not_exists(init_cur, "conversations", conversations_cols)
-
+                self._create_table_if_not_exists(init_cur,
+                                                  "conversations",
+                                                  conversations_cols)
 
                 # 4. user_equipment_subscriptions (來自 user_equipment_subscriptions.csv)
                 # 欄位假設: subscription_id, user_id, eq_id, notification_types, subscribed_at
@@ -99,10 +108,13 @@ class Database:
                     [notification_types] NVARCHAR(255) NULL,
                     [subscribed_at] DATETIME2 NULL
                 """
-                self._create_table_if_not_exists(init_cur, "user_equipment_subscriptions", user_equipment_subscriptions_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "user_equipment_subscriptions",
+                                                  user_equipment_subscriptions_cols)
 
                 # 5. alert_history (來自 alert_history.csv)
-                # 欄位假設: alert_id, eq_id, alert_type_code, timestamp, description, severity, status, resolved_at, notes
+                # 欄位假設: alert_id, eq_id, alert_type_code, timestamp, description, severity,
+                # status, resolved_at, notes
                 alert_history_cols = """
                     [alert_id] NVARCHAR(255) NULL,
                     [eq_id] NVARCHAR(255) NULL,
@@ -113,10 +125,13 @@ class Database:
                     [resolved_at] DATETIME2 NULL,
                     [notes] NVARCHAR(MAX) NULL
                 """
-                self._create_table_if_not_exists(init_cur, "alert_history", alert_history_cols)
-                
+                self._create_table_if_not_exists(init_cur,
+                                                  "alert_history",
+                                                  alert_history_cols)
+
                 # 6. error_logs (來自 異常紀錄.csv)
-                # 欄位假設: log_id, eq_id, timestamp, error_code, description, reporter, status, resolved_at, resolution_notes
+                # 欄位假設: log_id, eq_id, timestamp, error_code, description, reporter,
+                # status, resolved_at, resolution_notes
                 error_logs_cols = """
                     [log_id] NVARCHAR(255) NULL,
                     [eq_id] NVARCHAR(255) NULL,
@@ -128,7 +143,9 @@ class Database:
                     [resolved_at] DATETIME2 NULL,
                     [resolution_notes] NVARCHAR(MAX) NULL
                 """
-                self._create_table_if_not_exists(init_cur, "error_logs", error_logs_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "error_logs",
+                                                  error_logs_cols)
 
                 # 7. stats_abnormal_monthly (來自 各異常統計(月).csv)
                 # 欄位假設: year, month, eq_id, abnormal_type, count, total_duration_minutes
@@ -140,7 +157,9 @@ class Database:
                     [count] INT NULL,
                     [total_duration_minutes] INT NULL
                 """
-                self._create_table_if_not_exists(init_cur, "stats_abnormal_monthly", stats_abnormal_monthly_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "stats_abnormal_monthly",
+                                                  stats_abnormal_monthly_cols)
 
                 # 8. stats_abnormal_quarterly (來自 各異常統計(季).csv)
                 # 欄位假設: year, quarter, eq_id, abnormal_type, count, total_duration_minutes
@@ -152,7 +171,9 @@ class Database:
                     [count] INT NULL,
                     [total_duration_minutes] INT NULL
                 """
-                self._create_table_if_not_exists(init_cur, "stats_abnormal_quarterly", stats_abnormal_quarterly_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "stats_abnormal_quarterly",
+                                                  stats_abnormal_quarterly_cols)
 
                 # 9. stats_abnormal_yearly (來自 各異常統計(年).csv)
                 # 欄位假設: year, eq_id, abnormal_type, count, total_duration_minutes
@@ -163,7 +184,9 @@ class Database:
                     [count] INT NULL,
                     [total_duration_minutes] INT NULL
                 """
-                self._create_table_if_not_exists(init_cur, "stats_abnormal_yearly", stats_abnormal_yearly_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "stats_abnormal_yearly",
+                                                  stats_abnormal_yearly_cols)
 
                 # 10. stats_operational_monthly (來自 運作統計(月).csv)
                 # 欄位假設: year, month, eq_id, uptime_hours, downtime_hours, utilization_rate
@@ -175,7 +198,9 @@ class Database:
                     [downtime_hours] FLOAT NULL,
                     [utilization_rate] FLOAT NULL
                 """
-                self._create_table_if_not_exists(init_cur, "stats_operational_monthly", stats_operational_monthly_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "stats_operational_monthly",
+                                                  stats_operational_monthly_cols)
 
                 # 11. stats_operational_quarterly (來自 運作統計(季).csv)
                 # 欄位假設: year, quarter, eq_id, uptime_hours, downtime_hours, utilization_rate
@@ -187,7 +212,9 @@ class Database:
                     [downtime_hours] FLOAT NULL,
                     [utilization_rate] FLOAT NULL
                 """
-                self._create_table_if_not_exists(init_cur, "stats_operational_quarterly", stats_operational_quarterly_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "stats_operational_quarterly",
+                                                  stats_operational_quarterly_cols)
 
                 # 12. stats_operational_yearly (來自 運作統計(年).csv)
                 # 欄位假設: year, eq_id, uptime_hours, downtime_hours, utilization_rate
@@ -198,10 +225,13 @@ class Database:
                     [downtime_hours] FLOAT NULL,
                     [utilization_rate] FLOAT NULL
                 """
-                self._create_table_if_not_exists(init_cur, "stats_operational_yearly", stats_operational_yearly_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "stats_operational_yearly",
+                                                  stats_operational_yearly_cols)
 
                 # 13. alert_types (手動定義，因為沒有提供 CSV，但先前討論過共13個表)
-                # 欄位假設: alert_type_code, type_name, description_template, default_severity, created_at
+                # 欄位假設: alert_type_code, type_name, description_template,
+                # default_severity, created_at
                 alert_types_cols = """
                     [alert_type_code] NVARCHAR(100) NULL,
                     [type_name] NVARCHAR(255) NULL,
@@ -209,7 +239,9 @@ class Database:
                     [default_severity] NVARCHAR(50) NULL,
                     [created_at] DATETIME2 NULL
                 """
-                self._create_table_if_not_exists(init_cur, "alert_types", alert_types_cols)
+                self._create_table_if_not_exists(init_cur,
+                                                  "alert_types",
+                                                  alert_types_cols)
 
                 conn.commit()
             logger.info("資料庫表格初始化/檢查完成 (所有表格已移除主鍵/外鍵約束)。")
@@ -220,6 +252,20 @@ class Database:
         except Exception as ex:
             logger.exception(f"資料庫初始化期間發生非預期錯誤: {ex}")
             raise
+
+    def _create_table_if_not_exists(self, cursor, table_name, columns_definition):
+        """通用方法，用於檢查並建立資料表"""
+        check_table_sql = (
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
+            "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ?;"
+        )
+        cursor.execute(check_table_sql, (table_name,))
+        if cursor.fetchone()[0] == 0:
+            create_table_sql = f"CREATE TABLE {table_name} ({columns_definition});"
+            cursor.execute(create_table_sql)
+            logger.info(f"資料表 '{table_name}' 已建立。")
+        else:
+            logger.info(f"資料表 '{table_name}' 已存在，跳過建立。")
 
     def add_message(self, sender_id, receiver_id, sender_role, content):
         """加入一筆新的對話記錄（包含發送者角色）"""
