@@ -75,7 +75,7 @@ class Database:
                 conversations_cols = """
                     [id] INT IDENTITY(1,1) PRIMARY KEY,
                     [message_id] NVARCHAR(255) NULL,
-                    [sender_id] NVARCHAR(255) NULL FOREIGN KEY REFERENCES user_preferences(user_id),
+                    [ sender_id ] NVARCHAR ( 255 ) NULL  FOREIGN  KEY  REFERENCES  user_preferences ( user_id ) ON DELETE CASCADE,
                     [receiver_id] NVARCHAR(255) NULL,
                     [sender_role] NVARCHAR(50) NULL,
                     [content] NVARCHAR(MAX) NULL,
