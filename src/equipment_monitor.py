@@ -480,7 +480,7 @@ class EquipmentMonitor:
                     cursor.execute(sql_subscriptions, params)
                     for row in cursor.fetchall():
                         user_ids_to_notify.add(row[0])
-            logger.error(f"檢查設備 {name} ({eq_id}) 指標時發生未知錯誤: {e}")
+            logger.error(f"檢查設備 {__name__} ({equipment_id}) 指標時發生未知錯誤: {e}")
 
             cursor.execute(
                     "SELECT eq_type FROM equipment WHERE equipment_id = ?;", (equipment_id,)
