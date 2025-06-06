@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime  # datetime is used for GETDATE() in SQL queries and strftime
 import pyodbc
 from database import db
 
