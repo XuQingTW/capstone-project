@@ -1,106 +1,105 @@
-# equipment_monitor.py (修改後，符合您的新要求)
-
 import logging
-import pandas as pd
 from datetime import datetime, timedelta
 import pyodbc
 from database import db
 
 logger = logging.getLogger(__name__)
 
-# 指向您提供標準的 Excel 檔案
-STANDARDS_EXCEL_FILE = r'C:\Users\sunny\Downloads\capstone-project\data\simulated_data (1).xlsx'
 
 class EquipmentMonitor:
-    """半導體設備監控與異常偵測器（僅監控切割機並從 Excel 讀取標準）"""
+    """半導體設備監控與異常偵測器 (僅限切割機)"""
 
-    # 設備類型常數 (已移除黏晶機和打線機)
+    # 設備類型常數 (只保留切割機)
     DICER = "dicer"  # 切割機
 
     # 嚴重程度常數
-    SEVERITY_WARNING = "warning"
-    SEVERITY_CRITICAL = "critical"
-    SEVERITY_EMERGENCY = "emergency"
+    SEVERITY_WARNING = "warning"  # 警告
+    SEVERITY_CRITICAL = "critical"  # 嚴重
+    SEVERITY_EMERGENCY = "emergency"  # 緊急
 
     def __init__(self):
         self.db = db
-        # 移除黏晶機和打線機的設定
         self.equipment_type_names = {
             self.DICER: "切割機",
         }
+        # 這些指標現在會從資料庫的 equipment_metric_thresholds 表中獲取標準
         self.equipment_metrics = {
-            self.DICER: ["溫度", "轉速", "冷卻水溫", "切割精度", "良率", "運轉時間"],
+            self.DICER: ["變形量(mm)", "轉速", "刀具裂痕"], # 增加刀具裂痕
         }
-        # 新增：在初始化時從 Excel 載入標準
-        self.metric_standards = self._load_metric_standards_from_excel()
-        if not self.metric_standards:
-            logger.error("未能從 Excel 成功載入異常標準，監控功能可能不準確。")
+        # 用於儲存從資料庫載入的閾值
+        self.metric_thresholds_data = {}
+        self._load_metric_thresholds_from_db() # 初始化時從資料庫載入標準
 
-    def _load_metric_standards_from_excel(self):
-        """
-        從指定的 Excel 檔案 '工作表1' 載入最新的異常判斷標準。
-        """
+    def _load_metric_thresholds_from_db(self):
+        """從資料庫的 equipment_metric_thresholds 表中載入所有指標的閾值。"""
         try:
-            logger.info(f"正在從 {STANDARDS_EXCEL_FILE} 的 '工作表1' 載入異常標準...")
-            df = pd.read_excel(STANDARDS_EXCEL_FILE, sheet_name="工作表1")
-            
-            standards = {}
-            for _, row in df.iterrows():
-                eq_type = row.get('設備類型')
-                metric_type = row.get('指標類型')
-                if not eq_type or not metric_type:
-                    continue
+            with self.db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT
+                        metric_type, normal_value,
+                        warning_min, warning_max,
+                        critical_min, critical_max,
+                        emergency_min, emergency_max, emergency_op
+                    FROM equipment_metric_thresholds;
+                """)
+                rows = cursor.fetchall()
+                if not rows:
+                    logger.warning("資料庫中 equipment_metric_thresholds 表無閾值數據。")
                 
-                if eq_type not in standards:
-                    standards[eq_type] = {}
-                
-                standards[eq_type][metric_type] = {
-                    'min': row.get('閾值下限'),
-                    'max': row.get('閾值上限'),
-                    'unit': row.get('單位')
-                }
-            logger.info("成功載入異常標準。")
-            return standards
-        except FileNotFoundError:
-            logger.error(f"找不到標準設定檔：{STANDARDS_EXCEL_FILE}")
-            return {}
+                for row in rows:
+                    (metric_type, normal_value,
+                     w_min, w_max,
+                     c_min, c_max,
+                     e_min, e_max, e_op) = row
+
+                    self.metric_thresholds_data[metric_type] = {
+                        "normal_value": normal_value,
+                        "warning": {"min": w_min, "max": w_max},
+                        "critical": {"min": c_min, "max": c_max},
+                        "emergency": {"min": e_min, "max": e_max, "op": e_op}
+                    }
+                logger.info(f"成功從資料庫載入 {len(self.metric_thresholds_data)} 個指標的閾值。")
+        except pyodbc.Error as db_err:
+            logger.exception(f"從資料庫載入閾值時發生錯誤: {db_err}")
+            self.metric_thresholds_data = {} # 清空，避免使用不完整的數據
         except Exception as e:
-            logger.exception(f"讀取異常標準 Excel 檔案時發生錯誤: {e}")
-            return {}
+            logger.exception(f"載入閾值時發生非預期錯誤: {e}")
+            self.metric_thresholds_data = {}
 
     def check_all_equipment(self):
-        """檢查所有設備是否有異常"""
+        """檢查所有切割機設備是否有異常"""
+        # 在每次檢查前重新載入閾值，以確保是最新的（如果資料庫有更新）
+        self._load_metric_thresholds_from_db()
+
         try:
             with self.db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT eq_id, name, eq_type FROM equipment WHERE status <> 'offline';"
+                    "SELECT equipment_id, name, eq_type FROM equipment "
+                    "WHERE status <> 'offline' AND eq_type = ?;",
+                    (self.DICER,)
                 )
                 equipments = cursor.fetchall()
-                for eq_id, name, eq_type in equipments:
-                    # !! 注意：此功能仍需 'equipment_metrics' 資料表來提供即時數值 !!
-                    # 一旦該表可用，請取消下面這行的註解以啟用監控
-                    # self._check_equipment_metrics(conn, eq_id, name, eq_type)
-                    pass
-                logger.info("設備檢查完成（指標監控功能需手動啟用）。")
+                for equipment_id, name, eq_type in equipments:
+                    self._check_equipment_metrics(
+                        conn, equipment_id, name, eq_type
+                    )
+                logger.info("所有切割機設備檢查完成。")
         except pyodbc.Error as db_err:
-            logger.exception(f"檢查所有設備時發生資料庫錯誤: {db_err}")
+            logger.exception(f"檢查所有切割機設備時發生資料庫錯誤: {db_err}")
         except Exception as e:
-            logger.exception(f"檢查所有設備時發生非預期錯誤: {e}")
+            logger.exception(f"檢查所有切割機設備時發生非預期錯誤: {e}")
 
-    # =========================================================================
-    # !! 以下函式 (_check_equipment_metrics) 邏輯已更新 !!
-    # 它現在會使用從 Excel 載入的標準，但仍需 'equipment_metrics' 表提供即時數據。
-    # =========================================================================
-    def _check_equipment_metrics(self, conn, eq_id, name, equipment_type):
-        """(待啟用) 檢查設備的指標是否異常（使用從 Excel 讀取的標準）"""
+    def _check_equipment_metrics(self, conn, equipment_id, name, eq_type):
+        """檢查設備的指標是否異常"""
         try:
             cursor = conn.cursor()
-            # 這段 SQL 仍然需要 'equipment_metrics' 表來獲取設備回傳的最新數值
+            # SQL 查詢修改：只選擇實際會用到的欄位，移除 threshold_min/max 因為它們從另一張表獲取
             sql_get_metrics = """
                 WITH RankedMetrics AS (
                     SELECT
-                        metric_type, value, timestamp,
+                        id, equipment_id, metric_type, status, value, unit, timestamp,
                         ROW_NUMBER() OVER(
                             PARTITION BY equipment_id, metric_type
                             ORDER BY timestamp DESC
@@ -108,36 +107,48 @@ class EquipmentMonitor:
                     FROM equipment_metrics
                     WHERE equipment_id = ? AND timestamp > DATEADD(minute, -30, GETDATE())
                 )
-                SELECT metric_type, value, timestamp
-                FROM RankedMetrics WHERE rn = 1;
+                SELECT id, equipment_id, metric_type, status, value, unit, timestamp
+                FROM RankedMetrics
+                WHERE rn = 1;
             """
-            cursor.execute(sql_get_metrics, (eq_id,))
-            
-            latest_metrics = cursor.fetchall()
-            if not latest_metrics:
-                return
+            cursor.execute(sql_get_metrics, (equipment_id,))
+
+            latest_metrics = {}
+            for metric_row in cursor.fetchall():
+                # 解包需要匹配新的 SELECT 順序
+                _id, _eq_id, metric_type, status, value, unit, ts = metric_row
+                # 這裡的 latest_metrics key 使用 metric_type
+                latest_metrics[metric_type] = {
+                    "value": float(value) if value is not None else None,
+                    "unit": unit,
+                    "timestamp": ts,
+                    "status_from_metric": status # 儲存指標自身的狀態
+                }
 
             anomalies = []
-            for metric_type, value, ts in latest_metrics:
-                # 從載入的標準中查找閾值
-                standard = self.metric_standards.get(equipment_type, {}).get(metric_type)
-                if not standard:
-                    continue  # 如果 Excel 中沒有定義此指標的標準，則跳過
+            if not latest_metrics:
+                logger.debug(
+                    f"設備 {name} ({equipment_id}) 在過去30分鐘內沒有新的監測指標。"
+                )
+                # 可考慮長時間無數據回報的處理邏輯
+                return
 
-                val_float = float(value) if value is not None else None
-                min_thresh = float(standard['min']) if pd.notna(standard['min']) else None
-                max_thresh = float(standard['max']) if pd.notna(standard['max']) else None
-
-                if val_float is not None:
-                    if (min_thresh is not None and val_float < min_thresh) or \
-                       (max_thresh is not None and val_float > max_thresh):
-                        
-                        severity = self._determine_severity(metric_type, val_float, min_thresh, max_thresh)
+            for metric_type, data in latest_metrics.items():
+                # 只處理 self.equipment_metrics 中為 DICER 定義的指標
+                if metric_type in self.equipment_metrics.get(self.DICER, []) and data["value"] is not None:
+                    # 使用從資料庫載入的閾值數據進行判斷
+                    severity = self._determine_severity(
+                        metric_type, data["value"]
+                    )
+                    
+                    # 只有在判斷出非 None 的嚴重程度時才加入 anomalies
+                    if severity:
                         anomalies.append({
-                            "metric": metric_type, "value": val_float,
-                            "min": min_thresh, "max": max_thresh,
-                            "unit": standard.get('unit'), "severity": severity,
-                            "timestamp": ts
+                            "metric": metric_type,
+                            "value": data["value"],
+                            "unit": data["unit"],
+                            "severity": severity,
+                            "timestamp": data["timestamp"]
                         })
 
             if anomalies:
@@ -153,20 +164,34 @@ class EquipmentMonitor:
                         if anomaly.get('timestamp') else 'N/A'
                     )
                     msg = ""
-                    if anomaly["min"] is not None and anomaly["value"] < anomaly["min"]:
+                    # 從 self.metric_thresholds_data 獲取正常值以供顯示
+                    normal_val_display = self.metric_thresholds_data.get(anomaly["metric"], {}).get("normal_value")
+
+                    if anomaly["metric"] == "轉速":
                         msg = (
-                            f"指標 {anomaly['metric']} 值 {anomaly['value']:.2f} "
-                            f"低於下限 {anomaly['min']:.2f} {anomaly['unit'] or ''} "
-                            f"(於 {ts_str})"
+                            f"指標 {anomaly['metric']} 值 {anomaly['value']:.0f} RPM "
+                            f"(正常應為 {normal_val_display:.0f} RPM 左右)" if normal_val_display is not None else "" +
+                            f"。偵測為 {anomaly['severity'].upper()} 等級異常 (於 {ts_str})"
                         )
-                    elif anomaly["max"] is not None and anomaly["value"] > anomaly["max"]:
+                    elif anomaly["metric"] == "變形量(mm)":
                         msg = (
-                            f"指標 {anomaly['metric']} 值 {anomaly['value']:.2f} "
-                            f"超出上限 {anomaly['max']:.2f} {anomaly['unit'] or ''} "
-                            f"(於 {ts_str})"
+                            f"指標 {anomaly['metric']} 值 {anomaly['value']:.3f} mm"
+                            f"(正常應為 {normal_val_display:.3f} mm 以下)" if normal_val_display is not None else "" +
+                            f"。偵測為 {anomaly['severity'].upper()} 等級異常 (於 {ts_str})"
                         )
-                    if msg:
-                        anomaly_messages.append(msg)
+                    elif anomaly["metric"] == "刀具裂痕": # 新增刀具裂痕的訊息格式
+                         msg = (
+                            f"指標 {anomaly['metric']} 值 {anomaly['value']:.3f} mm"
+                            f"(正常應為 {normal_val_display:.3f} mm 以下)" if normal_val_display is not None else "" +
+                            f"。偵測為 {anomaly['severity'].upper()} 等級異常 (於 {ts_str})"
+                        )
+                    else:
+                        msg = (
+                            f"指標 {anomaly['metric']} 值 {anomaly['value']:.2f} {anomaly['unit'] or ''}。"
+                            f"偵測為 {anomaly['severity'].upper()} 等級異常 (於 {ts_str})"
+                        )
+                    anomaly_messages.append(msg)
+
 
                 full_message = (
                     f"設備 {name} ({equipment_id}) 異常提醒 "
@@ -176,14 +201,13 @@ class EquipmentMonitor:
 
                 for anomaly in anomalies:
                     alert_msg_for_db = (
-                        f"指標 {anomaly['metric']} 值 {anomaly['value']:.2f} "
-                        f"(閾值 {anomaly['min']:.2f}-{anomaly['max']:.2f} "
-                        f"{anomaly['unit'] or ''})"
+                        f"{anomaly['metric']} 值 {anomaly['value']:.2f} {anomaly['unit'] or ''} "
+                        f"(嚴重程度: {anomaly['severity'].upper()})"
                     )
                     cursor.execute(
                         """
-                        INSERT INTO alert_history (equipment_id, alert_type, severity, message)
-                        VALUES (?, ?, ?, ?);
+                        INSERT INTO alert_history (equipment_id, alert_type, severity, message, created_at)
+                        VALUES (?, ?, ?, ?, GETDATE()); -- created_at 自動填寫
                         """,
                         (
                             equipment_id,
@@ -196,7 +220,7 @@ class EquipmentMonitor:
                 self._update_equipment_status(
                     conn, equipment_id, highest_severity, full_message
                 )
-                conn.commit()  # 確保在更新狀態後提交
+                conn.commit()
                 self._send_alert_notification(equipment_id, full_message, highest_severity)
                 logger.info(
                     f"設備 {name} ({equipment_id}) 異常已記錄及通知 ({highest_severity})。"
@@ -233,9 +257,9 @@ class EquipmentMonitor:
             self.SEVERITY_EMERGENCY: "emergency",
             "normal": "normal",
             "offline": "offline",
-            "stale_data": "warning"  # 長時間未回報數據也視為一種警告
+            "stale_data": "warning"
         }
-        db_status = status_map.get(new_status_key, "warning")  # 預設為 warning
+        db_status = status_map.get(new_status_key, "warning")
 
         cursor = conn.cursor()
         cursor.execute(
@@ -255,13 +279,13 @@ class EquipmentMonitor:
                 )
                 severity_for_log = (
                     new_status_key if new_status_key != "normal" else "info"
-                )  # 'info' for recovery
+                )
                 is_resolved_log = 1 if new_status_key == "normal" else 0
                 cursor.execute(
                     """
                     INSERT INTO alert_history
-                        (equipment_id, alert_type, severity, message, is_resolved)
-                    VALUES (?, ?, ?, ?, ?);
+                        (equipment_id, alert_type, severity, message, is_resolved, created_at)
+                    VALUES (?, ?, ?, ?, ?, GETDATE());
                     """,
                     (
                         equipment_id,
@@ -274,106 +298,61 @@ class EquipmentMonitor:
             logger.info(
                 f"設備 {equipment_id} 狀態從 {current_status_row[0]} 更新為 {db_status}。"
             )
-            return True  # 狀態已更新
-        return False  # 狀態未改變
+            return True
+        return False
 
-    def _check_operation_status(self, conn, equipment_id, name, equipment_type):
-        """檢查設備運行狀態，包括長時間運行、異常停機等"""
-        try:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT id, operation_type, start_time, lot_id, product_id
-                FROM equipment_operation_logs
-                WHERE equipment_id = ? AND end_time IS NULL
-                ORDER BY start_time ASC;
-                """,
-                (equipment_id,),
-            )
-            operations = cursor.fetchall()
-            if not operations:
-                return
+    def _check_operation_status(self, conn, equipment_id, name, eq_type):
+        """檢查設備運行狀態，包括長時間運行、異常停機等 (已停用)"""
+        logger.debug(f"設備 {name} ({equipment_id}) 的運行狀態監控已停用。")
+        return
 
-            for op_id, op_type, start_time_db, lot_id, product_id in operations:
-                operation_duration = datetime.now() - start_time_db
-                max_duration_hours = {
-                    self.DIE_BONDER: 6, self.WIRE_BONDER: 8, self.DICER: 4,
-                }.get(equipment_type, 8)
+    def _determine_severity(self, metric_type, value):
+        """
+        根據載入的閾值數據，判斷指標的嚴重程度。
+        """
+        val = float(value)
+        thresholds = self.metric_thresholds_data.get(metric_type)
 
-                if operation_duration > timedelta(hours=max_duration_hours):
-                    severity = self.SEVERITY_WARNING
-                    duration_str = str(operation_duration).split('.')[0]
-                    message = (
-                        f"設備 {name} ({equipment_id}) 的作業 '{op_type}' (ID: {op_id}) "
-                        f"已持續運行 {duration_str}，"
-                        f"超過預期 {max_duration_hours} 小時，請注意檢查。"
-                    )
+        if not thresholds:
+            logger.warning(f"未找到指標 '{metric_type}' 的閾值數據。無法判斷嚴重程度。")
+            return None
 
-                    cursor.execute(
-                        "SELECT id FROM alert_history "
-                        "WHERE equipment_id = ? AND alert_type = ? AND is_resolved = 0 "
-                        "AND message LIKE ?;",
-                        (equipment_id, "operation_long_running", f"%ID: {op_id}%")
-                    )
+        # 優先判斷重度異常
+        emergency_thresh = thresholds.get("emergency")
+        if emergency_thresh:
+            e_min = emergency_thresh.get("min")
+            e_max = emergency_thresh.get("max")
+            e_op = emergency_thresh.get("op")
 
-                    if not cursor.fetchone():  # 如果沒有未解決的相同作業長時間運行警報
-                        cursor.execute(
-                            """
-                            INSERT INTO alert_history
-                                (equipment_id, alert_type, severity, message)
-                            VALUES (?, ?, ?, ?);
-                            """,
-                            (equipment_id, "operation_long_running", severity, message),
-                        )
-                        conn.commit()  # 提交警報記錄
-                        self._send_alert_notification(equipment_id, message, severity)
-                        logger.info(
-                            f"設備 {name} ({equipment_id}) 作業 {op_id} "
-                            "長時間運行異常已通知。"
-                        )
-                    else:
-                        logger.debug(
-                            f"設備 {name} ({equipment_id}) 作業 {op_id} "
-                            "長時間運行警報已存在且未解決，跳過重複通知。"
-                        )
-                    return  # 通常一個設備同時只會有一個主要運行作業
-        except pyodbc.Error as db_err:
-            logger.error(
-                f"檢查設備 {name} ({equipment_id}) 運行狀態時發生資料庫錯誤: {db_err}"
-            )
-        except Exception as e:
-            logger.error(
-                f"檢查設備 {name} ({equipment_id}) 運行狀態時發生未知錯誤: {e}"
-            )
-
-    def _determine_severity(self, metric_type, value, threshold_min, threshold_max):
-        val = float(value) if value is not None else 0
-        min_thresh = float(threshold_min) if threshold_min is not None else float('-inf')
-        max_thresh = float(threshold_max) if threshold_max is not None else float('inf')
-
-        # 通常這些值越高越危險，或越低越危險
-        if metric_type in ["溫度", "壓力", "轉速", "金絲張力"]:
-            if max_thresh != float('inf') and val > max_thresh:  # 超出上限
-                if val >= max_thresh * 1.2:
+            if e_op == '>':
+                if e_min is not None and val > e_min:
                     return self.SEVERITY_EMERGENCY
-                if val >= max_thresh * 1.1:
-                    return self.SEVERITY_CRITICAL
-                return self.SEVERITY_WARNING
-            # 低於下限 (某些指標，如壓力，過低也可能危險)
-            if min_thresh != float('-inf') and val < min_thresh:
-                return self.SEVERITY_WARNING  # 暫時都設為 WARNING
-        # 通常這些值越低越嚴重
-        elif metric_type in ["良率", "Pick準確率", "切割精度"]:
-            if min_thresh != float('-inf') and val < min_thresh:
-                if val <= min_thresh * 0.8:
-                    return self.SEVERITY_CRITICAL
-                if val <= min_thresh * 0.9:  # 調整分級
-                    return self.SEVERITY_WARNING
-                return self.SEVERITY_WARNING  # 預設是警告
+            elif e_op == '<':
+                if e_max is not None and val < e_max:
+                    return self.SEVERITY_EMERGENCY
+            # 如果沒有操作符，則預設為區間 [min, max]
+            elif e_min is not None and e_max is not None and e_min <= val <= e_max:
+                 return self.SEVERITY_EMERGENCY
 
-        return self.SEVERITY_WARNING  # 預設為警告
-                # 後續處理（發送通知等）邏輯保持不變...
-        pass
+        # 判斷中度異常 (臨界)
+        critical_thresh = thresholds.get("critical")
+        if critical_thresh:
+            c_min = critical_thresh.get("min")
+            c_max = critical_thresh.get("max")
+            # 區間判斷 (min, max]
+            if c_min is not None and c_max is not None and c_min < val <= c_max:
+                return self.SEVERITY_CRITICAL
+
+        # 判斷輕度異常 (警告)
+        warning_thresh = thresholds.get("warning")
+        if warning_thresh:
+            w_min = warning_thresh.get("min")
+            w_max = warning_thresh.get("max")
+            # 區間判斷 (min, max]
+            if w_min is not None and w_max is not None and w_min < val <= w_max:
+                return self.SEVERITY_WARNING
+
+        return None # 如果不在任何異常區間內，則視為正常
 
     def _severity_level(self, severity):
         levels = {
@@ -395,12 +374,13 @@ class EquipmentMonitor:
         }
         return emojis.get(severity, "⚠️")
 
-    def _get_equipment_data(self, conn_unused, equipment_id):  # conn_unused 標示為未使用
+    def _get_equipment_data(self, conn_unused, equipment_id):
+        """從資料庫獲取指定設備的名稱、類型和位置資訊"""
         try:
             with self.db._get_connection() as new_conn:
                 cursor = new_conn.cursor()
                 cursor.execute(
-                    "SELECT name, type, location FROM equipment WHERE equipment_id = ?;",
+                    "SELECT name, eq_type, location FROM equipment WHERE equipment_id = ?;",
                     (equipment_id,),
                 )
                 result = cursor.fetchone()
@@ -422,7 +402,7 @@ class EquipmentMonitor:
     def _generate_ai_recommendation(self, anomalies, equipment_data):
         """產生 AI 增強的異常描述和建議（使用現有的 OpenAI 服務）"""
         try:
-            from src.main import OpenAIService  # 保持局部導入
+            from src.main import OpenAIService
 
             context_parts = []
             for anomaly in anomalies:
@@ -430,15 +410,23 @@ class EquipmentMonitor:
                     anomaly['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     if anomaly.get('timestamp') else 'N/A'
                 )
-                min_val_str = f"{anomaly['min']:.2f}" if anomaly['min'] is not None else "N/A"
-                max_val_str = f"{anomaly['max']:.2f}" if anomaly['max'] is not None else "N/A"
                 value_str = f"{anomaly['value']:.2f}" if anomaly['value'] is not None else "N/A"
+                
+                normal_val_display = self.metric_thresholds_data.get(anomaly["metric"], {}).get("normal_value")
 
-                context_parts.append(
-                    f"- 指標 '{anomaly['metric']}': 目前值 {value_str} "
-                    f"(正常範圍: {min_val_str} - {max_val_str} {anomaly['unit'] or ''}), "
-                    f"記錄時間: {ts_str}"
-                )
+                if anomaly["metric"] == "轉速":
+                    metric_detail = (f"轉速: {int(anomaly['value'])} RPM "
+                                     f"(正常約 {int(normal_val_display)} RPM)" if normal_val_display is not None else "RPM")
+                elif anomaly["metric"] in ["變形量(mm)", "刀具裂痕"]: # 統一處理這兩種
+                    metric_detail = (f"{anomaly['metric']}: {anomaly['value']:.3f} mm "
+                                     f"(正常約 {normal_val_display:.3f} mm 以下)" if normal_val_display is not None else "mm")
+                else:
+                    metric_detail = (
+                        f"指標 '{anomaly['metric']}': 目前值 {value_str} "
+                        f"(單位: {anomaly['unit'] or ''})"
+                    )
+
+                context_parts.append(f"- {metric_detail}, 記錄時間: {ts_str}, 異常等級: {anomaly['severity'].upper()}")
             context = "偵測到的異常狀況:\n" + "\n".join(context_parts)
 
             prompt = (
@@ -451,7 +439,6 @@ class EquipmentMonitor:
             )
 
             system_ai_user_id = "SYSTEM_AI_HELPER_EQUIPMENT"
-            # 確保有此用戶的偏好
             db.set_user_preference(system_ai_user_id, language="zh-Hant")
 
             service = OpenAIService(message=prompt, user_id=system_ai_user_id)
@@ -460,7 +447,6 @@ class EquipmentMonitor:
         except ImportError as imp_err:
             logger.error(f"無法導入 OpenAIService: {imp_err}")
             return "無法獲取 AI 建議 (模組導入錯誤)。"
-            logger.error(f"檢查設備 {name} ({eq_id}) 指標時發生資料庫錯誤: {db_err}")
         except Exception as e:
             logger.exception(f"產生 AI 建議時發生錯誤: {e}")
             return "無法獲取 AI 建議 (系統錯誤)。"
@@ -468,7 +454,7 @@ class EquipmentMonitor:
     def _send_alert_notification(self, equipment_id, message, severity):
         """發送通知給訂閱該設備的使用者及相關負責人"""
         try:
-            from src.linebot_connect import send_notification  # 保持局部導入
+            from src.linebot_connect import send_notification
 
             user_ids_to_notify = set()
 
@@ -481,11 +467,10 @@ class EquipmentMonitor:
                     level_filter_tuple = ('all', 'critical')
                 elif severity == self.SEVERITY_WARNING:
                     level_filter_tuple = ('all',)
-                else:  # info, normal_recovery 等
-                    level_filter_tuple = ('all',)  # 或者不發送非警告級別的通知
+                else:
+                    level_filter_tuple = ('all',)
 
                 if level_filter_tuple:
-                    # 動態生成 IN (...) 中的佔位符
                     placeholders = ', '.join(['?'] * len(level_filter_tuple))
                     sql_subscriptions = (
                         f"SELECT user_id FROM user_equipment_subscriptions "
@@ -498,7 +483,7 @@ class EquipmentMonitor:
             logger.error(f"檢查設備 {name} ({eq_id}) 指標時發生未知錯誤: {e}")
 
             cursor.execute(
-                    "SELECT type FROM equipment WHERE equipment_id = ?;", (equipment_id,)
+                    "SELECT eq_type FROM equipment WHERE equipment_id = ?;", (equipment_id,)
                 )
             equipment_info = cursor.fetchone()
             if equipment_info:
@@ -515,7 +500,7 @@ class EquipmentMonitor:
                 logger.warning(
                     f"設備 {equipment_id} 發生警報，但找不到任何符合條件的通知對象。"
                 )
-                
+
             final_message = (
                 f"{self._severity_emoji(severity)} "
                 f"設備警報 ({equipment_id}):\n{message}"
@@ -539,5 +524,4 @@ class EquipmentMonitor:
             logger.exception(
                 f"發送設備 {equipment_id} 的通知時發生非預期錯誤: {e}"
             )
-    # ... 其他函式 (_update_equipment_status, _send_alert_notification 等) 保持不變，但記得檢查欄位名稱 ...
-    # ... _determine_severity, _severity_level 等也保持不變 ...
+ 

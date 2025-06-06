@@ -37,15 +37,15 @@ class Database:
             with self._get_connection() as conn:
                 init_cur = conn.cursor()
 
-                # 1. user_preferences (來自 user_preferences.csv) - 保持不變
+                # 1. user_preferences
                 user_preferences_cols = """
-                    [user_id] NVARCHAR(255) NULL,
+                    [user_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
                     [language] VARCHAR(50) NULL,
                     [role] NVARCHAR(50) NULL,
-                    [is_admin] BIT NULL,
+                    [is_admin] BIT DEFAULT 0,
                     [responsible_area] NVARCHAR(255) NULL,
-                    [created_at] DATETIME2 NULL,
-                    [display_name] NVARCHAR(100) NULL,
+                    [created_at] DATETIME2 DEFAULT GETDATE(),
+                    [display_name] NVARCHAR(255) NULL,
                     [email] NVARCHAR(255) NULL,
                     [last_active] DATETIME2 NULL
                 """
@@ -55,14 +55,14 @@ class Database:
                     user_preferences_cols
                 )
 
-                # 2. equipment (來自 equipment.csv) - 已根據您的要求修改
+                # 2. equipment
                 equipment_cols = """
-                    [id] INT NULL,
-                    [eq_id] NVARCHAR(255) NULL,
+                    [id] INT IDENTITY(1,1),
+                    [equipment_id] NVARCHAR(50) NOT NULL PRIMARY KEY,
                     [name] NVARCHAR(255) NULL,
-                    [eq_type] NVARCHAR(255) NULL,
+                    [eq_type] NVARCHAR(50) NULL,
                     [location] NVARCHAR(255) NULL,
-                    [status] NVARCHAR(255) NULL, -- 對應 Excel 的第二個 'location' 或 'location.1'
+                    [status] NVARCHAR(50) NULL,
                     [last_updated] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
@@ -71,25 +71,15 @@ class Database:
                     equipment_cols
                 )
 
-                # 3. conversations (來自 conversations.csv) - 保持不變
+                # 3. conversations
                 conversations_cols = """
+                    [id] INT IDENTITY(1,1) PRIMARY KEY,
                     [message_id] NVARCHAR(255) NULL,
-                    [sender_id] NVARCHAR(255) NULL,
+                    [sender_id] NVARCHAR(255) NULL FOREIGN KEY REFERENCES user_preferences(user_id),
                     [receiver_id] NVARCHAR(255) NULL,
                     [sender_role] NVARCHAR(50) NULL,
                     [content] NVARCHAR(MAX) NULL,
                     [timestamp] DATETIME2 NULL DEFAULT GETDATE()
-                    -- 以下為 conversations.csv 中其他可能的欄位，
-                    -- 請根據您的CSV取消註解或修改:
-                    -- [user_id] NVARCHAR(255) NULL,
-                    -- [message_type] NVARCHAR(50) NULL,
-                    -- [is_user_message] BIT NULL,
-                    -- [intent] NVARCHAR(100) NULL,
-                    -- [entities] NVARCHAR(MAX) NULL,
-                    -- [response_text] NVARCHAR(MAX) NULL,
-                    -- [response_generated_at] DATETIME2 NULL,
-                    -- [feedback_score] INT NULL,
-                    -- [notes] NVARCHAR(MAX) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -97,13 +87,14 @@ class Database:
                     conversations_cols
                 )
 
-                # 4. user_equipment_subscriptions (來自 user_equipment_subscriptions.csv) - 保持不變
+                # 4. user_equipment_subscriptions
                 user_equipment_subscriptions_cols = """
-                    [subscription_id] INT NULL,
-                    [user_id] NVARCHAR(255) NULL,
-                    [eq_id] NVARCHAR(255) NULL,
+                    [subscription_id] INT IDENTITY(1,1) PRIMARY KEY,
+                    [user_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES user_preferences(user_id),
+                    [equipment_id] NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     [notification_types] NVARCHAR(255) NULL,
-                    [subscribed_at] DATETIME2 NULL
+                    [subscribed_at] DATETIME2 DEFAULT GETDATE(),
+                    UNIQUE (user_id, equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -111,13 +102,18 @@ class Database:
                     user_equipment_subscriptions_cols
                 )
 
-                # 5. alert_history (來自 alert_history.csv) - 已根據您的要求修改
+                # 5. alert_history
                 alert_history_cols = """
-                    [id] INT NULL, -- 對應 CSV 的 'ID'
-                    [equipment_id] NVARCHAR(255) NULL,
+                    [id] INT IDENTITY(1,1) PRIMARY KEY,
+                    [equipment_id] NVARCHAR(50) NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     [alert_type] NVARCHAR(255) NULL,
-                    [severity] NVARCHAR(255) NULL,
-                    [message] NVARCHAR(255) NULL -- 對應 CSV 的 '訊息'
+                    [severity] NVARCHAR(50) NULL,
+                    [message] NVARCHAR(MAX) NULL,
+                    [is_resolved] BIT NULL DEFAULT 0,
+                    [created_at] DATETIME2 DEFAULT GETDATE(),
+                    [resolved_at] DATETIME2 NULL,
+                    [resolved_by] NVARCHAR(255) NULL,
+                    [resolution_notes] NVARCHAR(MAX) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -265,7 +261,9 @@ class Database:
             logger.info(f"資料表 '{table_name}' 已建立。")
         else:
             logger.info(f"資料表 '{table_name}' 已存在，跳過建立。")
-
+            
+    # --- 其他方法 (add_message, get_conversation_history etc.) 保持不變 ---
+    # ... (rest of the class methods are unchanged)
     def add_message(self, sender_id, receiver_id, sender_role, content):
         """加入一筆新的對話記錄（包含發送者角色）"""
         try:
@@ -420,7 +418,7 @@ class Database:
             return []
 
     # 加回 set_user_preference 方法
-    def set_user_preference(self, user_id, language=None, role=None):
+    def set_user_preference(self, user_id, language=None, role=None, is_admin=None, responsible_area=None):
         """設定或更新使用者偏好與角色"""
         try:
             with self._get_connection() as conn:
@@ -441,6 +439,13 @@ class Database:
                     if role is not None:
                         update_parts.append("role = ?")
                         params.append(role)
+                    if is_admin is not None:
+                        update_parts.append("is_admin = ?")
+                        params.append(is_admin)
+                    if responsible_area is not None:
+                        update_parts.append("responsible_area = ?")
+                        params.append(responsible_area)
+
 
                     # 如果沒有要更新的欄位，至少更新 last_active
                     if not update_parts:
