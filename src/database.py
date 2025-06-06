@@ -75,7 +75,7 @@ class Database:
                 conversations_cols = """
                     [id] INT IDENTITY(1,1) PRIMARY KEY,
                     [message_id] NVARCHAR(255) NULL,
-                    [ sender_id ] NVARCHAR ( 255 ) NULL  FOREIGN  KEY  REFERENCES  user_preferences ( user_id ) ON DELETE CASCADE,
+                    [sender_id] NVARCHAR(255) NULL FOREIGN KEY REFERENCES user_preferences (user_id) ON DELETE CASCADE,
                     [receiver_id] NVARCHAR(255) NULL,
                     [sender_role] NVARCHAR(50) NULL,
                     [content] NVARCHAR(MAX) NULL,
@@ -124,7 +124,7 @@ class Database:
                 # 6. error_logs (來自 error_log.csv) - 已根據您的要求修改
                 error_logs_cols = """
                     [log_date] DATETIME2 NULL,           -- 對應 CSV 中的日期資訊 (可能隱含在時間戳中或單獨列出)
-                    [eq_id] NVARCHAR(255) NULL,         -- 對應 CSV 中的設備 ID (可能隱含在其他欄位或單獨列出)
+                    [eq_id] NVARCHAR(255) NULL,          -- 對應 CSV 中的設備 ID (可能隱含在其他欄位或單獨列出)
                     [deformation_mm] FLOAT NULL,
                     [rpm] INT NULL,
                     [event_time_str] NVARCHAR(255) NULL,
@@ -261,9 +261,8 @@ class Database:
             logger.info(f"資料表 '{table_name}' 已建立。")
         else:
             logger.info(f"資料表 '{table_name}' 已存在，跳過建立。")
-            
+
     # --- 其他方法 (add_message, get_conversation_history etc.) 保持不變 ---
-    # ... (rest of the class methods are unchanged)
     def add_message(self, sender_id, receiver_id, sender_role, content):
         """加入一筆新的對話記錄（包含發送者角色）"""
         try:
@@ -445,7 +444,6 @@ class Database:
                     if responsible_area is not None:
                         update_parts.append("responsible_area = ?")
                         params.append(responsible_area)
-
 
                     # 如果沒有要更新的欄位，至少更新 last_active
                     if not update_parts:
