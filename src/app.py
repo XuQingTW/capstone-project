@@ -107,4 +107,3 @@ if __name__ == "__main__":
     ssl_context = "adhoc"
     print("")
     run_app(ssl_context=ssl_context)
-    
