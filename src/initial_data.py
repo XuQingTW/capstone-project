@@ -1,4 +1,3 @@
-import os
 import re
 import logging
 import pandas as pd
@@ -12,6 +11,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
 
 # --- 2. 設定 Excel 檔案路徑與資料表配置 ---
 # 確認 Excel 檔案的絕對路徑
@@ -88,38 +88,105 @@ TABLE_CONFIGS = [
     {
         "excel_sheet_name": "運作統計(月)",
         "sql_table_name": "stats_operational_monthly",
-        "column_map": {"月": "month", "總運作時長": "total_operation_duration", "停機總時長": "total_downtime_duration", "停機率(%)": "downtime_rate_percent", "說明": "description"},
-        "transform_row_data": lambda row: (row.get('月'), row.get('總運作時長'), row.get('停機總時長'), row.get('停機率(%)'), row.get('說明'))
+        "column_map": {
+            "月": "month",
+            "總運作時長": "total_operation_duration",
+            "停機總時長": "total_downtime_duration",
+            "停機率(%)": "downtime_rate_percent",
+            "說明": "description"
+        },
+        "transform_row_data": lambda row: (
+            row.get('月'), row.get('總運作時長'), row.get('停機總時長'),
+            row.get('停機率(%)'), row.get('說明')
+        )
     },
     {
         "excel_sheet_name": "運作統計(季)",
         "sql_table_name": "stats_operational_quarterly",
-        "column_map": {"equipment_id": "equipment_id", "年": "year", "季度": "quarter", "總運作時長": "total_operation_duration", "停機總時長": "total_downtime_duration", "停機率(%)": "downtime_rate_percent", "說明": "description"},
-        "transform_row_data": lambda row: (row.get('equipment_id'), row.get('年'), row.get('季度'), row.get('總運作時長'), row.get('停機總時長'), row.get('停機率(%)'), row.get('說明'))
+        "column_map": {
+            "equipment_id": "equipment_id",
+            "年": "year",
+            "季度": "quarter",
+            "總運作時長": "total_operation_duration",
+            "停機總時長": "total_downtime_duration",
+            "停機率(%)": "downtime_rate_percent",
+            "說明": "description"
+        },
+        "transform_row_data": lambda row: (
+            row.get('equipment_id'), row.get('年'), row.get('季度'),
+            row.get('總運作時長'), row.get('停機總時長'), row.get('停機率(%)'),
+            row.get('說明')
+        )
     },
     {
         "excel_sheet_name": "運作統計(年)",
         "sql_table_name": "stats_operational_yearly",
-        "column_map": {"equipment_id": "equipment_id", "年": "year", "總運作時長": "total_operation_duration", "停機總時長": "total_downtime_duration", "停機率(%)": "downtime_rate_percent", "說明": "description"},
-        "transform_row_data": lambda row: (row.get('equipment_id'), row.get('年'), row.get('總運作時長'), row.get('停機總時長'), row.get('停機率(%)'), row.get('說明'))
+        "column_map": {
+            "equipment_id": "equipment_id",
+            "年": "year",
+            "總運作時長": "total_operation_duration",
+            "停機總時長": "total_downtime_duration",
+            "停機率(%)": "downtime_rate_percent",
+            "說明": "description"
+        },
+        "transform_row_data": lambda row: (
+            row.get('equipment_id'), row.get('年'),
+            row.get('總運作時長'), row.get('停機總時長'), row.get('停機率(%)'),
+            row.get('說明')
+        )
     },
     {
         "excel_sheet_name": "各異常統計(月)",
         "sql_table_name": "stats_abnormal_monthly",
-        "column_map": {"equipment_id": "equipment_id", "年": "year", "月": "month", "偵測異常類型": "detected_anomaly_type", "停機時長": "downtime_duration", "停機率(%)": "downtime_rate_percent", "說明": "description"},
-        "transform_row_data": lambda row: (row.get('equipment_id'), row.get('年'), row.get('月'), row.get('偵測異常類型'), row.get('停機時長'), row.get('停機率(%)'), row.get('說明'))
+        "column_map": {
+            "equipment_id": "equipment_id",
+            "年": "year",
+            "月": "month",
+            "偵測異常類型": "detected_anomaly_type",
+            "停機時長": "downtime_duration",
+            "停機率(%)": "downtime_rate_percent",
+            "說明": "description"
+        },
+        "transform_row_data": lambda row: (
+            row.get('equipment_id'), row.get('年'), row.get('月'),
+            row.get('偵測異常類型'), row.get('停機時長'),
+            row.get('停機率(%)'), row.get('說明')
+        )
     },
     {
         "excel_sheet_name": "各異常統計(季)",
         "sql_table_name": "stats_abnormal_quarterly",
-        "column_map": {"equipment_id": "equipment_id", "年": "year", "季度": "quarter", "偵測異常類型": "detected_anomaly_type", "停機時長": "downtime_duration", "停機率(%)": "downtime_rate_percent", "說明": "description"},
-        "transform_row_data": lambda row: (row.get('equipment_id'), row.get('年'), row.get('季度'), row.get('偵測異常類型'), row.get('停機時長'), row.get('停機率(%)'), row.get('說明'))
+        "column_map": {
+            "equipment_id": "equipment_id",
+            "年": "year",
+            "季度": "quarter",
+            "偵測異常類型": "detected_anomaly_type",
+            "停機時長": "downtime_duration",
+            "停機率(%)": "downtime_rate_percent",
+            "說明": "description"
+        },
+        "transform_row_data": lambda row: (
+            row.get('equipment_id'), row.get('年'), row.get('季度'),
+            row.get('偵測異常類型'), row.get('停機時長'),
+            row.get('停機率(%)'), row.get('說明')
+        )
     },
     {
         "excel_sheet_name": "各異常統計(年)",
         "sql_table_name": "stats_abnormal_yearly",
-        "column_map": {"equipment_id": "equipment_id", "年": "year", "偵測異常類型": "detected_anomaly_type", "停機時長": "downtime_duration", "停機率(%)": "downtime_rate_percent", "說明": "description"},
-        "transform_row_data": lambda row: (row.get('equipment_id'), row.get('年'), row.get('偵測異常類型'), row.get('停機時長'), row.get('停機率(%)'), row.get('說明'))
+        "column_map": {
+            "equipment_id": "equipment_id",
+            "年": "year",
+            "偵測異常類型": "detected_anomaly_type",
+            "停機時長": "downtime_duration",
+            "停機率(%)": "downtime_rate_percent",
+            "說明": "description"
+        },
+        "transform_row_data": lambda row: (
+            row.get('equipment_id'), row.get('年'),
+            row.get('偵測異常類型'), row.get('停機時長'),
+            row.get('停機率(%)'), row.get('說明')
+        )
     }
 ]
 
@@ -152,12 +219,13 @@ def import_data_from_excel():
 
                     # 讀取 Excel 工作表
                     data_frame = pd.read_excel(EXCEL_FILE_PATH, sheet_name=sheet_name)
-                    data_frame = data_frame.where(pd.notna(data_frame), None) # 將 NaN 轉換為 None
+                    # 將 NaN 轉換為 None
+                    data_frame = data_frame.where(pd.notna(data_frame), None)
 
                     if data_frame.empty:
                         logger.warning(f"工作表 '{sheet_name}' 為空，跳過。")
                         continue
-                    
+
                     logger.info(f"成功讀取 '{sheet_name}' 工作表，共 {len(data_frame)} 行。")
 
                     # 準備 SQL INSERT 語句
@@ -176,7 +244,7 @@ def import_data_from_excel():
                         except Exception as e:
                             logger.error(f"插入第 {index + 1} 行到 '{sql_table_name}' 時失敗: {e}")
                             logger.error(f"失敗的資料: {row.to_dict()}")
-                            conn.rollback() # 回滾單筆失敗的交易
+                            conn.rollback()  # 回滾單筆失敗的交易
 
                     conn.commit()
                     logger.info(f"'{sql_table_name}' 資料匯入完成。成功插入 {successful_inserts} 行。")
@@ -187,7 +255,7 @@ def import_data_from_excel():
                     logger.error(f"處理工作表 '{sheet_name}' 時發生未預期錯誤: {e}")
                     # 發生錯誤時跳到下一個表格
                     continue
-        
+
     except FileNotFoundError:
         logger.error(f"錯誤：找不到 Excel 檔案 '{EXCEL_FILE_PATH}'。請檢查路徑。")
     except pyodbc.Error as e:
