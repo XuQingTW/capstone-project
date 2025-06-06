@@ -21,19 +21,23 @@ def parse_threshold_string(threshold_str):
     if pd.isna(threshold_str) or threshold_str is None:
         return None, None, None
     s = str(threshold_str).strip()
-    if '~' in s:
-        parts = s.split('~')
-        try: return float(parts[0]), float(parts[1]), None
-        except (ValueError, IndexError): return None, None, None
-    elif s.startswith('>'):
-        try: return float(s[1:]), None, '>'
-        except (ValueError, IndexError): return None, None, None
-    elif s.startswith('<'):
-        try: return None, float(s[1:]), '<'
-        except (ValueError, IndexError): return None, None, None
+    match = re.match(r'([><=~]?)\s*([0-9.]+)\s*([~-]\s*([0-9.]+))?', s)
+    if not match:
+        return None, None, None
+    op, val1, _, val2 = match.groups()
+    try:
+        val1 = float(val1) if val1 else None
+        val2 = float(val2) if val2 else None
+    except ValueError:
+        return None, None, None
+    if op == '>':
+        return val1, None, '>'
+    elif op == '<':
+        return None, val1, '<'
+    elif op == '~' or _ == '-':
+        return val1, val2, None
     else:
-        try: return float(s), float(s), None
-        except ValueError: return None, None, None
+        return val1, val1, None
 
 def parse_and_transform_threshold_row(row):
     metric_type = row.get("異常類型")
@@ -187,21 +191,29 @@ def import_data_from_excel():
 
                     logger.info(f"成功讀取 Excel 工作表 '{sheet_name}'，共 {len(data_frame)} 行。")
 
-                    # 準備 SQL 插入語句
                     sql_columns_str = ', '.join([f"[{col}]" for col in sql_columns])
                     placeholders_str = ', '.join(['?' for _ in sql_columns])
                     insert_sql = f"INSERT INTO [{sql_table_name}] ({sql_columns_str}) VALUES ({placeholders_str})"
 
-                    # 準備所有要插入的資料
                     data_to_insert = []
                     for index, row in data_frame.iterrows():
+                        # --- 修改部分 START ---
+                        # 採納建議，對單行資料轉換進行更精細的錯誤捕捉。
+                        # 這可以幫助我們快速定位是數值問題、類型問題還是其他未知問題。
                         try:
                             transformed_tuple = transform_row_data(row)
                             data_to_insert.append(transformed_tuple)
+                        except ValueError as ve:
+                            # 捕獲數值轉換錯誤，例如 float('無效字串')
+                            logger.error(f"轉換第 {index + 2} 行資料時數值轉換失敗: {ve}。資料: {row.to_dict()}")
+                        except TypeError as te:
+                            # 捕獲類型錯誤，例如對 NoneType 進行了不支援的操作
+                            logger.error(f"轉換第 {index + 2} 行資料時類型錯誤: {te}。資料: {row.to_dict()}")
                         except Exception as e:
-                            logger.error(f"轉換第 {index + 2} 行資料時失敗: {e}。資料: {row.to_dict()}")
+                            # 捕獲所有其他未預期的錯誤
+                            logger.error(f"轉換第 {index + 2} 行資料時發生未知失敗: {e}。資料: {row.to_dict()}")
+                        # --- 修改部分 END ---
                     
-                    # 執行批次插入
                     if data_to_insert:
                         logger.info(f"準備將 {len(data_to_insert)} 行資料批次插入到 '{sql_table_name}'...")
                         try:
@@ -227,6 +239,8 @@ def import_data_from_excel():
 
 
 if __name__ == '__main__':
+    # (此處省略了其他部分的程式碼，因為它們無需修改)
+    # ...
     logger.info("腳本啟動：開始匯入初始資料到資料庫。")
     import_data_from_excel()
     logger.info("所有資料匯入任務完成。")
