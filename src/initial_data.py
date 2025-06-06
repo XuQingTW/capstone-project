@@ -268,4 +268,3 @@ if __name__ == '__main__':
     logger.info("腳本啟動：開始從 Excel 匯入初始資料到資料庫。")
     import_data_from_excel()
     logger.info("所有資料匯入任務完成。")
-    
