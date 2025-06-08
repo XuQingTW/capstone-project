@@ -135,7 +135,7 @@ class Database:
                     equipment_metrics_cols
                 )
 
-                # 7.  equipment_metric_thresholds (設備標準值) 
+                # 7.  equipment_metric_thresholds (設備標準值)
                 equipment_metric_thresholds_cols = """
                     [metric_type] NVARCHAR(50) NOT NULL, -- 保持 50
                     [normal_value] FLOAT NULL,
@@ -477,6 +477,7 @@ class Database:
         except pyodbc.Error as e:
             logger.exception(f"設定使用者偏好失敗: {e}")
             return False
+
     # 加回 get_user_preference 方法
     def get_user_preference(self, user_id):
         """取得使用者偏好與角色"""
