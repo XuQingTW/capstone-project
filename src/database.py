@@ -1,7 +1,6 @@
 import logging
 import pyodbc
-
-from config import Config  # Assuming config.py exists as per original
+from config import Config
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +11,6 @@ class Database:
 
     def __init__(self, server=None, database=None):
         """初始化資料庫連線"""
-        # 修改回從 Config 讀取預設值
         resolved_server = server if server is not None else Config.DB_SERVER
         resolved_database = database if database is not None else Config.DB_NAME
         self.connection_string = (
@@ -37,16 +35,16 @@ class Database:
             with self._get_connection() as conn:
                 init_cur = conn.cursor()
 
-                # 1. user_preferences
+                # 1. user_preferences (來自 user_preferences.csv)
                 user_preferences_cols = """
-                    [user_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
+                    [user_id] NVARCHAR(255) NULL,
                     [language] VARCHAR(50) NULL,
                     [role] NVARCHAR(50) NULL,
-                    [is_admin] BIT DEFAULT 0,
+                    [is_admin] BIT NULL,
                     [responsible_area] NVARCHAR(255) NULL,
-                    [created_at] DATETIME2 DEFAULT GETDATE(),
-                    [display_name] NVARCHAR(255) NULL,
-                    [email] NVARCHAR(255) NULL,
+                    [created_at] DATETIME2 NULL,
+                    [display_name] NVARCHAR(255) NULL, -- 保持 255，通常夠用
+                    [email] NVARCHAR(255) NULL,         -- 保持 255，通常夠用
                     [last_active] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
@@ -55,14 +53,14 @@ class Database:
                     user_preferences_cols
                 )
 
-                # 2. equipment
+                # 2. equipment (來自 equipment.csv)
                 equipment_cols = """
-                    [id] INT IDENTITY(1,1),
-                    [equipment_id] NVARCHAR(50) NOT NULL PRIMARY KEY,
+                    [id] INT NULL,
+                    [equipment_id] NVARCHAR(255) NULL,
                     [name] NVARCHAR(255) NULL,
-                    [eq_type] NVARCHAR(50) NULL,
+                    [eq_type] NVARCHAR(255) NULL,
                     [location] NVARCHAR(255) NULL,
-                    [status] NVARCHAR(50) NULL,
+                    [status] NVARCHAR(255) NULL, -- 保持 255
                     [last_updated] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
@@ -71,14 +69,13 @@ class Database:
                     equipment_cols
                 )
 
-                # 3. conversations
+                # 3. conversations (來自 conversations.csv)
                 conversations_cols = """
-                    [id] INT IDENTITY(1,1) PRIMARY KEY,
                     [message_id] NVARCHAR(255) NULL,
-                    [sender_id] NVARCHAR(255) NULL FOREIGN KEY REFERENCES user_preferences (user_id) ON DELETE CASCADE,
+                    [sender_id] NVARCHAR(255) NULL,
                     [receiver_id] NVARCHAR(255) NULL,
                     [sender_role] NVARCHAR(50) NULL,
-                    [content] NVARCHAR(MAX) NULL,
+                    [content] NVARCHAR(MAX) NULL, -- 保持 MAX，對話內容可能很長
                     [timestamp] DATETIME2 NULL DEFAULT GETDATE()
                 """
                 self._create_table_if_not_exists(
@@ -87,14 +84,13 @@ class Database:
                     conversations_cols
                 )
 
-                # 4. user_equipment_subscriptions
+                # 4. user_equipment_subscriptions (來自 user_equipment_subscriptions.csv)
                 user_equipment_subscriptions_cols = """
-                    [subscription_id] INT IDENTITY(1,1) PRIMARY KEY,
-                    [user_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES user_preferences(user_id),
-                    [equipment_id] NVARCHAR(50) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
+                    [subscription_id] INT NULL,
+                    [user_id] NVARCHAR(255) NULL,
+                    [equipment_id] NVARCHAR(255) NULL,
                     [notification_types] NVARCHAR(255) NULL,
-                    [subscribed_at] DATETIME2 DEFAULT GETDATE(),
-                    UNIQUE (user_id, equipment_id)
+                    [subscribed_at] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -102,18 +98,18 @@ class Database:
                     user_equipment_subscriptions_cols
                 )
 
-                # 5. alert_history
+                # 5. alert_history (來自 alert_history.csv) - message, resolution_notes 改為 NVARCHAR(MAX)
                 alert_history_cols = """
-                    [id] INT IDENTITY(1,1) PRIMARY KEY,
-                    [equipment_id] NVARCHAR(50) NULL FOREIGN KEY REFERENCES equipment(equipment_id),
+                    [id] INT NULL,
+                    [equipment_id] NVARCHAR(255) NULL,
                     [alert_type] NVARCHAR(255) NULL,
-                    [severity] NVARCHAR(50) NULL,
-                    [message] NVARCHAR(MAX) NULL,
+                    [severity] NVARCHAR(255) NULL,
+                    [message] NVARCHAR(MAX) NULL, -- 改回 NVARCHAR(MAX)
                     [is_resolved] BIT NULL DEFAULT 0,
-                    [created_at] DATETIME2 DEFAULT GETDATE(),
+                    [created_at] DATETIME2 NULL,
                     [resolved_at] DATETIME2 NULL,
                     [resolved_by] NVARCHAR(255) NULL,
-                    [resolution_notes] NVARCHAR(MAX) NULL
+                    [resolution_notes] NVARCHAR(MAX) NULL -- 改回 NVARCHAR(MAX)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -121,17 +117,55 @@ class Database:
                     alert_history_cols
                 )
 
-                # 6. error_logs (來自 error_log.csv) - 已根據您的要求修改
+                # 6. equipment_metrics (實時監測數據)
+                equipment_metrics_cols = """
+                    [id] INT IDENTITY(1,1) NOT NULL,
+                    [equipment_id] NVARCHAR(255) NULL,
+                    [metric_type] NVARCHAR(255) NULL,
+                    [status] NVARCHAR(50) NULL, -- 保持 50，通常夠用
+                    [value] FLOAT NULL,
+                    [threshold_min] FLOAT NULL,
+                    [threshold_max] FLOAT NULL,
+                    [unit] NVARCHAR(50) NULL,   -- 保持 50，通常夠用
+                    [timestamp] DATETIME2 NULL DEFAULT GETDATE()
+                """
+                self._create_table_if_not_exists(
+                    init_cur,
+                    "equipment_metrics",
+                    equipment_metrics_cols
+                )
+
+                # 7.  equipment_metric_thresholds (設備標準值) 
+                equipment_metric_thresholds_cols = """
+                    [metric_type] NVARCHAR(50) NOT NULL, -- 保持 50
+                    [normal_value] FLOAT NULL,
+                    [warning_min] FLOAT NULL,
+                    [warning_max] FLOAT NULL,
+                    [critical_min] FLOAT NULL,
+                    [critical_max] FLOAT NULL,
+                    [emergency_min] FLOAT NULL,
+                    [emergency_max] FLOAT NULL,
+                    [emergency_op] NVARCHAR(10) NULL,    -- 保持 10
+                    [last_updated] DATETIME2 NULL DEFAULT GETDATE()
+                """
+                self._create_table_if_not_exists(
+                    init_cur,
+                    "equipment_metric_thresholds",
+                    equipment_metric_thresholds_cols
+                )
+
+                # 8. error_logs (來自 simulated_data - 異常紀錄.csv) - resolution_notes 改為 NVARCHAR(MAX)
                 error_logs_cols = """
-                    [log_date] DATETIME2 NULL,           -- 對應 CSV 中的日期資訊 (可能隱含在時間戳中或單獨列出)
-                    [eq_id] NVARCHAR(255) NULL,          -- 對應 CSV 中的設備 ID (可能隱含在其他欄位或單獨列出)
+                    [log_date] DATETIME2 NULL,
+                    [error_id] NVARCHAR(255) NULL,
+                    [equipment_id] NVARCHAR(255) NULL,
                     [deformation_mm] FLOAT NULL,
                     [rpm] INT NULL,
-                    [event_time_str] NVARCHAR(255) NULL,
+                    [event_time] DATETIME2 NULL,
                     [detected_anomaly_type] NVARCHAR(255) NULL,
                     [downtime_duration] NVARCHAR(255) NULL,
-                    [resolved_at_str] NVARCHAR(255) NULL,
-                    [resolution_notes] NVARCHAR(255) NULL
+                    [resolved_at] DATETIME2 NULL,
+                    [resolution_notes] NVARCHAR(MAX) NULL -- 改回 NVARCHAR(MAX)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -139,15 +173,15 @@ class Database:
                     error_logs_cols
                 )
 
-                # 7. stats_abnormal_monthly (來自 各異常統計(月).csv) - 已根據您的要求修改
+                # 9. stats_abnormal_monthly (來自 各異常統計(月).csv)
                 stats_abnormal_monthly_cols = """
                     [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
                     [month] INT NULL,
-                    [detected_anomaly_type] NVARCHAR(255) NULL, -- 對應 CSV 的 '偵測異常類型'
-                    [downtime_duration] NVARCHAR(255) NULL,     -- 對應 CSV 的 '停機時長' (字符串格式)
-                    [downtime_rate_percent] NVARCHAR(255) NULL, -- 對應 CSV 的 '停機率(%)' (字符串格式)
-                    [description] NVARCHAR(255) NULL            -- 對應 CSV 的 '說明'
+                    [detected_anomaly_type] NVARCHAR(255) NULL, -- 保持 255
+                    [downtime_duration] NVARCHAR(255) NULL,     -- 保持 255
+                    [downtime_rate_percent] NVARCHAR(255) NULL, -- 保持 255
+                    [description] NVARCHAR(MAX) NULL            -- 改為 NVARCHAR(MAX)，說明可能很長
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -155,7 +189,7 @@ class Database:
                     stats_abnormal_monthly_cols
                 )
 
-                # 8. stats_abnormal_quarterly (來自 各異常統計(季).csv) - 已根據您的要求修改
+                # 10. stats_abnormal_quarterly (來自 各異常統計(季).csv)
                 stats_abnormal_quarterly_cols = """
                     [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
@@ -163,7 +197,7 @@ class Database:
                     [detected_anomaly_type] NVARCHAR(255) NULL,
                     [downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(255) NULL
+                    [description] NVARCHAR(MAX) NULL            -- 改為 NVARCHAR(MAX)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -171,14 +205,14 @@ class Database:
                     stats_abnormal_quarterly_cols
                 )
 
-                # 9. stats_abnormal_yearly (來自 各異常統計(年).csv) - 已根據您的要求修改
+                # 11. stats_abnormal_yearly (來自 各異常統計(年).csv)
                 stats_abnormal_yearly_cols = """
                     [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
                     [detected_anomaly_type] NVARCHAR(255) NULL,
                     [downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(255) NULL
+                    [description] NVARCHAR(MAX) NULL            -- 改為 NVARCHAR(MAX)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -186,13 +220,14 @@ class Database:
                     stats_abnormal_yearly_cols
                 )
 
-                # 10. stats_operational_monthly (來自 運作統計(月).csv) - 已根據您的要求修改
+                # 12. stats_operational_monthly (來自 運作統計(月).csv)
                 stats_operational_monthly_cols = """
-                    [month] INT NULL, -- 對應 CSV 的 '月'
-                    [total_operation_duration] NVARCHAR(255) NULL, -- 對應 CSV 的 '總運作時長' (字符串格式)
-                    [total_downtime_duration] NVARCHAR(255) NULL,  -- 對應 CSV 的 '停機總時長' (字符串格式)
-                    [downtime_rate_percent] NVARCHAR(255) NULL,    -- 對應 CSV 的 '停機率(%)' (字符串格式)
-                    [description] NVARCHAR(255) NULL               -- 對應 CSV 的 '說明'
+                    [equipment_id] NVARCHAR(255) NULL,
+                    [month] INT NULL,
+                    [total_operation_duration] NVARCHAR(255) NULL, -- 保持 255
+                    [total_downtime_duration] NVARCHAR(255) NULL, -- 保持 255
+                    [downtime_rate_percent] NVARCHAR(255) NULL,   -- 保持 255
+                    [description] NVARCHAR(MAX) NULL              -- 改為 NVARCHAR(MAX)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -200,7 +235,7 @@ class Database:
                     stats_operational_monthly_cols
                 )
 
-                # 11. stats_operational_quarterly (來自 運作統計(季).csv) - 已根據您的要求修改
+                # 13. stats_operational_quarterly (來自 運作統計(季).csv)
                 stats_operational_quarterly_cols = """
                     [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
@@ -208,7 +243,7 @@ class Database:
                     [total_operation_duration] NVARCHAR(255) NULL,
                     [total_downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(255) NULL
+                    [description] NVARCHAR(MAX) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -216,14 +251,14 @@ class Database:
                     stats_operational_quarterly_cols
                 )
 
-                # 12. stats_operational_yearly (來自 運作統計(年).csv) - 已根據您的要求修改
+                # 14. stats_operational_yearly (來自 運作統計(年).csv)
                 stats_operational_yearly_cols = """
                     [equipment_id] NVARCHAR(255) NULL,
                     [year] INT NULL,
                     [total_operation_duration] NVARCHAR(255) NULL,
                     [total_downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(255) NULL
+                    [description] NVARCHAR(MAX) NULL
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -247,22 +282,6 @@ class Database:
             logger.exception(f"資料庫初始化期間發生非預期錯誤: {ex}")
             raise
 
-    def _create_table_if_not_exists(
-            self, cursor, table_name, columns_definition):
-        """通用方法，用於檢查並建立資料表"""
-        check_table_sql = (
-            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
-            "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ?;"
-        )
-        cursor.execute(check_table_sql, (table_name,))
-        if cursor.fetchone()[0] == 0:
-            create_table_sql = f"CREATE TABLE {table_name} ({columns_definition});"
-            cursor.execute(create_table_sql)
-            logger.info(f"資料表 '{table_name}' 已建立。")
-        else:
-            logger.info(f"資料表 '{table_name}' 已存在，跳過建立。")
-
-    # --- 其他方法 (add_message, get_conversation_history etc.) 保持不變 ---
     def add_message(self, sender_id, receiver_id, sender_role, content):
         """加入一筆新的對話記錄（包含發送者角色）"""
         try:
@@ -287,8 +306,7 @@ class Database:
         try:
             with self._get_connection() as conn:
                 conv_hist_cur = conn.cursor()
-                # 注意：原本您的程式碼這裡的 sender_id 應該是 user_id，
-                # 此處保持與原程式碼一致的命名
+                # 注意：原本您的程式碼這裡的 sender_id 應該是 user_id，此處保持與原程式碼一致的命名
                 # 但通常對話歷史是針對某個用戶 (user_id)
                 # 如果 sender_id 就是 user_id，那沒問題
                 conv_hist_cur.execute(
@@ -302,8 +320,8 @@ class Database:
                 )
                 # 從資料庫讀取是 DESC，但通常聊天室顯示是 ASC (舊的在上面)
                 # 所以先 reverse
-                # 統一鍵名為 'role' 以符合 OpenAI 格式
                 messages = [
+                    # 統一鍵名為 'role' 以符合 OpenAI 格式
                     {"role": sender_role, "content": content}
                     for sender_role, content in conv_hist_cur.fetchall()
                 ]
@@ -323,7 +341,6 @@ class Database:
                 conv_stats_cur.execute(
                     "SELECT COUNT(DISTINCT sender_id) FROM conversations;"
                 )
-                # 這裡的 sender_id 應該是指 user_id
                 unique_senders = conv_stats_cur.fetchone()[0]
                 conv_stats_cur.execute(
                     """
@@ -339,11 +356,10 @@ class Database:
                 role_counts = dict(conv_stats_cur.fetchall())
                 return {
                     "total_messages": total_messages,
-                    "unique_users": unique_senders,  # 改名為 unique_users 更清晰
+                    "unique_users": unique_senders,
                     "last_24h": last_24h,
                     "user_messages": role_counts.get("user", 0),
                     "assistant_messages": role_counts.get("assistant", 0),
-                    # 如果您有 system role 的訊息
                     "system_messages": role_counts.get("system", 0),
                     "other_messages": sum(
                         count for role, count in role_counts.items()
@@ -372,19 +388,15 @@ class Database:
                     SELECT DISTINCT TOP (?)
                         c.sender_id,   -- 這其實是 user_id
                         p.language,
-                        MAX(c.timestamp) as last_activity_ts
-                            -- 改名以區分 last_message 內容
+                        MAX(c.timestamp) as last_activity_ts   -- 改名以區分 last_message 內容
                     FROM conversations c
-                    LEFT JOIN user_preferences p
-                        ON c.sender_id = p.user_id
-                            -- 連接基於 sender_id = user_id
+                    LEFT JOIN user_preferences p ON c.sender_id = p.user_id   -- 連接基於 sender_id = user_id
                     GROUP BY c.sender_id, p.language
                     ORDER BY last_activity_ts DESC;
                 """
                 recent_conv_cur.execute(sql_query, (limit,))
                 results = []
-                for row in recent_conv_cur.fetchall():
-                    user_id_val, language, timestamp_val = row
+                for user_id_val, language, timestamp_val in recent_conv_cur.fetchall():
                     # sender_id 即 user_id
                     recent_conv_cur.execute(
                         "SELECT COUNT(*) FROM conversations WHERE sender_id = ?;",
@@ -394,30 +406,25 @@ class Database:
                     recent_conv_cur.execute(
                         """
                         SELECT TOP 1 content FROM conversations
-                        WHERE sender_id = ? AND sender_role = 'user'
-                            -- 通常看 user 的最後一句話
+                        WHERE sender_id = ? AND sender_role = 'user'   -- 通常看 user 的最後一句話
                         ORDER BY timestamp DESC;
                         """,
                         (user_id_val,)
                     )
-                    last_message_row = recent_conv_cur.fetchone()
-                    last_message_content = (
-                        last_message_row[0] if last_message_row else ""
-                    )
+                    last_message_content = recent_conv_cur.fetchone()
                     results.append({
                         "user_id": user_id_val,  # 改名為 user_id
                         "language": language or "zh-Hant",  # 預設語言
                         "last_activity": timestamp_val,  # 直接使用 timestamp
                         "message_count": message_count,
-                        "last_message": last_message_content,
+                        "last_message": last_message_content[0] if last_message_content else "",
                     })
                 return results
         except pyodbc.Error as e:
             logger.exception(f"取得最近對話失敗: {e}")
             return []
 
-    # 加回 set_user_preference 方法
-    def set_user_preference(self, user_id, language=None, role=None, is_admin=None, responsible_area=None):
+    def set_user_preference(self, user_id, language=None, role=None):
         """設定或更新使用者偏好與角色"""
         try:
             with self._get_connection() as conn:
@@ -438,12 +445,6 @@ class Database:
                     if role is not None:
                         update_parts.append("role = ?")
                         params.append(role)
-                    if is_admin is not None:
-                        update_parts.append("is_admin = ?")
-                        params.append(is_admin)
-                    if responsible_area is not None:
-                        update_parts.append("responsible_area = ?")
-                        params.append(responsible_area)
 
                     # 如果沒有要更新的欄位，至少更新 last_active
                     if not update_parts:
@@ -476,7 +477,6 @@ class Database:
         except pyodbc.Error as e:
             logger.exception(f"設定使用者偏好失敗: {e}")
             return False
-
     # 加回 get_user_preference 方法
     def get_user_preference(self, user_id):
         """取得使用者偏好與角色"""
@@ -501,7 +501,7 @@ class Database:
                     f"User {user_id} not found in preferences, "
                     "creating with defaults."
                 )
-                self.set_user_preference(user_id)  # Default: user, zh-Hant
+                self.set_user_preference(user_id)  # 這會創建預設的 user, zh-Hant
                 return {
                     "language": "zh-Hant",
                     "role": "user",
