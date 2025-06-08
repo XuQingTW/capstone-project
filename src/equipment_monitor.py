@@ -1,7 +1,7 @@
 import logging
 import pyodbc
 from database import db
-# from datetime import datetime, timedelta(用不到所以刪除)
+from datetime import datetime, timedelta
 
 # 初始化日誌記錄器
 logger = logging.getLogger(__name__)
@@ -368,7 +368,7 @@ class EquipmentMonitor:
                 f"設備 {equipment_id} 狀態從 "
                 f"{current_status_row[0]} 更新為 {db_status}。"
             )
-    
+
     def _check_operation_status(self, conn, equipment_id, name, equipment_type):
         """檢查設備運行狀態，包括長時間運行、異常停機等"""
         try:
@@ -531,30 +531,6 @@ class EquipmentMonitor:
             "type_name": "未知設備", "location": "未知"
         }
 
-    def _get_equipment_data(self, conn_unused, equipment_id):  # conn_unused 標示為未使用
-        try:
-            with self.db._get_connection() as new_conn:
-                cursor = new_conn.cursor()
-                cursor.execute(
-                    "SELECT name, type, location FROM equipment WHERE equipment_id = ?;",
-                    (equipment_id,),
-                )
-                result = cursor.fetchone()
-                if result:
-                    return {
-                        "name": result[0], "type": result[1],
-                        "type_name": self.equipment_type_names.get(result[1], result[1]),
-                        "location": result[2]
-                    }
-        except pyodbc.Error as db_err:
-            logger.error(
-                f"從 _get_equipment_data 獲取設備 {equipment_id} 資料失敗: {db_err}"
-            )
-        return {
-            "name": "未知", "type": "未知",
-            "type_name": "未知設備", "location": "未知"
-        }
-    
     def _generate_ai_recommendation(self, anomalies, equipment_data):
         """產生 AI 增強的異常描述和建議（使用現有的 OpenAI 服務）"""
         try:
