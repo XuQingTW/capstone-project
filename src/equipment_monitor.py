@@ -679,4 +679,3 @@ class EquipmentMonitor:
             logger.exception(
                 f"發送設備 {equipment_id} 的通知時發生非預期錯誤: {e}"
             )
-
