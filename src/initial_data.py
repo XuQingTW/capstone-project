@@ -120,11 +120,11 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "設備監測數據",
         "sql_table_name": "equipment_metrics",
         "sql_columns": ["id", "equipment_id", "metric_type", "status",
-                        "value", "threshold_min","threshold_max","unit", "timestamp"],
+                        "value", "threshold_min", "threshold_max", "unit", "timestamp"],
         "transform_row_data": lambda row: (
             row.get('id'), row.get('equipment_id'), row.get('metric_type'),
             str(row.get('狀態')) if pd.notna(row.get('狀態')) else None,
-            row.get('value'),row.get('threshold_min'),row.get('threshold_max'),
+            row.get('value'), row.get('threshold_min'), row.get('threshold_max'),
             str(row.get('unit')) if pd.notna(row.get('unit')) else None,
             pd.to_datetime(row.get('timestamp'))
             if pd.notna(row.get('timestamp')) else None
