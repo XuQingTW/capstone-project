@@ -146,15 +146,13 @@ class Database:
                 # 7.  equipment_metric_thresholds (設備標準值)
                 equipment_metric_thresholds_cols = """
                     [metric_type] NVARCHAR(50) NOT NULL PRIMARY KEY,
-                    [normal_value] FLOAT NULL,
                     [warning_min] FLOAT NULL,
                     [warning_max] FLOAT NULL,
                     [critical_min] FLOAT NULL,
                     [critical_max] FLOAT NULL,
+                    [emergency_op] 
                     [emergency_min] FLOAT NULL,
                     [emergency_max] FLOAT NULL,
-                    [emergency_op] NVARCHAR(10) NULL,
-                    [last_updated] DATETIME2 NULL DEFAULT GETDATE()
                 """
                 self._create_table_if_not_exists(
                     init_cur,
