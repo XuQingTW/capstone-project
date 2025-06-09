@@ -438,47 +438,43 @@ class EquipmentMonitor:
                 f"檢查設備 {name} ({equipment_id}) 運行狀態時發生未知錯誤: {e}"
             )
 
-    def _determine_severity(self, metric_type, value):
+    def _determine_severity(self, metric_type: str, val: float, thresholds: dict) -> str:
         """
         根據從資料庫載入的閾值，判斷給定指標值的嚴重程度。
-
-        判斷順序為：緊急 -> 嚴重 -> 警告。
-        返回對應的嚴重性常數，如果數值正常則返回 None。
+        根據閾值判斷指標的嚴重性。
+        檢查順序：重度 -> 中度 -> 輕度。
         """
-        val = float(value)
-        thresholds = self.metric_thresholds_data.get(metric_type)
+        # --- 1. 檢查重度異常 (Emergency) ---
+        # 根據您的 Excel，此級別使用單邊比較 ('>' 或 '<')
+        e_op = thresholds.get('emergency_op')
+        e_min = thresholds.get('emergency_min')
+        e_max = thresholds.get('emergency_max')
 
-        if not thresholds:
-            logger.warning(
-                f"未找到指標 '{metric_type}' 的閾值數據。無法判斷嚴重程度。"
-            )
-            return None
-
-        # 優先判斷重度異常 (Emergency)
-        emergency_thresh = thresholds.get("emergency", {})
-        e_min, e_max, e_op = (emergency_thresh.get(k) for k in
-                              ["min", "max", "op"])
-        if e_op == '>' and e_min is not None and val > e_min:
-            return self.SEVERITY_EMERGENCY
-        if e_op == '<' and e_max is not None and val < e_max:
-            return self.SEVERITY_EMERGENCY
-        if e_op is None and e_min is not None and e_max is not None:
-            if e_min <= val <= e_max:
+        if e_op == '>':
+            if e_max is not None and val > e_max:
+                return self.SEVERITY_EMERGENCY
+        elif e_op == '<':
+            if e_min is not None and val < e_min:
                 return self.SEVERITY_EMERGENCY
 
-        # 判斷中度異常 (Critical)
-        critical_thresh = thresholds.get("critical", {})
-        c_min, c_max = critical_thresh.get("min"), critical_thresh.get("max")
-        if c_min is not None and c_max is not None and c_min < val <= c_max:
-            return self.SEVERITY_CRITICAL
+        # --- 2. 檢查中度異常 (Critical) ---
+        # 根據您的 Excel，此級別檢查值是否落在 [c_min, c_max] 區間內
+        c_min = thresholds.get('critical_min')
+        c_max = thresholds.get('critical_max')
+        if c_min is not None and c_max is not None:
+            if c_min <= val <= c_max:
+                return self.SEVERITY_CRITICAL
 
-        # 判斷輕度異常 (Warning)
-        warning_thresh = thresholds.get("warning", {})
-        w_min, w_max = warning_thresh.get("min"), warning_thresh.get("max")
-        if w_min is not None and w_max is not None and w_min < val <= w_max:
-            return self.SEVERITY_WARNING
+        # --- 3. 檢查輕度異常 (Warning) ---
+        # 根據您的 Excel，此級別檢查值是否落在 [w_min, w_max] 區間內
+        w_min = thresholds.get('warning_min')
+        w_max = thresholds.get('warning_max')
+        if w_min is not None and w_max is not None:
+            if w_min <= val <= w_max:
+                return self.SEVERITY_WARNING
 
-        return None  # 如果不在任何異常區間內，則視為正常
+        # --- 4. 如果所有檢查都未命中，則為正常 ---
+        return self.SEVERITY_NORMAL
 
     def _severity_level(self, severity):
         """將嚴重性字串轉換為數字等級以便排序或比較。"""
