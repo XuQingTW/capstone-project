@@ -56,7 +56,7 @@ class Database:
                 equipment_cols = """
                     [equipment_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
                     [name] NVARCHAR(255) NOT NULL,
-                    [eq_type] NVARCHAR(255) NULL,
+                    [equipment_type] NVARCHAR(255) NULL,
                     [location] NVARCHAR(255) NULL,
                     [status] NVARCHAR(255) NULL,
                     [last_updated] DATETIME2 NULL
