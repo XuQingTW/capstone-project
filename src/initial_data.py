@@ -131,11 +131,11 @@ TABLE_CONFIGS = [
         )
     },
     {
-        "excel_sheet_name": "切割機標準值",
+        "excel_sheet_name": "設備標準值",
         "sql_table_name": "equipment_metric_thresholds",
-        "sql_columns": ["metric_type", "normal_value", "warning_min",
-                        "warning_max", "critical_min", "critical_max",
-                        "emergency_min", "emergency_max", "emergency_op"],
+        "sql_columns": ["metric_type", "warning_min", "warning_max",
+                        "critical_min", "critical_max", "emergency_op",
+                        "emergency_min", "emergency_max", "last_updated"],
         "transform_row_data": parse_and_transform_threshold_row
     },
     {
