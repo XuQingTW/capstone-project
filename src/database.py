@@ -150,9 +150,10 @@ class Database:
                     [warning_max] FLOAT NULL,
                     [critical_min] FLOAT NULL,
                     [critical_max] FLOAT NULL,
-                    [emergency_op] 
+                    [emergency_op] NVARCHAR(10) NULL,
                     [emergency_min] FLOAT NULL,
                     [emergency_max] FLOAT NULL,
+                    [last_updated] DATETIME2 NULL DEFAULT GETDATE()
                 """
                 self._create_table_if_not_exists(
                     init_cur,
