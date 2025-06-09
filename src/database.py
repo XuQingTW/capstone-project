@@ -28,8 +28,7 @@ class Database:
     def _initialize_db(self):
         """
         如果資料表尚未存在，則建立必要的表格。
-        此版本根據推斷的 CSV 檔案欄位定義表格，並移除所有主鍵和外鍵。
-        所有欄位預設允許 NULL。欄位名稱請務必與您的 CSV 表頭核對。
+        此版本已加上主鍵與外鍵約束以確保資料完整性。
         """
         try:
             with self._get_connection() as conn:
@@ -37,14 +36,14 @@ class Database:
 
                 # 1. user_preferences (來自 user_preferences.csv)
                 user_preferences_cols = """
-                    [user_id] NVARCHAR(255) NULL,
+                    [user_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
                     [language] VARCHAR(50) NULL,
                     [role] NVARCHAR(50) NULL,
                     [is_admin] BIT NULL,
                     [responsible_area] NVARCHAR(255) NULL,
                     [created_at] DATETIME2 NULL,
-                    [display_name] NVARCHAR(255) NULL, -- 保持 255，通常夠用
-                    [email] NVARCHAR(255) NULL,         -- 保持 255，通常夠用
+                    [display_name] NVARCHAR(255) NULL,
+                    [email] NVARCHAR(255) NULL UNIQUE,
                     [last_active] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
@@ -55,12 +54,11 @@ class Database:
 
                 # 2. equipment (來自 equipment.csv)
                 equipment_cols = """
-                    [id] INT NULL,
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [name] NVARCHAR(255) NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
+                    [name] NVARCHAR(255) NOT NULL,
                     [eq_type] NVARCHAR(255) NULL,
                     [location] NVARCHAR(255) NULL,
-                    [status] NVARCHAR(255) NULL, -- 保持 255
+                    [status] NVARCHAR(255) NULL,
                     [last_updated] DATETIME2 NULL
                 """
                 self._create_table_if_not_exists(
@@ -71,12 +69,14 @@ class Database:
 
                 # 3. conversations (來自 conversations.csv)
                 conversations_cols = """
-                    [message_id] NVARCHAR(255) NULL,
-                    [sender_id] NVARCHAR(255) NULL,
+                    [message_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
+                    [sender_id] NVARCHAR(255) NOT NULL,
                     [receiver_id] NVARCHAR(255) NULL,
                     [sender_role] NVARCHAR(50) NULL,
-                    [content] NVARCHAR(MAX) NULL, -- 保持 MAX，對話內容可能很長
-                    [timestamp] DATETIME2 NULL DEFAULT GETDATE()
+                    [content] NVARCHAR(MAX) NOT NULL,
+                    [timestamp] DATETIME2 NULL DEFAULT GETDATE(),
+                    CONSTRAINT FK_conversations_sender
+                        FOREIGN KEY (sender_id) REFERENCES user_preferences(user_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -86,11 +86,15 @@ class Database:
 
                 # 4. user_equipment_subscriptions (來自 user_equipment_subscriptions.csv)
                 user_equipment_subscriptions_cols = """
-                    [subscription_id] INT NULL,
-                    [user_id] NVARCHAR(255) NULL,
-                    [equipment_id] NVARCHAR(255) NULL,
+                    [subscription_id] INT NOT NULL PRIMARY KEY,
+                    [user_id] NVARCHAR(255) NOT NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
                     [notification_types] NVARCHAR(255) NULL,
-                    [subscribed_at] DATETIME2 NULL
+                    [subscribed_at] DATETIME2 NULL,
+                    CONSTRAINT FK_subscriptions_user
+                        FOREIGN KEY (user_id) REFERENCES user_preferences(user_id),
+                    CONSTRAINT FK_subscriptions_equipment
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -100,16 +104,18 @@ class Database:
 
                 # 5. alert_history (來自 alert_history.csv) - message, resolution_notes 改為 NVARCHAR(MAX)
                 alert_history_cols = """
-                    [id] INT NULL,
-                    [equipment_id] NVARCHAR(255) NULL,
+                    [id] INT NOT NULL PRIMARY KEY,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
                     [alert_type] NVARCHAR(255) NULL,
                     [severity] NVARCHAR(255) NULL,
-                    [message] NVARCHAR(MAX) NULL, -- 改回 NVARCHAR(MAX)
+                    [message] NVARCHAR(MAX) NULL,
                     [is_resolved] BIT NULL DEFAULT 0,
                     [created_at] DATETIME2 NULL,
                     [resolved_at] DATETIME2 NULL,
                     [resolved_by] NVARCHAR(255) NULL,
-                    [resolution_notes] NVARCHAR(MAX) NULL -- 改回 NVARCHAR(MAX)
+                    [resolution_notes] NVARCHAR(MAX) NULL,
+                    CONSTRAINT FK_alert_history_equipment
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -119,15 +125,17 @@ class Database:
 
                 # 6. equipment_metrics (實時監測數據)
                 equipment_metrics_cols = """
-                    [id] INT IDENTITY(1,1) NOT NULL,
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [metric_type] NVARCHAR(255) NULL,
-                    [status] NVARCHAR(50) NULL, -- 保持 50，通常夠用
+                    [id] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [metric_type] NVARCHAR(255) NOT NULL,
+                    [status] NVARCHAR(50) NULL,
                     [value] FLOAT NULL,
                     [threshold_min] FLOAT NULL,
                     [threshold_max] FLOAT NULL,
-                    [unit] NVARCHAR(50) NULL,   -- 保持 50，通常夠用
-                    [timestamp] DATETIME2 NULL DEFAULT GETDATE()
+                    [unit] NVARCHAR(50) NULL,
+                    [timestamp] DATETIME2 NULL DEFAULT GETDATE(),
+                    CONSTRAINT FK_metrics_equipment
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -137,7 +145,7 @@ class Database:
 
                 # 7.  equipment_metric_thresholds (設備標準值)
                 equipment_metric_thresholds_cols = """
-                    [metric_type] NVARCHAR(50) NOT NULL, -- 保持 50
+                    [metric_type] NVARCHAR(50) NOT NULL PRIMARY KEY,
                     [normal_value] FLOAT NULL,
                     [warning_min] FLOAT NULL,
                     [warning_max] FLOAT NULL,
@@ -145,7 +153,7 @@ class Database:
                     [critical_max] FLOAT NULL,
                     [emergency_min] FLOAT NULL,
                     [emergency_max] FLOAT NULL,
-                    [emergency_op] NVARCHAR(10) NULL,    -- 保持 10
+                    [emergency_op] NVARCHAR(10) NULL,
                     [last_updated] DATETIME2 NULL DEFAULT GETDATE()
                 """
                 self._create_table_if_not_exists(
@@ -156,16 +164,18 @@ class Database:
 
                 # 8. error_logs (來自 simulated_data - 異常紀錄.csv) - resolution_notes 改為 NVARCHAR(MAX)
                 error_logs_cols = """
+                    [error_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
                     [log_date] DATETIME2 NULL,
-                    [error_id] NVARCHAR(255) NULL,
-                    [equipment_id] NVARCHAR(255) NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
                     [deformation_mm] FLOAT NULL,
                     [rpm] INT NULL,
                     [event_time] DATETIME2 NULL,
                     [detected_anomaly_type] NVARCHAR(255) NULL,
                     [downtime_duration] NVARCHAR(255) NULL,
                     [resolved_at] DATETIME2 NULL,
-                    [resolution_notes] NVARCHAR(MAX) NULL -- 改回 NVARCHAR(MAX)
+                    [resolution_notes] NVARCHAR(MAX) NULL,
+                    CONSTRAINT FK_error_logs_equipment
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -175,13 +185,16 @@ class Database:
 
                 # 9. stats_abnormal_monthly (來自 各異常統計(月).csv)
                 stats_abnormal_monthly_cols = """
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [year] INT NULL,
-                    [month] INT NULL,
-                    [detected_anomaly_type] NVARCHAR(255) NULL, -- 保持 255
-                    [downtime_duration] NVARCHAR(255) NULL,     -- 保持 255
-                    [downtime_rate_percent] NVARCHAR(255) NULL, -- 保持 255
-                    [description] NVARCHAR(MAX) NULL            -- 改為 NVARCHAR(MAX)，說明可能很長
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [year] INT NOT NULL,
+                    [month] INT NOT NULL,
+                    [detected_anomaly_type] NVARCHAR(255) NOT NULL,
+                    [downtime_duration] NVARCHAR(255) NULL,
+                    [downtime_rate_percent] NVARCHAR(255) NULL,
+                    [description] NVARCHAR(MAX) NULL,
+                    PRIMARY KEY (equipment_id, year, month, detected_anomaly_type),
+                    CONSTRAINT FK_stats_abn_monthly_equip
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -191,13 +204,16 @@ class Database:
 
                 # 10. stats_abnormal_quarterly (來自 各異常統計(季).csv)
                 stats_abnormal_quarterly_cols = """
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [year] INT NULL,
-                    [quarter] INT NULL,
-                    [detected_anomaly_type] NVARCHAR(255) NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [year] INT NOT NULL,
+                    [quarter] INT NOT NULL,
+                    [detected_anomaly_type] NVARCHAR(255) NOT NULL,
                     [downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(MAX) NULL            -- 改為 NVARCHAR(MAX)
+                    [description] NVARCHAR(MAX) NULL,
+                    PRIMARY KEY (equipment_id, year, quarter, detected_anomaly_type),
+                    CONSTRAINT FK_stats_abn_quarterly_equip
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -207,12 +223,15 @@ class Database:
 
                 # 11. stats_abnormal_yearly (來自 各異常統計(年).csv)
                 stats_abnormal_yearly_cols = """
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [year] INT NULL,
-                    [detected_anomaly_type] NVARCHAR(255) NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [year] INT NOT NULL,
+                    [detected_anomaly_type] NVARCHAR(255) NOT NULL,
                     [downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(MAX) NULL            -- 改為 NVARCHAR(MAX)
+                    [description] NVARCHAR(MAX) NULL,
+                    PRIMARY KEY (equipment_id, year, detected_anomaly_type),
+                    CONSTRAINT FK_stats_abn_yearly_equip
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -222,12 +241,16 @@ class Database:
 
                 # 12. stats_operational_monthly (來自 運作統計(月).csv)
                 stats_operational_monthly_cols = """
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [month] INT NULL,
-                    [total_operation_duration] NVARCHAR(255) NULL, -- 保持 255
-                    [total_downtime_duration] NVARCHAR(255) NULL, -- 保持 255
-                    [downtime_rate_percent] NVARCHAR(255) NULL,   -- 保持 255
-                    [description] NVARCHAR(MAX) NULL              -- 改為 NVARCHAR(MAX)
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [year] INT NOT NULL,
+                    [month] INT NOT NULL,
+                    [total_operation_duration] NVARCHAR(255) NULL,
+                    [total_downtime_duration] NVARCHAR(255) NULL,
+                    [downtime_rate_percent] NVARCHAR(255) NULL,
+                    [description] NVARCHAR(MAX) NULL,
+                    PRIMARY KEY (equipment_id, year, month),
+                    CONSTRAINT FK_stats_op_monthly_equip
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -237,13 +260,16 @@ class Database:
 
                 # 13. stats_operational_quarterly (來自 運作統計(季).csv)
                 stats_operational_quarterly_cols = """
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [year] INT NULL,
-                    [quarter] INT NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [year] INT NOT NULL,
+                    [quarter] INT NOT NULL,
                     [total_operation_duration] NVARCHAR(255) NULL,
                     [total_downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(MAX) NULL
+                    [description] NVARCHAR(MAX) NULL,
+                    PRIMARY KEY (equipment_id, year, quarter),
+                    CONSTRAINT FK_stats_op_quarterly_equip
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -253,12 +279,15 @@ class Database:
 
                 # 14. stats_operational_yearly (來自 運作統計(年).csv)
                 stats_operational_yearly_cols = """
-                    [equipment_id] NVARCHAR(255) NULL,
-                    [year] INT NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL,
+                    [year] INT NOT NULL,
                     [total_operation_duration] NVARCHAR(255) NULL,
                     [total_downtime_duration] NVARCHAR(255) NULL,
                     [downtime_rate_percent] NVARCHAR(255) NULL,
-                    [description] NVARCHAR(MAX) NULL
+                    [description] NVARCHAR(MAX) NULL,
+                    PRIMARY KEY (equipment_id, year),
+                    CONSTRAINT FK_stats_op_yearly_equip
+                        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
@@ -267,20 +296,30 @@ class Database:
                 )
 
                 conn.commit()
-            logger.info(
-                "資料庫表格初始化/檢查完成 "
-                "(所有表格已移除主鍵/外鍵約束)。"
-            )
-            logger.warning(
-                "請務必檢查每個表格的欄位定義是否完全符合您 "
-                "CSV 檔案的實際欄位和預期資料類型。"
-            )
+                logger.info(
+                    "資料庫表格初始化/檢查完成 (已建立主鍵與外鍵約束)。"
+                )
         except pyodbc.Error as e:
             logger.exception(f"資料庫初始化期間發生 pyodbc 錯誤: {e}")
             raise
         except Exception as ex:
             logger.exception(f"資料庫初始化期間發生非預期錯誤: {ex}")
             raise
+
+    def _create_table_if_not_exists(
+            self, cursor, table_name, columns_definition):
+        """通用方法，用於檢查並建立資料表"""
+        check_table_sql = (
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
+            "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = ?;"
+        )
+        cursor.execute(check_table_sql, (table_name,))
+        if cursor.fetchone()[0] == 0:
+            create_table_sql = f"CREATE TABLE {table_name} ({columns_definition});"
+            cursor.execute(create_table_sql)
+            logger.info(f"資料表 '{table_name}' 已建立。")
+        else:
+            logger.info(f"資料表 '{table_name}' 已存在，跳過建立。")
 
     def add_message(self, sender_id, receiver_id, sender_role, content):
         """加入一筆新的對話記錄（包含發送者角色）"""
