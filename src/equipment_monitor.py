@@ -207,7 +207,10 @@ class EquipmentMonitor:
                 data["value"] is not None
             )
             if is_valid_metric:
-                severity = self._determine_severity(metric_type, data["value"], self.metric_thresholds_data.get(metric_type, {}))
+                severity = self._determine_severity(
+                    metric_type, data["value"],
+                    self.metric_thresholds_data.get(metric_type, {})
+                )
                 if severity:
                     anomalies.append({
                         "metric": metric_type,
