@@ -76,7 +76,11 @@ class Database:
                 [user_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES user_preferences(user_id),
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id)
             """
-            self._create_table_if_not_exists(init_cur, "user_equipment_subscriptions", user_equipment_subscriptions_cols)
+            self._create_table_if_not_exists(
+            init_cur,
+            "user_equipment_subscriptions",
+            user_equipment_subscriptions_cols
+            )
 
             # 5. alert_history
             alert_history_cols = """
