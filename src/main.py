@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import time
-from html import escape
 from openai import OpenAI
 from database import db
 
@@ -15,18 +14,18 @@ def sanitize_input(text):
         return ""
     # 只跳脫尖括號，避免改變其他合法字元
     sanitized = text.replace("<", "&lt;").replace(">", "&gt;")
-    # 移除潛在惡意字元
-    sanitized = re.sub(r'[^\w\s.,;?!@#$%^&*()-=+\[\]{}:"\'/\\<>]', "", sanitized)
+    # 先允許保留反引號，稍後若無尖括號再移除
+    sanitized = re.sub(r'[^\w\s.,;?!@#$%^&*()-=+\[\]{}:"\'/\\<>`]', "", sanitized)
     # 若字串包含被轉義的尖括號，僅保留自第一個尖括號之後的內容
     if "&lt;" in sanitized or "&gt;" in sanitized:
-        first_lt = sanitized.find("&lt;") if "&lt;" in sanitized else -1
-        first_gt = sanitized.find("&gt;") if "&gt;" in sanitized else -1
-        first_pos_candidates = [p for p in (first_lt, first_gt) if p != -1]
-        first_pos = min(first_pos_candidates) if first_pos_candidates else -1
-        if first_pos != -1:
-            original_tail = text[text.find("<") if first_lt != -1 else text.find(">") :]
-            backticks = "".join(ch for ch in original_tail if ch == "`")
-            sanitized = sanitized[first_pos:] + backticks
+        first_pos = len(sanitized)
+        if "&lt;" in sanitized:
+            first_pos = min(first_pos, sanitized.find("&lt;"))
+        if "&gt;" in sanitized:
+            first_pos = min(first_pos, sanitized.find("&gt;"))
+        sanitized = sanitized[first_pos:]
+    else:
+        sanitized = sanitized.replace("`", "")
     return sanitized
 
 
