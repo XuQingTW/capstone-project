@@ -207,7 +207,7 @@ class EquipmentMonitor:
                 data["value"] is not None
             )
             if is_valid_metric:
-                severity = self._determine_severity(metric_type, data["value"])
+                severity = self._determine_severity(metric_type, data["value"], self.metric_thresholds_data.get(metric_type, {}))
                 if severity:
                     anomalies.append({
                         "metric": metric_type,
@@ -376,7 +376,7 @@ class EquipmentMonitor:
             cursor.execute(
                 """
                 SELECT id, operation_type, start_time, lot_id, product_id
-                FROM equipment_operation_logs
+                FROM eequipment_metrics_cols
                 WHERE equipment_id = ? AND end_time IS NULL
                 ORDER BY start_time ASC;
                 """,
@@ -503,7 +503,7 @@ class EquipmentMonitor:
             with self.db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT name, eq_type, location "
+                    "SELECT name, equipment_type, location "
                     "FROM equipment WHERE equipment_id = ?;",
                     (equipment_id,),
                 )
