@@ -28,7 +28,7 @@ class Config:
     LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
     # Database 配置
     DB_SERVER = os.getenv("DB_SERVER", "localhost")  # Default
-    DB_NAME = os.getenv("DB_NAME", "Project")  # Default
+    DB_NAME = os.getenv("DB_NAME", "conversations")  # Default
     DB_USER = os.getenv("DB_USER")  # For potential future use with non-trusted connections
     DB_PASSWORD = os.getenv("DB_PASSWORD")  # For potential future use
     # 驗證模式：嚴格 (strict) 或寬鬆 (loose)
@@ -77,16 +77,15 @@ class Config:
 
 
 # 應用程序啟動時嘗試驗證配置
-try:
-    # 這裡會根據 VALIDATION_MODE 環境變數決定驗證失敗行為
-    Config.validate()
-    logger.info("環境變數驗證成功")
-except ValueError as e:
-    is_testing = os.environ.get("TESTING", "False").lower() == "true"
-    if is_testing:
-        # 測試環境下只發出警告
-        logger.warning(f"測試環境：環境變數驗證失敗，但將繼續執行：{e}")
-    else:
+is_testing = os.environ.get("TESTING", "False").lower() == "true"
+if not is_testing:
+    try:
+        # 這裡會根據 VALIDATION_MODE 環境變數決定驗證失敗行為
+        Config.validate()
+        logger.info("環境變數驗證成功")
+    except ValueError as e:
         # 非測試環境且配置指定為寬鬆模式時，發出警告但不中斷
         logger.error(f"環境變數驗證失敗: {e}")
         # 注意：在寬鬆模式下，這裡沒有中斷程序，讓主程式決定如何處理
+else:
+    logger.debug("TESTING 模式啟用，略過環境變數驗證")
