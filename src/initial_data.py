@@ -64,13 +64,15 @@ def parse_and_transform_threshold_row(row):
     並將結果組合成一個符合資料庫欄位順序的元組 (tuple)。
     """
     metric_type = row.get("異常類型")
-    normal_value, _, _ = parse_threshold_string(row.get("正常值"))
+    # --- 關鍵修正：不再讀取 "正常值" 欄位 ---
+    # normal_value, _, _ = parse_threshold_string(row.get("正常值"))
     warning_min, warning_max, _ = parse_threshold_string(row.get("輕度異常"))
     critical_min, critical_max, _ = parse_threshold_string(row.get("中度異常"))
     emergency_min, emergency_max, emergency_op = parse_threshold_string(
         row.get("重度異常")
     )
-    return (metric_type, normal_value, warning_min, warning_max,
+    # --- 關鍵修正：從返回的元組中移除 normal_value ---
+    return (metric_type, warning_min, warning_max,
             critical_min, critical_max, emergency_min, emergency_max,
             emergency_op)
 
@@ -86,75 +88,88 @@ TABLE_CONFIGS = [
     {
         "excel_sheet_name": "equipment",
         "sql_table_name": "equipment",
-        "sql_columns": ["equipment_id", "name", "eqequipment_type", "location",
-                        "status", "last_updated"],
+        "sql_columns": ["equipment_id", "name", "equipment_type", "location", "status", "last_updated"],
         "transform_row_data": lambda row: (
-            row.get('equipment_id'), row.get('name'), row.get('eqequipment_type'),
-            row.get('location'), row.get('status'),
-            pd.to_datetime(row.get('last_updated'))
-            if pd.notna(row.get('last_updated')) else None
+            row.get('equipment_id'),
+            row.get('name'),
+            row.get('equipment_type'),
+            row.get('location'),
+            row.get('status'),
+            pd.to_datetime(row.get('last_updated')) if pd.notna(row.get('last_updated')) else None
         )
     },
     {
         "excel_sheet_name": "alert_history",
         "sql_table_name": "alert_history",
-        "sql_columns": ["id", "equipment_id", "alert_type", "severity",
-                        "message", "is_resolved", "created_at",
-                        "resolved_at", "resolved_by", "resolution_notes"],
+        "sql_columns": ["id", "equipment_id", "alert_type", "severity", "message",
+                        "is_resolved", "created_at", "resolved_at",
+                        "resolved_by", "resolution_notes"],
         "transform_row_data": lambda row: (
-            row.get('ID'), row.get('equipment_id'), row.get('alert_type'),
+            row.get('error_id'),
+            row.get('equipment_id'),
+            row.get('alert_type'),
             row.get('severity'),
             str(row.get('訊息')) if pd.notna(row.get('訊息')) else None,
             row.get('is_resolved'),
-            pd.to_datetime(row.get('created_at'))
-            if pd.notna(row.get('created_at')) else None,
-            pd.to_datetime(row.get('resolved_at'))
-            if pd.notna(row.get('resolved_at')) else None,
-            str(row.get('resolved_by'))
-            if pd.notna(row.get('resolved_by')) else None,
-            str(row.get('resolution_notes'))
-            if pd.notna(row.get('resolution_notes')) else None
+            pd.to_datetime(row.get('created_at')) if pd.notna(row.get('created_at')) else None,
+            pd.to_datetime(row.get('resolved_at')) if pd.notna(row.get('resolved_at')) else None,
+            str(row.get('resolved_by')) if pd.notna(row.get('resolved_by')) else None,
+            str(row.get('resolution_notes')) if pd.notna(row.get('resolution_notes')) else None
         )
     },
     {
-        "excel_sheet_name": "設備監測數據",
+        "excel_sheet_name": "equipment_metrics",
         "sql_table_name": "equipment_metrics",
         "sql_columns": ["id", "equipment_id", "metric_type", "status",
                         "value", "threshold_min", "threshold_max", "unit", "timestamp"],
         "transform_row_data": lambda row: (
-            row.get('id'), row.get('equipment_id'), row.get('metric_type'),
+            row.get('id'),
+            row.get('equipment_id'),
+            row.get('metric_type'),
             str(row.get('狀態')) if pd.notna(row.get('狀態')) else None,
-            row.get('value'), row.get('threshold_min'), row.get('threshold_max'),
+            row.get('value'),
+            row.get('threshold_min'),
+            row.get('threshold_max'),
             str(row.get('unit')) if pd.notna(row.get('unit')) else None,
-            pd.to_datetime(row.get('timestamp'))
-            if pd.notna(row.get('timestamp')) else None
+            pd.to_datetime(row.get('timestamp')) if pd.notna(row.get('timestamp')) else None
         )
     },
     {
         "excel_sheet_name": "設備標準值",
         "sql_table_name": "equipment_metric_thresholds",
+        # --- 關鍵修正：從 sql_columns 列表中移除 "normal_value" ---
         "sql_columns": ["metric_type", "warning_min", "warning_max",
-                        "critical_min", "critical_max", "emergency_op",
-                        "emergency_min", "emergency_max", "last_updated"],
-        "transform_row_data": parse_and_transform_threshold_row
+                        "critical_min", "critical_max", "emergency_min", 
+                        "emergency_max", "emergency_op"],
+        "transform_row_data": lambda row: (
+            row.get('metric_type'),
+            row.get('warning_min'),
+            row.get('warning_max'),
+            row.get('critical_min'),
+            row.get('critical_max'),
+            row.get('emergency_min'),
+            row.get('emergency_max'),
+            row.get('emergency_op'),
+            row.get('last_updated') 
+        )
     },
     {
-        "excel_sheet_name": "異常紀錄error_log",
+        "excel_sheet_name": "異常紀錄",
         "sql_table_name": "error_logs",
-        "sql_columns": ["log_date", "error_id", "equipment_id",
+        "sql_columns": ["error_id", "log_date", "equipment_id",
                         "deformation_mm", "rpm", "event_time",
                         "detected_anomaly_type", "downtime_duration",
                         "resolved_at", "resolution_notes"],
         "transform_row_data": lambda row: (
-            pd.to_datetime(str(row.get('日期')))
-            if pd.notna(row.get('日期')) else None,
-            str(row.get('error_id')), str(row.get('equipment_id')),
-            row.get('變形量(mm)'), row.get('轉速'),
-            pd.to_datetime(str(row.get('時間')))
-            if pd.notna(row.get('時間')) else None,
-            str(row.get('偵測異常類型')), str(row.get('停機時長')),
-            pd.to_datetime(str(row.get('回復時間')))
-            if pd.notna(row.get('回復時間')) else None,
+            str(row.get('error_id')),
+            pd.to_datetime(str(row.get('日期'))) if pd.notna(row.get('日期')) else None,
+            str(row.get('equipment_id')),
+            row.get('變形量(mm)'),
+            row.get('轉速'),
+            pd.to_datetime(str(row.get('時間'))) if pd.notna(row.get('時間')) else None,
+            str(row.get('偵測異常類型')),
+            str(row.get('停機時長')),
+            pd.to_datetime(str(row.get('回復時間'))) if pd.notna(row.get('回復時間')) else None,
             str(row.get('備註')) if pd.notna(row.get('備註')) else None
         )
     },
@@ -239,18 +254,15 @@ TABLE_CONFIGS = [
 ]
 
 
-# --- 5. 修改後的匯入主程式 ---
+# --- 5. 最終的匯入主程式 (已簡化) ---
 def import_data_from_excel():
     """從指定的 Excel 檔案讀取數據，並使用高效能的批次插入將其匯入到資料庫中。"""
     try:
         with db._get_connection() as conn:
             cursor = conn.cursor()
-            # 啟用 pyodbc 的 fast_executemany 模式，
-            # 這對 MS SQL Server 能大幅提升批次插入 (executemany) 的效能。
             cursor.fast_executemany = True
             logger.info("成功連接到 MS SQL 資料庫，已啟用 fast_executemany。")
 
-            # 遍歷設定檔，逐一處理每個匯入任務
             for config in TABLE_CONFIGS:
                 sheet_name = config["excel_sheet_name"]
                 sql_table_name = config["sql_table_name"]
@@ -262,9 +274,7 @@ def import_data_from_excel():
                 )
 
                 try:
-                    # 檢查資料表是否已有資料，讓腳本可以安全地重複執行，
-                    # 而不會重複匯入相同的初始數據。
-                    cursor.execute(f"SELECT COUNT(*) FROM {sql_table_name}")
+                    cursor.execute(f"SELECT COUNT(*) FROM [{sql_table_name}]")
                     if cursor.fetchone()[0] > 0:
                         logger.info(
                             f"資料表 '{sql_table_name}' 已存在資料，跳過匯入。"
@@ -274,8 +284,6 @@ def import_data_from_excel():
                     data_frame = pd.read_excel(
                         EXCEL_FILE_PATH, sheet_name=sheet_name
                     )
-                    # 將 Pandas 的 NaN (Not a Number) 物件轉換為 Python 的 None，
-                    # 因為 pyodbc 會將 None 正確地轉換為資料庫中的 NULL。
                     data_frame = data_frame.where(pd.notna(data_frame), None)
 
                     if data_frame.empty:
@@ -287,7 +295,6 @@ def import_data_from_excel():
                         f"共 {len(data_frame)} 行。"
                     )
 
-                    # 動態生成 SQL INSERT 語句
                     sql_columns_str = ', '.join(
                         [f"[{col}]" for col in sql_columns]
                     )
@@ -297,30 +304,17 @@ def import_data_from_excel():
                         f"VALUES ({placeholders_str})"
                     )
 
-                    # 逐行轉換資料並加入待插入列表
-                    data_to_insert = []
-                    for index, row in data_frame.iterrows():
-                        try:
-                            transformed_tuple = transform_row_data(row)
-                            data_to_insert.append(transformed_tuple)
-                        except (ValueError, TypeError) as e:
-                            logger.error(
-                                f"轉換第 {index + 2} 行資料時發生錯誤: {e}。"
-                                f"資料: {row.to_dict()}"
-                            )
-                        except Exception as e:
-                            logger.error(
-                                f"轉換第 {index + 2} 行資料時發生未知錯誤: {e}。"
-                                f"資料: {row.to_dict()}"
-                            )
+                    data_to_insert = [
+                        transform_row_data(row) for _, row in data_frame.iterrows()
+                    ]
 
-                    # 執行高效的批次插入
                     if data_to_insert:
                         logger.info(
                             f"準備將 {len(data_to_insert)} 行資料批次插入到 "
                             f"'{sql_table_name}'..."
                         )
                         try:
+                            # 直接執行插入，因為 database.py 中的表格結構現在是正確的
                             cursor.executemany(insert_sql, data_to_insert)
                             conn.commit()
                             logger.info(
@@ -333,22 +327,12 @@ def import_data_from_excel():
                             )
                             conn.rollback()
 
-                except pd.errors.ParserError as e:
-                    logger.error(
-                        f"解析 Excel 工作表 '{sheet_name}' 失敗: {e}"
-                    )
                 except Exception as e:
                     logger.error(
                         f"處理工作表 '{sheet_name}' 時發生未預期錯誤: {e}"
                     )
                     continue
 
-    except FileNotFoundError:
-        logger.error(
-            f"錯誤：找不到 Excel 檔案 '{EXCEL_FILE_PATH}'。請檢查路徑。"
-        )
-    except pyodbc.Error as e:
-        logger.error(f"資料庫連線或操作失敗: {e}")
     except Exception as e:
         logger.error(f"執行 Excel 匯入腳本時發生未知錯誤: {e}")
 
