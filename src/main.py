@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import time
-from html import escape
 from openai import OpenAI
 from database import db
 
@@ -13,10 +12,20 @@ def sanitize_input(text):
     """
     if not isinstance(text, str):
         return ""
-    # 基本 HTML 跳脫
-    sanitized = escape(text)
-    # 移除潛在惡意字元
-    sanitized = re.sub(r'[^\w\s.,;?!@#$%^&*()-=+\[\]{}:"\'/\\<>]', "", sanitized)
+    # 只跳脫尖括號，避免改變其他合法字元
+    sanitized = text.replace("<", "&lt;").replace(">", "&gt;")
+    # 先允許保留反引號，稍後若無尖括號再移除
+    sanitized = re.sub(r'[^\w\s.,;?!@#$%^&*()-=+\[\]{}:"\'/\\<>`]', "", sanitized)
+    # 若字串包含被轉義的尖括號，僅保留自第一個尖括號之後的內容
+    if "&lt;" in sanitized or "&gt;" in sanitized:
+        first_pos = len(sanitized)
+        if "&lt;" in sanitized:
+            first_pos = min(first_pos, sanitized.find("&lt;"))
+        if "&gt;" in sanitized:
+            first_pos = min(first_pos, sanitized.find("&gt;"))
+        sanitized = sanitized[first_pos:]
+    else:
+        sanitized = sanitized.replace("`", "")
     return sanitized
 
 
@@ -200,7 +209,10 @@ class OpenAIService:
                     return ai_message
                 except Exception:
                     retry_count += 1
-                    logging.warning(f"OpenAI API 請求失敗，正在重試第 {retry_count + 1} 次...")
+                    logging.warning(
+                        "OpenAI API 請求失敗，正在重試第 %s 次...",
+                        retry_count,
+                    )
                     time.sleep(1)  # 等待 1 秒再重試
             # 若所有重試都失敗，使用備用回應
             fallback_message = self.get_fallback_response()
