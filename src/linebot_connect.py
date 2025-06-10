@@ -60,8 +60,8 @@ if not channel_access_token or not channel_secret:
 # 判斷是否在測試環境 - 避免在測試期間啟用 Talisman 重定向
 is_testing = os.environ.get("TESTING", "False").lower() == "true"
 
-# 固定的密鑰文件路徑
-SECRET_KEY_FILE = "data/secret_key.txt"
+# 密鑰文件路徑可由環境變數覆蓋
+SECRET_KEY_FILE = os.getenv("SECRET_KEY_FILE", "data/secret_key.txt")
 
 
 def get_or_create_secret_key():
