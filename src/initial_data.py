@@ -143,6 +143,7 @@ TABLE_CONFIGS = [
                         "emergency_max", "emergency_op", "last_updated"],
         "transform_row_data": lambda row: (
             row.get('metric_type'),
+            row.get('normal_value'),
             row.get('warning_min'),
             row.get('warning_max'),
             row.get('critical_min'),
