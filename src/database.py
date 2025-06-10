@@ -228,8 +228,6 @@ class Database:
             logger.exception(f"資料庫初始化期間發生非預期錯誤: {ex}")
             raise
 
-
-
     def _create_table_if_not_exists(self, cursor, table_name, columns_definition):
         """通用方法，用於檢查並建立資料表"""
         check_table_sql = (
