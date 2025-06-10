@@ -138,7 +138,7 @@ class Database:
                 [resolution_notes] NVARCHAR(MAX) NULL
             """
             self._create_table_if_not_exists(init_cur, "error_logs", error_logs_cols)
-            
+
             # (所有 stats_* 表格的結構看起來是正確的，保留原樣)
             # 9. stats_abnormal_monthly
             stats_abnormal_monthly_cols = """
@@ -165,7 +165,7 @@ class Database:
                 PRIMARY KEY (equipment_id, year, quarter, detected_anomaly_type)
             """
             self._create_table_if_not_exists(init_cur, "stats_abnormal_quarterly", stats_abnormal_quarterly_cols)
-            
+
             # 11. stats_abnormal_yearly
             stats_abnormal_yearly_cols = """
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
@@ -230,8 +230,7 @@ class Database:
 
 
 
-    def _create_table_if_not_exists(
-            self, cursor, table_name, columns_definition):
+    def _create_table_if_not_exists(self, cursor, table_name, columns_definition):
         """通用方法，用於檢查並建立資料表"""
         check_table_sql = (
             "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
