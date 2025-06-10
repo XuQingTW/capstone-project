@@ -77,9 +77,9 @@ class Database:
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id)
             """
             self._create_table_if_not_exists(
-            init_cur,
-            "user_equipment_subscriptions",
-            user_equipment_subscriptions_cols
+                init_cur,
+                "user_equipment_subscriptions",
+                user_equipment_subscriptions_cols
             )
 
             # 5. alert_history
