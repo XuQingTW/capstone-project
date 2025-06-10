@@ -74,7 +74,8 @@ class Database:
             user_equipment_subscriptions_cols = """
                 [subscription_id] INT NOT NULL PRIMARY KEY,
                 [user_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES user_preferences(user_id),
-                [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id)
+                [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
+                CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id)
             """
             self._create_table_if_not_exists(
                 init_cur,
@@ -117,6 +118,7 @@ class Database:
             # --- 關鍵修正 2: 新增了 normal_value 欄位 ---
             equipment_metric_thresholds_cols = """
                 [metric_type] NVARCHAR(50) NOT NULL PRIMARY KEY,
+                [normal_value] FLOAT NULL,
                 [warning_min] FLOAT NULL,
                 [warning_max] FLOAT NULL,
                 [critical_min] FLOAT NULL,
@@ -143,7 +145,6 @@ class Database:
             """
             self._create_table_if_not_exists(init_cur, "error_logs", error_logs_cols)
 
-            # (所有 stats_* 表格的結構看起來是正確的，保留原樣)
             # 9. stats_abnormal_monthly
             stats_abnormal_monthly_cols = """
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
