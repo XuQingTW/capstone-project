@@ -139,7 +139,7 @@ TABLE_CONFIGS = [
         "sql_table_name": "equipment_metric_thresholds",
         # --- 關鍵修正：從 sql_columns 列表中移除 "normal_value" ---
         "sql_columns": ["metric_type", "warning_min", "warning_max",
-                        "critical_min", "critical_max", "emergency_min", 
+                        "critical_min", "critical_max", "emergency_min",
                         "emergency_max", "emergency_op", "last_updated"],
         "transform_row_data": lambda row: (
             row.get('metric_type'),
@@ -150,7 +150,7 @@ TABLE_CONFIGS = [
             row.get('emergency_min'),
             row.get('emergency_max'),
             row.get('emergency_op'),
-            row.get('last_updated') 
+            row.get('last_updated')
         )
     },
     {
