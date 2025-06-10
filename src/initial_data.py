@@ -140,7 +140,7 @@ TABLE_CONFIGS = [
         # --- 關鍵修正：從 sql_columns 列表中移除 "normal_value" ---
         "sql_columns": ["metric_type", "warning_min", "warning_max",
                         "critical_min", "critical_max", "emergency_min", 
-                        "emergency_max", "emergency_op"],
+                        "emergency_max", "emergency_op", "last_updated"],
         "transform_row_data": lambda row: (
             row.get('metric_type'),
             row.get('warning_min'),

@@ -126,14 +126,14 @@ class Database:
 
             # 8. error_logs
             error_logs_cols = """
-                [error_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
+                [error_id] NVARCHAR(MAX) NOT NULL,
                 [log_date] DATETIME2 NULL,
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [deformation_mm] FLOAT NULL,
                 [rpm] INT NULL,
                 [event_time] DATETIME2 NULL,
-                [detected_anomaly_type] NVARCHAR(255) NULL,
-                [downtime_duration] NVARCHAR(255) NULL,
+                [detected_anomaly_type] NVARCHAR(MAX) NULL,
+                [downtime_duration] NVARCHAR(MAX) NULL,
                 [resolved_at] DATETIME2 NULL,
                 [resolution_notes] NVARCHAR(MAX) NULL
             """
