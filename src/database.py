@@ -99,7 +99,6 @@ class Database:
             self._create_table_if_not_exists(init_cur, "alert_history", alert_history_cols)
 
             # 6. equipment_metrics
-            # --- 關鍵修正 1: 移除了 id 欄位的 IDENTITY(1,1) ---
             # 這樣我們就可以從 Excel 檔案中插入 ID
             equipment_metrics_cols = """
                 [id] INT NOT NULL PRIMARY KEY,
