@@ -131,7 +131,7 @@ class Database:
 
             # 8. error_logs
             error_logs_cols = """
-                [error_id] INT NOT NULL,
+                [error_id] INT NOT NULL PRIMARY KEY,
                 [log_date] DATE NULL,
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [deformation_mm] FLOAT NULL,

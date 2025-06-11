@@ -396,7 +396,7 @@ class EquipmentMonitor:
         c_min = thresholds.get('critical_min')
         c_max = thresholds.get('critical_max')
         if c_min is not None and c_max is not None:
-            if c_min <= val <= c_max:
+            if c_min < val <= c_max:
                 return self.SEVERITY_CRITICAL
 
         # --- 3. 檢查輕度異常 (Warning) ---
