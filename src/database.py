@@ -164,7 +164,7 @@ class Database:
                 [year] INT NOT NULL,
                 [quarter] INT NOT NULL,
                 [detected_anomaly_type] NVARCHAR(255) NOT NULL,
-                [downtime_hrs] NVARCHAR(255) NULL,
+                [downtime_hrs] FLOAT NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, quarter, detected_anomaly_type)
@@ -176,7 +176,7 @@ class Database:
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [year] INT NOT NULL,
                 [detected_anomaly_type] NVARCHAR(255) NOT NULL,
-                [downtime_hrs] NVARCHAR(255) NULL,
+                [downtime_hrs] FLOAT NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, detected_anomaly_type)
@@ -188,8 +188,8 @@ class Database:
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [year] INT NOT NULL,
                 [month] INT NOT NULL,
-                [total_operation_duration] NVARCHAR(255) NULL,
-                [downtime_hrs] NVARCHAR(255) NULL,
+                [total_operation_hrs] INT NULL,
+                [downtime_hrs] FLOAT NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, month)
@@ -201,8 +201,8 @@ class Database:
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [year] INT NOT NULL,
                 [quarter] INT NOT NULL,
-                [total_operation_duration] NVARCHAR(255) NULL,
-                [downtime_hrs] NVARCHAR(255) NULL,
+                [total_operation_hrs] INT NULL,
+                [downtime_hrs] FLOAT NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, quarter)
@@ -213,8 +213,8 @@ class Database:
             stats_operational_yearly_cols = """
                 [equipment_id] NVARCHAR(255) NOT NULL,
                 [year] INT NOT NULL,
-                [total_operation_duration] NVARCHAR(255) NULL,
-                [downtime_hrs] NVARCHAR(255) NULL,
+                [total_operation_hrs] INT NULL,
+                [downtime_hrs] FLOAT NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year),

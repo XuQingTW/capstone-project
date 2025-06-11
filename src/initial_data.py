@@ -62,17 +62,17 @@ def parse_and_transform_threshold_row(row):
 
     它使用 parse_threshold_string 來處理一行中定義了多個標準值的欄位，
     並將結果組合成一個符合資料庫欄位順序的元組 (tuple)。
+    在任何min到max之間的數值都是含在該異常等級內的
+    像是:warning_min <= value <= warning_max 都是輕度異常
     """
     metric_type = row.get("異常類型")
-    # --- 關鍵修正：不再讀取 "正常值" 欄位 ---
-    # normal_value, _, _ = parse_threshold_string(row.get("正常值"))
+    normal_value, _, _ = parse_threshold_string(row.get("正常值"))
     warning_min, warning_max, _ = parse_threshold_string(row.get("輕度異常"))
     critical_min, critical_max, _ = parse_threshold_string(row.get("中度異常"))
     emergency_min, emergency_max, emergency_op = parse_threshold_string(
         row.get("重度異常")
     )
-    # --- 關鍵修正：從返回的元組中移除 normal_value ---
-    return (metric_type, warning_min, warning_max,
+    return (metric_type, normal_value, warning_min, warning_max,
             critical_min, critical_max, emergency_min, emergency_max,
             emergency_op)
 
@@ -134,26 +134,26 @@ TABLE_CONFIGS = [
             pd.to_datetime(row.get('timestamp')) if pd.notna(row.get('timestamp')) else None
         )
     },
-    {
-        "excel_sheet_name": "設備標準值",
-        "sql_table_name": "equipment_metric_thresholds",
-        # --- 關鍵修正：從 sql_columns 列表中移除 "normal_value" ---
-        "sql_columns": ["metric_type", "normal_value", "warning_min", "warning_max",
-                        "critical_min", "critical_max", "emergency_min",
-                        "emergency_max", "emergency_op", "last_updated"],
-        "transform_row_data": lambda row: (
-            row.get('metric_type'),
-            row.get('normal_value'),
-            row.get('warning_min'),
-            row.get('warning_max'),
-            row.get('critical_min'),
-            row.get('critical_max'),
-            row.get('emergency_min'),
-            row.get('emergency_max'),
-            row.get('emergency_op'),
-            row.get('last_updated')
-        )
-    },
+   {
+    "excel_sheet_name": "設備標準值",
+    "sql_table_name": "equipment_metric_thresholds",
+    "sql_columns": ["metric_type", "normal_value", "warning_min", "warning_max",
+                    "critical_min", "critical_max", "emergency_min",
+                    "emergency_max", "emergency_op", "last_updated"],
+    "transform_row_data": lambda row: (
+        str(row.get('metric_type')) if pd.notna(row.get('metric_type')) else None,
+        float(row.get('normal_value')) if pd.notna(row.get('normal_value')) else None,
+        float(row.get('warning_min')) if pd.notna(row.get('warning_min')) else None,
+        float(row.get('warning_max')) if pd.notna(row.get('warning_max')) else None,
+        float(row.get('critical_min')) if pd.notna(row.get('critical_min')) else None,
+        float(row.get('critical_max')) if pd.notna(row.get('critical_max')) else None,
+        # emergency_op 可能是 ">" 或 "<"
+        str(row.get('emergency_op')) if pd.notna(row.get('emergency_op')) else None,
+        float(row.get('emergency_min')) if pd.notna(row.get('emergency_min')) else None,
+        float(row.get('emergency_max')) if pd.notna(row.get('emergency_max')) else None,
+        pd.to_datetime(row.get('last_updated')) if pd.notna(row.get('last_updated')) else None
+    )
+},
     {
         "excel_sheet_name": "異常紀錄",
         "sql_table_name": "error_logs",
@@ -162,14 +162,14 @@ TABLE_CONFIGS = [
                         "detected_anomaly_type", "downtime_min",
                         "resolved_at", "resolution_notes"],
         "transform_row_data": lambda row: (
-            str(row.get('error_id')),
+            int(row.get('error_id')),
             pd.to_datetime(str(row.get('日期'))) if pd.notna(row.get('日期')) else None,
             str(row.get('equipment_id')),
-            row.get('變形量(mm)'),
-            row.get('轉速'),
+            float(row.get('變形量(mm)')) if pd.notna(row.get('變形量(mm)')) else None,
+            float(row.get('轉速')) if pd.notna(row.get('轉速')) else None,
             pd.to_datetime(str(row.get('時間'))) if pd.notna(row.get('時間')) else None,
             str(row.get('偵測異常類型')),
-            str(row.get('停機時長(分鐘)')),
+            int(row.get('停機時長(分鐘)')) if pd.notna(row.get('停機時長(分鐘)')) else None,
             pd.to_datetime(str(row.get('回復時間'))) if pd.notna(row.get('回復時間')) else None,
             str(row.get('備註')) if pd.notna(row.get('備註')) else None
         )
@@ -178,39 +178,42 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "運作統計(月)",
         "sql_table_name": "stats_operational_monthly",
         "sql_columns": ["equipment_id", "year", "month",
-                        "total_operation_duration", "downtime_hrs",
+                        "total_operation_hrs", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('月'),
-            str(row.get('總運作時長')),
-            str(row.get('停機總時長')), str(row.get('停機率(%)')),
-            str(row.get('說明'))
+            int(row.get('總運作時長')),
+            float(row.get('停機總時長')) if pd.notna(row.get('停機總時長')) else None,
+            str(row.get('停機率(%)')) if pd.notna(row.get('停機率(%)')) else None,
+            str(row.get('說明')) if pd.notna(row.get('說明')) else None
         )
     },
     {
         "excel_sheet_name": "運作統計(季)",
         "sql_table_name": "stats_operational_quarterly",
         "sql_columns": ["equipment_id", "year", "quarter",
-                        "total_operation_duration", "downtime_hrs",
+                        "total_operation_hrs", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('季度'),
-            str(row.get('總運作時長')),
-            str(row.get('停機總時長')), str(row.get('停機率(%)')),
-            str(row.get('說明'))
+            int(row.get('總運作時長')) if pd.notna(row.get('總運作時長')) else None,
+            float(row.get('停機總時長')) if pd.notna(row.get('停機總時長')) else None,
+            str(row.get('停機率(%)')) if pd.notna(row.get('停機率(%)')) else None,
+            str(row.get('說明')) if pd.notna(row.get('說明')) else None
         )
     },
     {
         "excel_sheet_name": "運作統計(年)",
         "sql_table_name": "stats_operational_yearly",
-        "sql_columns": ["equipment_id", "year", "total_operation_duration",
+        "sql_columns": ["equipment_id", "year", "total_operation_hrs",
                         "downtime_hrs", "downtime_rate_percent",
                         "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'),
-            str(row.get('總運作時長')),
-            str(row.get('停機總時長')), str(row.get('停機率(%)')),
-            str(row.get('說明'))
+            int(row.get('總運作時長')) if pd.notna(row.get('總運作時長')) else None,
+            float(row.get('停機總時長')) if pd.notna(row.get('停機總時長')) else None,
+            str(row.get('停機率(%)')) if pd.notna(row.get('停機率(%)')) else None,
+            str(row.get('說明')) if pd.notna(row.get('說明')) else None
         )
     },
     {
@@ -220,10 +223,11 @@ TABLE_CONFIGS = [
                         "detected_anomaly_type", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
-            str(row.get('equipment_id')), row.get('年'), row.get('月'),
-            str(row.get('偵測異常類型')),
-            str(row.get('停機時長')), str(row.get('停機率(%)')),
-            str(row.get('說明'))
+            str(row.get('equipment_id')), int(row.get('年')), int(row.get('月')),
+            float(row.get('偵測異常類型')) if pd.notna(row.get('偵測異常類型')) else None,
+            float(row.get('停機時長')) if pd.notna(row.get('停機時長')) else None,
+            float(row.get('停機率(%)')) if pd.notna(row.get('停機率(%)')) else None,
+            str(row.get('說明')) if pd.notna(row.get('說明')) else None
         )
     },
     {
@@ -235,7 +239,7 @@ TABLE_CONFIGS = [
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('季度'),
             str(row.get('偵測異常類型')),
-            str(row.get('停機時長')), str(row.get('停機率(%)')),
+            float(row.get('停機時長')), str(row.get('停機率(%)')),
             str(row.get('說明'))
         )
     },
@@ -248,7 +252,7 @@ TABLE_CONFIGS = [
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'),
             str(row.get('偵測異常類型')),
-            str(row.get('停機時長')), str(row.get('停機率(%)')),
+            float(row.get('停機時長')), str(row.get('停機率(%)')),
             str(row.get('說明'))
         )
     }
