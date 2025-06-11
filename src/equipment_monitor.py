@@ -1,6 +1,7 @@
 import logging
 import pyodbc
 from database import db
+from datetime import datetime, timedelta
 
 # 初始化日誌記錄器
 logger = logging.getLogger(__name__)
