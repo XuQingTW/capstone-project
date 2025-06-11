@@ -18,65 +18,6 @@ logger = logging.getLogger(__name__)
 # 定義包含所有來源數據的 Excel 檔案路徑。
 EXCEL_FILE_PATH = r'data\simulated_data (1).xlsx'
 
-
-# --- 3. 輔助函數 ---
-
-def parse_threshold_string(threshold_str):
-    """
-    解析標準值定義字串，例如 ' > 10', '< 5', '10-20'。
-
-    此函數使用正則表達式，彈性地將人類可讀的規則轉換為機器可處理的格式。
-
-    Args:
-        threshold_str (str): 來自 Excel 的標準值定義字串。
-
-    Returns:
-        tuple: (min_val, max_val, operator)，分別代表最小值、最大值和比較符。
-    """
-    if pd.isna(threshold_str) or threshold_str is None:
-        return None, None, None
-    s = str(threshold_str).strip()
-    match = re.match(r'([><=~]?)\s*([0-9.]+)\s*([~-]\s*([0-9.]+))?', s)
-    if not match:
-        return None, None, None
-    op, val1, _, val2 = match.groups()
-    try:
-        val1 = float(val1) if val1 else None
-        val2 = float(val2) if val2 else None
-    except ValueError:
-        return None, None, None
-
-    if op == '>':
-        return val1, None, '>'
-    elif op == '<':
-        return None, val1, '<'
-    elif op == '~' or _ == '-':
-        return val1, val2, None
-    else:
-        return val1, val1, None
-
-
-def parse_and_transform_threshold_row(row):
-    """
-    針對「切割機標準值」工作表的特製轉換函數。
-
-    它使用 parse_threshold_string 來處理一行中定義了多個標準值的欄位，
-    並將結果組合成一個符合資料庫欄位順序的元組 (tuple)。
-    在任何min到max之間的數值都是含在該異常等級內的
-    像是:warning_min <= value <= warning_max 都是輕度異常
-    """
-    metric_type = row.get("異常類型")
-    normal_value, _, _ = parse_threshold_string(row.get("正常值"))
-    warning_min, warning_max, _ = parse_threshold_string(row.get("輕度異常"))
-    critical_min, critical_max, _ = parse_threshold_string(row.get("中度異常"))
-    emergency_min, emergency_max, emergency_op = parse_threshold_string(
-        row.get("重度異常")
-    )
-    return (metric_type, normal_value, warning_min, warning_max,
-            critical_min, critical_max, emergency_min, emergency_max,
-            emergency_op)
-
-
 # --- 4. 完整的表格匯入設定 ---
 """
 這是此腳本的設定驅動核心。
