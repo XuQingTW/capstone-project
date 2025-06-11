@@ -110,7 +110,7 @@ class Database:
                 [threshold_min] FLOAT NULL,
                 [threshold_max] FLOAT NULL,
                 [unit] NVARCHAR(50) NULL,
-                [timestamp] datetime2(2) NULL DEFAULT GETDATE()
+                [last_updated] datetime2(2) NULL DEFAULT GETDATE()
             """
             self._create_table_if_not_exists(init_cur, "equipment_metrics", equipment_metrics_cols)
 
@@ -125,8 +125,7 @@ class Database:
                 [critical_max] FLOAT NULL,
                 [emergency_op] NVARCHAR(10) NULL,
                 [emergency_min] FLOAT NULL,
-                [emergency_max] FLOAT(1) NULL,
-                [last_updated] datetime2(2) NULL DEFAULT GETDATE()
+                [emergency_max] FLOAT NULL,
             """
             self._create_table_if_not_exists(init_cur, "equipment_metric_thresholds", equipment_metric_thresholds_cols)
 
