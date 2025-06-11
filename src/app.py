@@ -94,8 +94,9 @@ def create_app(testing=False):
 # 提供一個便利函數來運行應用
 
 
-def run_app(host="0.0.0.0", port=None, debug=None, ssl_context=None):
+def run_app(host=None, port=None, debug=None, ssl_context=None):
     """運行 Flask 應用程序"""
+    host = host or os.environ.get("HOST", "127.0.0.1")
     port = port or int(os.environ.get("PORT", 5000))
     debug = debug or (os.environ.get("FLASK_DEBUG", "False").lower() == "true")
     app = create_app()
