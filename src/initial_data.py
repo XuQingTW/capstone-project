@@ -101,7 +101,7 @@ TABLE_CONFIGS = [
     {
         "excel_sheet_name": "alert_history",
         "sql_table_name": "alert_history",
-        "sql_columns": ["id", "equipment_id", "alert_type", "severity", "message",
+        "sql_columns": ["error_id", "equipment_id", "alert_type", "severity", "message",
                         "is_resolved", "created_at", "resolved_at",
                         "resolved_by", "resolution_notes"],
         "transform_row_data": lambda row: (
@@ -138,7 +138,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "設備標準值",
         "sql_table_name": "equipment_metric_thresholds",
         # --- 關鍵修正：從 sql_columns 列表中移除 "normal_value" ---
-        "sql_columns": ["metric_type", "warning_min", "warning_max",
+        "sql_columns": ["metric_type", "normal_value", "warning_min", "warning_max",
                         "critical_min", "critical_max", "emergency_min",
                         "emergency_max", "emergency_op", "last_updated"],
         "transform_row_data": lambda row: (
@@ -159,7 +159,7 @@ TABLE_CONFIGS = [
         "sql_table_name": "error_logs",
         "sql_columns": ["error_id", "log_date", "equipment_id",
                         "deformation_mm", "rpm", "event_time",
-                        "detected_anomaly_type", "downtime_duration",
+                        "detected_anomaly_type", "downtime_min",
                         "resolved_at", "resolution_notes"],
         "transform_row_data": lambda row: (
             str(row.get('error_id')),
@@ -169,7 +169,7 @@ TABLE_CONFIGS = [
             row.get('轉速'),
             pd.to_datetime(str(row.get('時間'))) if pd.notna(row.get('時間')) else None,
             str(row.get('偵測異常類型')),
-            str(row.get('停機時長')),
+            str(row.get('停機時長(分鐘)')),
             pd.to_datetime(str(row.get('回復時間'))) if pd.notna(row.get('回復時間')) else None,
             str(row.get('備註')) if pd.notna(row.get('備註')) else None
         )
@@ -178,7 +178,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "運作統計(月)",
         "sql_table_name": "stats_operational_monthly",
         "sql_columns": ["equipment_id", "year", "month",
-                        "total_operation_duration", "total_downtime_duration",
+                        "total_operation_duration", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('月'),
@@ -191,7 +191,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "運作統計(季)",
         "sql_table_name": "stats_operational_quarterly",
         "sql_columns": ["equipment_id", "year", "quarter",
-                        "total_operation_duration", "total_downtime_duration",
+                        "total_operation_duration", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('季度'),
@@ -204,7 +204,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "運作統計(年)",
         "sql_table_name": "stats_operational_yearly",
         "sql_columns": ["equipment_id", "year", "total_operation_duration",
-                        "total_downtime_duration", "downtime_rate_percent",
+                        "downtime_hrs", "downtime_rate_percent",
                         "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'),
@@ -217,7 +217,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "各異常統計(月)",
         "sql_table_name": "stats_abnormal_monthly",
         "sql_columns": ["equipment_id", "year", "month",
-                        "detected_anomaly_type", "downtime_duration",
+                        "detected_anomaly_type", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('月'),
@@ -230,7 +230,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "各異常統計(季)",
         "sql_table_name": "stats_abnormal_quarterly",
         "sql_columns": ["equipment_id", "year", "quarter",
-                        "detected_anomaly_type", "downtime_duration",
+                        "detected_anomaly_type", "downtime_hrs",
                         "downtime_rate_percent", "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'), row.get('季度'),
@@ -243,7 +243,7 @@ TABLE_CONFIGS = [
         "excel_sheet_name": "各異常統計(年)",
         "sql_table_name": "stats_abnormal_yearly",
         "sql_columns": ["equipment_id", "year", "detected_anomaly_type",
-                        "downtime_duration", "downtime_rate_percent",
+                        "downtime_hrs", "downtime_rate_percent",
                         "description"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('年'),

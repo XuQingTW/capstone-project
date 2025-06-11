@@ -41,10 +41,10 @@ class Database:
                 [role] NVARCHAR(50) NULL,
                 [is_admin] BIT NULL,
                 [responsible_area] NVARCHAR(255) NULL,
-                [created_at] DATETIME2 NULL,
+                [created_at] datetime2(2) NULL,
                 [display_name] NVARCHAR(255) NULL,
                 [email] NVARCHAR(255) NULL UNIQUE,
-                [last_active] DATETIME2 NULL
+                [last_active] datetime2(2) NULL
             """
             self._create_table_if_not_exists(init_cur, "user_preferences", user_preferences_cols)
 
@@ -55,7 +55,7 @@ class Database:
                 [equipment_type] NVARCHAR(255) NULL,
                 [location] NVARCHAR(255) NULL,
                 [status] NVARCHAR(255) NULL,
-                [last_updated] DATETIME2 NULL
+                [last_updated] datetime2(2) NULL
             """
             self._create_table_if_not_exists(init_cur, "equipment", equipment_cols)
 
@@ -66,7 +66,7 @@ class Database:
                 [receiver_id] NVARCHAR(255) NULL,
                 [sender_role] NVARCHAR(50) NULL,
                 [content] NVARCHAR(MAX) NOT NULL,
-                [timestamp] DATETIME2 NULL DEFAULT GETDATE()
+                [timestamp] datetime2(2) NULL DEFAULT GETDATE()
             """
             self._create_table_if_not_exists(init_cur, "conversations", conversations_cols)
 
@@ -85,14 +85,14 @@ class Database:
 
             # 5. alert_history
             alert_history_cols = """
-                [id] INT NOT NULL PRIMARY KEY,
+                [error_id] INT NOT NULL PRIMARY KEY,
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [alert_type] NVARCHAR(255) NULL,
                 [severity] NVARCHAR(255) NULL,
                 [message] NVARCHAR(MAX) NULL,
                 [is_resolved] BIT NULL DEFAULT 0,
-                [created_at] DATETIME2 NULL,
-                [resolved_at] DATETIME2 NULL,
+                [created_at] datetime2(2) NULL,
+                [resolved_at] datetime2(2) NULL,
                 [resolved_by] NVARCHAR(255) NULL,
                 [resolution_notes] NVARCHAR(MAX) NULL
             """
@@ -110,7 +110,7 @@ class Database:
                 [threshold_min] FLOAT NULL,
                 [threshold_max] FLOAT NULL,
                 [unit] NVARCHAR(50) NULL,
-                [timestamp] DATETIME2 NULL DEFAULT GETDATE()
+                [timestamp] datetime2(2) NULL DEFAULT GETDATE()
             """
             self._create_table_if_not_exists(init_cur, "equipment_metrics", equipment_metrics_cols)
 
@@ -124,23 +124,23 @@ class Database:
                 [critical_min] FLOAT NULL,
                 [critical_max] FLOAT NULL,
                 [emergency_op] NVARCHAR(10) NULL,
-                [emergency_min] NVARCHAR(10) NULL,
-                [emergency_max] NVARCHAR(10) NULL,
-                [last_updated] DATETIME2 NULL DEFAULT GETDATE()
+                [emergency_min] FLOAT NULL,
+                [emergency_max] FLOAT(1) NULL,
+                [last_updated] datetime2(2) NULL DEFAULT GETDATE()
             """
             self._create_table_if_not_exists(init_cur, "equipment_metric_thresholds", equipment_metric_thresholds_cols)
 
             # 8. error_logs
             error_logs_cols = """
-                [error_id] NVARCHAR(MAX) NOT NULL,
-                [log_date] DATETIME2 NULL,
+                [error_id] INT NOT NULL,
+                [log_date] DATE NULL,
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [deformation_mm] FLOAT NULL,
                 [rpm] INT NULL,
-                [event_time] DATETIME2 NULL,
+                [event_time] datetime2(2) NULL,
                 [detected_anomaly_type] NVARCHAR(MAX) NULL,
-                [downtime_duration] NVARCHAR(MAX) NULL,
-                [resolved_at] DATETIME2 NULL,
+                [downtime_min] INT NULL,
+                [resolved_at] datetime2(2) NULL,
                 [resolution_notes] NVARCHAR(MAX) NULL
             """
             self._create_table_if_not_exists(init_cur, "error_logs", error_logs_cols)
@@ -151,7 +151,7 @@ class Database:
                 [year] INT NOT NULL,
                 [month] INT NOT NULL,
                 [detected_anomaly_type] NVARCHAR(255) NOT NULL,
-                [downtime_duration] NVARCHAR(255) NULL,
+                [downtime_hrs] FLOAT NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, month, detected_anomaly_type)
@@ -164,7 +164,7 @@ class Database:
                 [year] INT NOT NULL,
                 [quarter] INT NOT NULL,
                 [detected_anomaly_type] NVARCHAR(255) NOT NULL,
-                [downtime_duration] NVARCHAR(255) NULL,
+                [downtime_hrs] NVARCHAR(255) NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, quarter, detected_anomaly_type)
@@ -176,7 +176,7 @@ class Database:
                 [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                 [year] INT NOT NULL,
                 [detected_anomaly_type] NVARCHAR(255) NOT NULL,
-                [downtime_duration] NVARCHAR(255) NULL,
+                [downtime_hrs] NVARCHAR(255) NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, detected_anomaly_type)
@@ -189,7 +189,7 @@ class Database:
                 [year] INT NOT NULL,
                 [month] INT NOT NULL,
                 [total_operation_duration] NVARCHAR(255) NULL,
-                [total_downtime_duration] NVARCHAR(255) NULL,
+                [downtime_hrs] NVARCHAR(255) NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, month)
@@ -202,7 +202,7 @@ class Database:
                 [year] INT NOT NULL,
                 [quarter] INT NOT NULL,
                 [total_operation_duration] NVARCHAR(255) NULL,
-                [total_downtime_duration] NVARCHAR(255) NULL,
+                [downtime_hrs] NVARCHAR(255) NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year, quarter)
@@ -214,7 +214,7 @@ class Database:
                 [equipment_id] NVARCHAR(255) NOT NULL,
                 [year] INT NOT NULL,
                 [total_operation_duration] NVARCHAR(255) NULL,
-                [total_downtime_duration] NVARCHAR(255) NULL,
+                [downtime_hrs] NVARCHAR(255) NULL,
                 [downtime_rate_percent] NVARCHAR(255) NULL,
                 [description] NVARCHAR(MAX) NULL,
                 PRIMARY KEY (equipment_id, year),
