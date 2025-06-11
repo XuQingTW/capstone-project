@@ -379,7 +379,7 @@ class EquipmentMonitor:
             cursor.execute(
                 """
                 SELECT id, operation_type, start_time, lot_id, product_id
-                FROM eequipment_metrics_cols
+                FROM equipment_operation_logs
                 WHERE equipment_id = ? AND end_time IS NULL
                 ORDER BY start_time ASC;
                 """,
