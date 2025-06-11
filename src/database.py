@@ -129,9 +129,11 @@ class Database:
                     [emergency_min] FLOAT NULL,
                     [emergency_max] FLOAT NULL,
                 """
-                self._create_table_if_not_exists(init_cur, "equipment_metric_thresholds", equipment_metric_thresholds_cols)
+                self._create_table_if_not_exists(init_cur, "equipment_metric_thresholds",
+                equipment_metric_thresholds_cols
+                )
 
-                    # 8. error_logs
+                # 8. error_logs
                 error_logs_cols = """
                     [error_id] INT NOT NULL PRIMARY KEY,
                     [log_date] DATE NULL,
@@ -208,7 +210,9 @@ class Database:
                     [description] NVARCHAR(MAX) NULL,
                     PRIMARY KEY (equipment_id, year, quarter)
                 """
-                self._create_table_if_not_exists(init_cur, "stats_operational_quarterly", stats_operational_quarterly_cols)
+                self._create_table_if_not_exists(init_cur, "stats_operational_quarterly", 
+                stats_operational_quarterly_cols
+                )
 
                 # 14. stats_operational_yearly
                 stats_operational_yearly_cols = """
