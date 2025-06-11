@@ -135,25 +135,25 @@ TABLE_CONFIGS = [
         )
     },
    {
-    "excel_sheet_name": "設備標準值",
-    "sql_table_name": "equipment_metric_thresholds",
-    "sql_columns": ["metric_type", "normal_value", "warning_min", "warning_max",
-                    "critical_min", "critical_max", "emergency_min",
-                    "emergency_max", "emergency_op", "last_updated"],
-    "transform_row_data": lambda row: (
-        str(row.get('metric_type')) if pd.notna(row.get('metric_type')) else None,
-        float(row.get('normal_value')) if pd.notna(row.get('normal_value')) else None,
-        float(row.get('warning_min')) if pd.notna(row.get('warning_min')) else None,
+        "excel_sheet_name": "設備標準值",
+        "sql_table_name": "equipment_metric_thresholds",
+        "sql_columns": ["metric_type", "normal_value", "warning_min", "warning_max",
+                        "critical_min", "critical_max", "emergency_min",
+                        "emergency_max", "emergency_op", "last_updated"],
+        "transform_row_data": lambda row: (
+            str(row.get('metric_type')) if pd.notna(row.get('metric_type')) else None,
+            float(row.get('normal_value')) if pd.notna(row.get('normal_value')) else None,
+            float(row.get('warning_min')) if pd.notna(row.get('warning_min')) else None,
         float(row.get('warning_max')) if pd.notna(row.get('warning_max')) else None,
-        float(row.get('critical_min')) if pd.notna(row.get('critical_min')) else None,
-        float(row.get('critical_max')) if pd.notna(row.get('critical_max')) else None,
-        # emergency_op 可能是 ">" 或 "<"
-        str(row.get('emergency_op')) if pd.notna(row.get('emergency_op')) else None,
-        float(row.get('emergency_min')) if pd.notna(row.get('emergency_min')) else None,
-        float(row.get('emergency_max')) if pd.notna(row.get('emergency_max')) else None,
-        pd.to_datetime(row.get('last_updated')) if pd.notna(row.get('last_updated')) else None
-    )
-},
+            float(row.get('critical_min')) if pd.notna(row.get('critical_min')) else None,
+            float(row.get('critical_max')) if pd.notna(row.get('critical_max')) else None,
+            # emergency_op 可能是 ">" 或 "<"
+            str(row.get('emergency_op')) if pd.notna(row.get('emergency_op')) else None,
+            float(row.get('emergency_min')) if pd.notna(row.get('emergency_min')) else None,
+            float(row.get('emergency_max')) if pd.notna(row.get('emergency_max')) else None,
+            pd.to_datetime(row.get('last_updated')) if pd.notna(row.get('last_updated')) else None
+        )
+    },
     {
         "excel_sheet_name": "異常紀錄",
         "sql_table_name": "error_logs",
