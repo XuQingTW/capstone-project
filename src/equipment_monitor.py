@@ -99,14 +99,14 @@ class EquipmentMonitor:
             with self.db._get_connection() as conn:  # 正確使用 MS SQL Server 連線
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT equipment_id, name, eq_type FROM equipment "
-                    "WHERE status <> 'offline' AND eq_type = ?;",
+                    "SELECT equipment_id, name, equipment_type FROM equipment "
+                    "WHERE status <> 'offline' AND equipment_type = ?;",
                     (self.DICER,)
                 )
                 equipments = cursor.fetchall()
-                for equipment_id, name, eq_type in equipments:
+                for equipment_id, name, equipment_type in equipments:
                     self._check_equipment_metrics(
-                        conn, equipment_id, name, eq_type
+                        conn, equipment_id, name, equipment_type
                     )
                 logger.info("所有切割機設備檢查完成。")
         except pyodbc.Error as db_err:  # 捕獲 pyodbc.Error
@@ -114,7 +114,7 @@ class EquipmentMonitor:
         except Exception as e:
             logger.exception(f"檢查所有切割機設備時發生非預期錯誤: {e}")
 
-    def _check_equipment_metrics(self, conn, equipment_id, name, eq_type):
+    def _check_equipment_metrics(self, conn, equipment_id, name, equipment_type):
         """
         檢查單一設備的所有監控指標是否異常。
 
@@ -443,12 +443,12 @@ class EquipmentMonitor:
                 )
                 result = cursor.fetchone()
                 if result:
-                    eq_type = result[1]
+                    equipment_type = result[1]
                     return {
                         "name": result[0],
-                        "type": eq_type,
+                        "type": equipment_type,
                         "type_name": self.equipment_type_names.get(
-                            eq_type, eq_type
+                            equipment_type, equipment_type
                         ),
                         "location": result[2]
                     }
@@ -543,7 +543,7 @@ class EquipmentMonitor:
                         user_ids_to_notify.add(row[0])
 
                 cursor.execute(
-                    "SELECT eq_type FROM equipment WHERE equipment_id = ?;", (equipment_id,)
+                    "SELECT equipment_type FROM equipment WHERE equipment_id = ?;", (equipment_id,)
                 )
                 equipment_info = cursor.fetchone()
                 if equipment_info:
