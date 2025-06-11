@@ -147,7 +147,7 @@ TABLE_CONFIGS = [
             float(row.get('warning_max')) if pd.notna(row.get('warning_max')) else None,
             float(row.get('critical_min')) if pd.notna(row.get('critical_min')) else None,
             float(row.get('critical_max')) if pd.notna(row.get('critical_max')) else None,
-            str(row.get('emergency_op')) if pd.notna(row.get('emergency_op')) else None, # emergency_op 可能是 ">" 或 "<"
+            str(row.get('emergency_op')) if pd.notna(row.get('emergency_op')) else None,  # emergency_op 可能是 ">" 或 "<"
             float(row.get('emergency_min')) if pd.notna(row.get('emergency_min')) else None,
             float(row.get('emergency_max')) if pd.notna(row.get('emergency_max')) else None,
         )
