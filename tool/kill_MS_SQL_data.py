@@ -2,19 +2,24 @@ import pyodbc
 import os
 
 # 1. 資料庫連線設定
-server = 'localhost'   # Default
+DB_SERVER = os.getenv("DB_SERVER", "localhost")  # Default
 DB_NAME = os.getenv("DB_NAME", "Project")  # Default
 DB_USER = os.getenv("DB_USER")  # Default
 DB_PASSWORD = os.getenv("DB_PASSWORD")# For potential future use
 driver = '{ODBC Driver 17 for SQL Server}'
 
 # 2. 建立連線
-conn_str = f'DRIVER={driver};SERVER={server};DATABASE={DB_NAME};UID={DB_USER};PWD={DB_PASSWORD}'
+connection_string = (
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            f"SERVER={DB_SERVER};"
+            f"DATABASE={DB_NAME};"
+            "Trusted_Connection=yes;"
+        )
 
 try:
-    conn = pyodbc.connect(conn_str)
+    conn = pyodbc.connect(connection_string)
     cursor = conn.cursor()
-    print(f" 已連線：{server} / 資料庫：{DB_NAME}")
+    print(f" 已連線：{DB_SERVER} / 資料庫：{DB_NAME}")
 
     # 3. 關閉外鍵限制
     print("⚠️ 關閉所有外鍵約束...")
