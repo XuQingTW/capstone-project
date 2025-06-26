@@ -147,8 +147,8 @@ class Database:
                     [event_time] datetime2(2) NULL,
                     [detected_anomaly_type] NVARCHAR(MAX) NULL,
                     [downtime_min] INT NULL,
-                    [resolved_at] datetime2(2) NULL,
-                    [resolution_notes] NVARCHAR(MAX) NULL
+                    [resolved_time] datetime2(2) NULL,
+                    [notes] NVARCHAR(MAX) NULL
                 """
                 self._create_table_if_not_exists(init_cur, "error_logs", error_logs_cols)
 
