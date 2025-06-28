@@ -50,7 +50,7 @@ class Database:
 
                 # 2. equipment
                 equipment_cols = """
-                    [id] INT NOT NULL,
+                    [id] INT NULL,
                     [equipment_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
                     [name] NVARCHAR(255) NOT NULL,
                     [equipment_type] NVARCHAR(255) NULL,
@@ -139,8 +139,8 @@ class Database:
 
                 # 8. error_logs
                 error_logs_cols = """
-                    [error_id] INT NOT NULL PRIMARY KEY,
                     [log_date] DATE NULL,
+                    [error_id] INT NOT NULL PRIMARY KEY,
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     [deformation_mm] FLOAT NULL,
                     [rpm] INT NULL,
