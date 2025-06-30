@@ -106,7 +106,7 @@ TABLE_CONFIGS = [
             int(row.get('error_id')),
             str(row.get('equipment_id')),
             float(row.get('deformation(mm)')) if pd.notna(row.get('deformation(mm)')) else None,
-            float(row.get('rpm')) if pd.notna(row.get('rpm')) else None,
+            int(row.get('rpm')) if pd.notna(row.get('rpm')) else None,
             pd.to_datetime(str(row.get('event_time'))) if pd.notna(row.get('event_time')) else None,
             str(row.get('detected_anomaly_type')),
             int(row.get('downtime_min')) if pd.notna(row.get('downtime_min')) else None,
@@ -139,7 +139,7 @@ TABLE_CONFIGS = [
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
-            str(row.get('notes'))
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     },
     {
@@ -153,7 +153,7 @@ TABLE_CONFIGS = [
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
-            str(row.get('notes'))
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     },
     {
@@ -168,7 +168,7 @@ TABLE_CONFIGS = [
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             float(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
-            str(row.get('notes'))
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     },
     {
