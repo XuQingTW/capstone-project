@@ -82,7 +82,7 @@ TABLE_CONFIGS = [
                         "critical_min", "critical_max", "emergency_op", "emergency_min",
                         "emergency_max", "last_updated"],
         "transform_row_data": lambda row: (
-            str(row.get('metric_type')) if row.get('metric_type') else 'default_metric_type'
+            str(row.get('metric_type')) if row.get('metric_type') else 'default_metric_type',
             float(row.get('normal_value')) if pd.notna(row.get('normal_value')) else None,
             float(row.get('warning_min')) if pd.notna(row.get('warning_min')) else None,
             float(row.get('warning_max')) if pd.notna(row.get('warning_max')) else None,
