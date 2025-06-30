@@ -164,7 +164,7 @@ TABLE_CONFIGS = [
                         "downtime_rate_percent", "notes"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), int(row.get('year')), int(row.get('month')),
-            str(row.get('detected_anomaly_type')) if row.get('detected_anomaly_type') else 'default_anomaly_type'
+            str(row.get('detected_anomaly_type')) if row.get('detected_anomaly_type') else 'default_anomaly_type',
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             float(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
@@ -179,7 +179,7 @@ TABLE_CONFIGS = [
                         "downtime_rate_percent", "notes"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('year'), row.get('quarter'),
-            str(row.get('detected_anomaly_type')) if row.get('detected_anomaly_type') else 'default_anomaly_type'
+            str(row.get('detected_anomaly_type')) if row.get('detected_anomaly_type') else 'default_anomaly_type',
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
@@ -194,7 +194,7 @@ TABLE_CONFIGS = [
                         "notes"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('year'),
-            str(row.get('detected_anomaly_type')) if row.get('detected_anomaly_type') else 'default_anomaly_type'
+            str(row.get('detected_anomaly_type')) if row.get('detected_anomaly_type') else 'default_anomaly_type',
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
