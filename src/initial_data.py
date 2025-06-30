@@ -111,7 +111,7 @@ TABLE_CONFIGS = [
             str(row.get('detected_anomaly_type')),
             int(row.get('downtime_min')) if pd.notna(row.get('downtime_min')) else None,
             pd.to_datetime(str(row.get('resolved_time'))) if pd.notna(row.get('resolved_time')) else None,
-            str(row.get('notes'))
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     },
     {
@@ -121,11 +121,10 @@ TABLE_CONFIGS = [
                         "total_operation_hrs", "downtime_hrs",
                         "downtime_rate_percent", "notes"],
         "transform_row_data": lambda row: (
-            str(row.get('equipment_id')), row.get('year'), row.get('month'),
-            int(row.get('total_operation_hrs')),
+            int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
-            str(row.get('notes'))
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     },
     {
@@ -179,10 +178,11 @@ TABLE_CONFIGS = [
                         "downtime_rate_percent", "notes"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('year'), row.get('quarter'),
-            str(row.get('detected_anomaly_type')),
+            str(row.get('detected_anomaly_type')) if pd.notna(row.get('detected_anomaly_type')) else None,
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
-            float(row.get('downtime_hrs')), str(row.get('downtime_rate_percent')),
-            str(row.get('notes'))
+            float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
+            str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     },
     {
@@ -193,10 +193,11 @@ TABLE_CONFIGS = [
                         "notes"],
         "transform_row_data": lambda row: (
             str(row.get('equipment_id')), row.get('year'),
-            str(row.get('detected_anomaly_type')),
+            str(row.get('detected_anomaly_type')) if pd.notna(row.get('detected_anomaly_type')) else None,
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
-            float(row.get('downtime_hrs')), str(row.get('downtime_rate_percent')),
-            str(row.get('notes'))
+            float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
+            str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
+            str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )
     }
 ]
