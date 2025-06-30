@@ -7,8 +7,8 @@ from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
 # 導入自訂模組
 from config import Config
-#停用
-#from equipment_scheduler import start_scheduler
+# 停用
+# from equipment_scheduler import start_scheduler
 from .initial_data import import_data_from_excel
 # 設定日誌
 logger = logging.getLogger(__name__)
@@ -95,18 +95,17 @@ def create_app(testing=False):
 # 提供一個便利函數來運行應用
 
 
-def run_app(host=None, port=None, debug=None, ssl_context = None):
+def run_app(host=None, port=None, debug=None, ssl_context=None):
     """運行 Flask 應用程序"""
     host = host or os.environ.get("HOST", "127.0.0.1")
     port = port or int(os.environ.get("PORT", 443))
     debug = debug or (os.environ.get("FLASK_DEBUG", "False").lower() == "true")
-    ssl_context =  ssl_context or (
+    ssl_context = ssl_context or (
             os.environ.get('SSL_CERT_PATH', 'certs/capstone-project.me-chain.pem'),
             os.environ.get('SSL_KEY_PATH', 'certs/capstone-project.me-key.pem')
         )
     app = create_app()
     app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)
 
- 
 if __name__ == "__main__":
     run_app()
