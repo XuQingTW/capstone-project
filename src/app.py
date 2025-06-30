@@ -77,13 +77,13 @@ def create_app(testing=False):
         # 初始化數據
         import_data_from_excel()
         # 初始化設備監控
-        start_scheduler()
+#        start_scheduler()
         # 注冊關閉處理函數
 
-        @app.teardown_appcontext
-        def shutdown_app(exception=None):
-            from equipment_scheduler import stop_scheduler
-            stop_scheduler()
+#        @app.teardown_appcontext
+#        def shutdown_app(exception=None):
+#            from equipment_scheduler import stop_scheduler
+#            stop_scheduler()
         # 注冊路由和處理函數
         from linebot_connect import register_routes
         register_routes(app)
