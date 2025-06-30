@@ -89,3 +89,4 @@ if not is_testing:
         # 注意：在寬鬆模式下，這裡沒有中斷程序，讓主程式決定如何處理
 else:
     logger.debug("TESTING 模式啟用，略過環境變數驗證")
+  
