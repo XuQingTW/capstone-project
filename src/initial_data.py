@@ -102,7 +102,7 @@ TABLE_CONFIGS = [
                         "detected_anomaly_type", "downtime_min",
                         "resolved_time", "notes"],
         "transform_row_data": lambda row: (
-            pd.to_datetime(str(row.get('log_date'))) if pd.notna(row.get('log_date')) else None,
+            pd.to_datetime(row.get('log_date')) if pd.notna(row.get('log_date')) else None,
             int(row.get('error_id')),
             str(row.get('equipment_id')),
             float(row.get('deformation(mm)')) if pd.notna(row.get('deformation(mm)')) else None,
@@ -121,6 +121,7 @@ TABLE_CONFIGS = [
                         "total_operation_hrs", "downtime_hrs",
                         "downtime_rate_percent", "notes"],
         "transform_row_data": lambda row: (
+            str(row.get('equipment_id')), int(row.get('year')), int(row.get('month')),
             int(row.get('total_operation_hrs')) if pd.notna(row.get('total_operation_hrs')) else None,
             float(row.get('downtime_hrs')) if pd.notna(row.get('downtime_hrs')) else None,
             str(row.get('downtime_rate_percent')) if pd.notna(row.get('downtime_rate_percent')) else None,
