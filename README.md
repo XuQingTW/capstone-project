@@ -54,7 +54,9 @@
 # 一般設定
 FLASK_DEBUG=False
 PORT=5000
+HOST=127.0.0.1
 SECRET_KEY=your_secret_key
+SECRET_KEY_FILE=data/secret_key.txt
 
 # OpenAI API
 OPENAI_API_KEY=your_openai_api_key

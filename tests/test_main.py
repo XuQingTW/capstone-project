@@ -1,11 +1,14 @@
 import os
 import sys
 import pytest  # Third-party import
-from main import sanitize_input  # Local application import (will be at top)
 
-# Ensure src is in path for imports if tests are run from root
-# This needs to be before importing 'main' for runtime, but after for flake8 E402
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+# Ensure src is in path for imports if tests are run from repository root
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+
+# Prevent configuration validation from exiting during import
+os.environ["TESTING"] = "True"
+
+from main import sanitize_input  # Local application import
 
 
 @pytest.mark.parametrize("test_input,expected", [

@@ -1,4 +1,5 @@
 import logging
+import os
 import pyodbc
 from config import Config
 
@@ -499,4 +500,8 @@ class Database:
             }
 
 
-db = Database()
+# 在測試環境下避免連線到實際資料庫
+if os.environ.get("TESTING", "False").lower() != "true":
+    db = Database()
+else:
+    db = None

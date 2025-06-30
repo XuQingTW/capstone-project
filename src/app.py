@@ -77,13 +77,13 @@ def create_app(testing=False):
         # 初始化數據
         import_data_from_excel()
         # 初始化設備監控
-        start_scheduler()
+#        start_scheduler()
         # 注冊關閉處理函數
 
-        @app.teardown_appcontext
-        def shutdown_app(exception=None):
-            from equipment_scheduler import stop_scheduler
-            stop_scheduler()
+#        @app.teardown_appcontext
+#        def shutdown_app(exception=None):
+#            from equipment_scheduler import stop_scheduler
+#            stop_scheduler()
         # 注冊路由和處理函數
         from linebot_connect import register_routes
         register_routes(app)
@@ -94,16 +94,18 @@ def create_app(testing=False):
 # 提供一個便利函數來運行應用
 
 
-def run_app(host="0.0.0.0", port=None, debug=None, ssl_context=None):
+def run_app(host=None, port=None, debug=None, ssl_context=None):
     """運行 Flask 應用程序"""
-    port = port or int(os.environ.get("PORT", 5000))
+    host = host or os.environ.get("HOST", "127.0.0.1")
+    port = port or int(os.environ.get("PORT", 443))
     debug = debug or (os.environ.get("FLASK_DEBUG", "False").lower() == "true")
+    ssl_context = ssl_context or (
+            os.environ.get('SSL_CERT_PATH', 'certs/capstone-project.me-chain.pem'),
+            os.environ.get('SSL_KEY_PATH', 'certs/capstone-project.me-key.pem')
+        )
     app = create_app()
     app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)
 
 
 if __name__ == "__main__":
-    # Use Flask's built-in adhoc SSL certificates (requires pyOpenSSL)
-    ssl_context = "adhoc"
-    print("")
-    run_app(ssl_context=ssl_context)
+    run_app()
