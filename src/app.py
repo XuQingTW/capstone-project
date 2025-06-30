@@ -109,6 +109,4 @@ def run_app(host=None, port=None, debug=None, ssl_context = None):
 
  
 if __name__ == "__main__":
-    # Use Flask's built-in adhoc SSL certificates (requires pyOpenSSL)
-    print("")
     run_app()
