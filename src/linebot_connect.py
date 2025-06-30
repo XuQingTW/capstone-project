@@ -386,7 +386,7 @@ def handle_message(event):
                 if not stats:
                     reply_message_obj = TextMessage(text="目前尚未設定任何設備。")
                 else:
-                    response_text = "📊 設備狀態摘要：\n\n"
+                    response_text = "設備狀態摘要：\n\n"
                     for row in stats:
                         eq_type_db, total, normal, warning, critical, emergency, offline = row
                         type_name = {
