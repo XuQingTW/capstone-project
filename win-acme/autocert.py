@@ -2,7 +2,7 @@ import subprocess
 import os
 WACS = os.path.dirname(__file__) + "\\wacs.exe"
 
-cert_print = os.path.dirname(__file__).replace("win-acme", "certs")
+cert_print = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'certs'))
 SSL_API = os.environ.get("SSL_API")
 
 if SSL_API is None:
