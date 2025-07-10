@@ -253,7 +253,7 @@ if __name__ == "__main__":
             os.environ.get('SSL_CERT_PATH', 'certs/capstone-project.me-chain.pem'),
             os.environ.get('SSL_KEY_PATH', 'certs/capstone-project.me-key.pem')
         ),
-        host=os.environ.get("HOST", "127.0.0.1"),
+        host=os.environ.get("HOST", "0.0.0.0"),
         port=port,
         debug=False,
     )
