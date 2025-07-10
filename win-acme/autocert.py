@@ -4,13 +4,13 @@ import os
 WACS = os.path.dirname(__file__) + "\\wacs.exe"
 
 cert_print = os.path.dirname(__file__).replace("win-acme", "certs")
-
+SSL_API = os.environ.get('SSL_API')
 CMD = [
     str(WACS),
     "--source", "manual",
     "--host", "capstone-project.me",
     "--validation", "cloudflare",
-    "--cloudflareapitoken", "XxAKRUg-WrC4lwihb0EpTNO_93J72pg-pDrj2oAb",
+    "--cloudflareapitoken", SSL_API ,
     "--store", "pemfiles",
     "--pemfilespath", cert_print,
     "--emailaddress", "evan060893@gmail.com",
