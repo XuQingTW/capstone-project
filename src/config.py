@@ -20,7 +20,7 @@ class Config:
     """應用程式配置，集中管理所有環境變數"""
     # 一般配置
     DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
-    PORT = int(os.getenv("PORT", 5000))
+    PORT = int(os.getenv("PORT", 443))
     # OpenAI 配置
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     # LINE Bot 配置
