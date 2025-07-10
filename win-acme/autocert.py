@@ -19,10 +19,8 @@ CMD = [
     "--emailaddress", "evan060893@gmail.com",
     "--accepttos",
     "--verbose",
-    "--closeonfinish",
+    "--closeonfinish"
 ]
-
-print(CMD)
 
 proc = subprocess.run(CMD, capture_output=True,encoding="utf-8", text=True, timeout=600)
 print("Exit code:", proc.returncode)
