@@ -574,7 +574,7 @@ def handle_message(event):
                 logger.error(f"處理設備詳情查詢時發生未知錯誤: {e}")
                 reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
 
-#NOTE: 這裡曾經有用戶訂閱功能
+# NOTE: 這裡曾經有用戶訂閱功能
 #      詳情請在 PR -> del(equipment_monitor.py , equipment_scheduler.py) chare(linebot_connect.py) 移除我的訂閱以及切割機 項目中找回資料
 #      因為沒有廠商提供資料
 #      請每一個貢獻者都注意這個功能已經被移除
