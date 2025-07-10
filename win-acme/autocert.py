@@ -1,10 +1,13 @@
 import subprocess
-from pathlib import Path
 import os
 WACS = os.path.dirname(__file__) + "\\wacs.exe"
 
 cert_print = os.path.dirname(__file__).replace("win-acme", "certs")
-SSL_API = os.environ.get('SSL_API')
+SSL_API = os.environ.get("SSL_API")
+
+if SSL_API is None:
+    raise RuntimeError("請設定 SSL_API 環境變數")
+
 CMD = [
     str(WACS),
     "--source", "manual",
