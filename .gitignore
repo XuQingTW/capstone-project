@@ -1,5 +1,4 @@
 # Custom project-specific ignores
-certs/
 data/*.db
 data/secret_key.txt
 logs/
@@ -8,11 +7,7 @@ logs/
 !.env.example
 
 # SSL certificates and keys
-certs/key.pem
-certs/cert.pem
-*.crt
-*.cert
-*.csr
+*.pem
 
 # Docker related
 *.pid
