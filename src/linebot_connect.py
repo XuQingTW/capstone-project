@@ -290,7 +290,6 @@ def handle_message(event):
         quick_reply = QuickReply(
             items=[
                 QuickReplyItem(action=MessageAction(label="查看報表", text="powerbi")),
-                QuickReplyItem(action=MessageAction(label="訂閱設備", text="訂閱設備")),
                 QuickReplyItem(action=MessageAction(label="設備狀態", text="設備狀態")),
                 QuickReplyItem(action=MessageAction(label="使用說明", text="使用說明")),
             ]
