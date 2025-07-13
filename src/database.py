@@ -140,17 +140,19 @@ class Database:
 
                 # 8. error_logs
                 error_logs_cols = """
-                    [log_date] DATE NULL,
+                    [log_date] DATE NOT NULL,
                     [error_id] INT NOT NULL PRIMARY KEY,
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
-                    [deformation_mm] FLOAT NULL,
-                    [rpm] INT NULL,
-                    [event_time] datetime2(2) NULL,
-                    [detected_anomaly_type] NVARCHAR(MAX) NULL,
+                    [deformation_mm] FLOAT NOT NULL,
+                    [rpm] INT NOT NULL,
+                    [event_time] datetime2(2) NOT NULL,
+                    [detected_anomaly_type] NVARCHAR(MAX) NOT NULL,
                     [downtime_min] INT NULL,
+                    [downtime_sec] INT NULL,
                     [resolved_time] datetime2(2) NULL,
                     [notes] NVARCHAR(MAX) NULL
                 """
+
                 self._create_table_if_not_exists(init_cur, "error_logs", error_logs_cols)
 
                 # 9. stats_abnormal_monthly
