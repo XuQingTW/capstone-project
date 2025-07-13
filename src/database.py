@@ -148,7 +148,7 @@ class Database:
                     [event_time] datetime2(2) NOT NULL,
                     [detected_anomaly_type] NVARCHAR(MAX) NOT NULL,
                     [downtime_min] INT NULL,
-                    [downtime_sec] INT NULL,    
+                    [downtime_sec] INT NULL,
                     [resolved_time] datetime2(2) NULL,
                     [notes] NVARCHAR(MAX) NULL
                 """
