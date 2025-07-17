@@ -792,17 +792,14 @@ def handle_message(event):
                     )
                 else:
                     response_text = "您已訂閱的設備：\n\n"
-                    for eq_id, name_db, equipment_type, loc, status in subscriptions:
+                    for equipment_id, name_db, equipment_type, loc, status in subscriptions:
                         type_name = {
                             "dicer": "切割機"
                         }.get(equipment_type, equipment_type)
-                        status_emoji = {
-                            "normal": "✅", "warning": "⚠️", "critical": "🔴",
-                            "emergency": "🚨", "offline": "⚫"
-                        }.get(status, "❓")
+                        #這裡原本有status_emoji，但沒有實機所以移除，之後可再改成停機，運作，或保養狀態
                         response_text += (
                             f"- {name_db} ({type_name}, {loc or 'N/A'}), "
-                            f"ID: {eq_id}, 狀態: {status_emoji}\n"
+                            f"ID: {equipment_id}, 狀態: {status}\n"
                         )
                     response_text += (
                         "\n管理訂閱:\n• 訂閱設備 [設備ID]\n• 取消訂閱 [設備ID]"
