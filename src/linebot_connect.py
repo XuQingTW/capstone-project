@@ -450,7 +450,7 @@ def handle_message(event):
             command_parts_zh = text.split(" ", 1)  # E701: 全形空格問題已在此解決
             if len(command_parts_zh) < 2 or not command_parts_zh[1].strip():
                 reply_message_obj = TextMessage(
-                    text="請指定設備名稱或ID，例如「設備詳情 黏晶機A1」或「設備詳情 DB001」"
+                    text="請指定設備名稱或ID，例如「設備詳情 切割機1」或「設備詳情 DB001」"
                 )
             else:
                 equipment_name = command_parts_zh[1].strip()
@@ -464,7 +464,7 @@ def handle_message(event):
                     cursor.execute(
                         """
                         SELECT e.equipment_id, e.name, e.equipment_type, e.status,
-                               e.location, e.created_time
+                               e.location, e.last_updated
                         FROM equipment e
                         WHERE e.name LIKE ? OR e.equipment_id = ?;
                         """,
@@ -499,14 +499,14 @@ def handle_message(event):
                             """
                             WITH RankedMetrics AS (
                                 SELECT
-                                    em.metric_type, em.value, em.unit, em.timestamp,
+                                    em.metric_type, em.value, em.unit, em.last_updated,
                                     ROW_NUMBER() OVER(
-                                        PARTITION BY em.metric_type ORDER BY em.timestamp DESC
+                                        PARTITION BY em.metric_type ORDER BY em.last_updated DESC
                                     ) as rn
                                 FROM equipment_metrics em
                                 WHERE em.equipment_id = ?
                             )
-                            SELECT metric_type, value, unit, timestamp
+                            SELECT metric_type, value, unit, last_updated
                             FROM RankedMetrics
                             WHERE rn = 1
                             ORDER BY metric_type;
