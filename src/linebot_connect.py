@@ -548,7 +548,7 @@ def handle_message(event):
                                 )
                         else:
                             response_text += "\n目前無未解決的警報。\n"
-                        #請注意:這裡原本有equipment_operation_logs顯示訂單資訊，但無實體訂單所以刪除
+                        # 請注意:這裡原本有equipment_operation_logs顯示訂單資訊，但無實體訂單所以刪除
                         reply_message_obj = TextMessage(text=response_text.strip())
             except pyodbc.Error as db_err:
                 logger.error(f"取得設備詳情失敗 (MS SQL Server): {db_err}")
@@ -775,7 +775,7 @@ def handle_message(event):
                         type_name = {
                             "dicer": "切割機"
                         }.get(equipment_type, equipment_type)
-                        #這裡原本有status_emoji，但沒有實機所以移除，之後可再改成停機，運作，或保養狀態
+                        # 這裡原本有status_emoji，但沒有實機所以移除，之後可再改成停機，運作，或保養狀態
                         response_text += (
                             f"- {name_db} ({type_name}, {loc or 'N/A'}), "
                             f"ID: {equipment_id}, 狀態: {status}\n"
