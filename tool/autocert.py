@@ -1,11 +1,10 @@
 import subprocess
 import os
-current_dir = os.path.dirname(__file__)
-parent_dir = os.path.dirname(current_dir)
 
-WACS = os.path.join(parent_dir, "win-acme", "wacs.exe")
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+WACS = os.path.join(project_root, "win-acme", "wacs.exe")
+cert_print = os.path.join(project_root, 'certs')
 
-cert_print = os.path.abspath(os.path.join(parent_dir, 'certs'))
 SSL_API = os.environ.get("SSL_API")
 
 if SSL_API is None:
