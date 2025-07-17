@@ -365,14 +365,14 @@ def handle_message(event):
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT e.type, COUNT(*) as total,
+                    SELECT e.equipment_type, COUNT(*) as total,
                            SUM(CASE WHEN e.status = 'normal' THEN 1 ELSE 0 END) as normal_count,
                            SUM(CASE WHEN e.status = 'warning' THEN 1 ELSE 0 END) as warning_count,
                            SUM(CASE WHEN e.status = 'critical' THEN 1 ELSE 0 END) as critical_count,
                            SUM(CASE WHEN e.status = 'emergency' THEN 1 ELSE 0 END) as emergency_count,
                            SUM(CASE WHEN e.status = 'offline' THEN 1 ELSE 0 END) as offline_count
                     FROM equipment e
-                    GROUP BY e.type;
+                    GROUP BY e.equipment_type;
                     """
                 )
                 stats = cursor.fetchall()
@@ -398,13 +398,13 @@ def handle_message(event):
 
                     cursor.execute(
                         """
-                        SELECT TOP 5 e.name, e.type, e.status, e.equipment_id,
-                                     ah.alert_type, ah.created_at
+                        SELECT TOP 5 e.name, e.equipment_type, e.status, e.equipment_id,
+                                     ah.alert_type, ah.created_time
                         FROM equipment e
                         LEFT JOIN alert_history ah ON e.equipment_id = ah.equipment_id
                             AND ah.is_resolved = 0
-                            AND ah.id = (
-                                SELECT MAX(ah_inner.id)
+                            AND ah.equipment_id = (
+                                SELECT MAX(ah_inner.equipment_id)
                                 FROM alert_history ah_inner
                                 WHERE ah_inner.equipment_id = e.equipment_id AND ah_inner.is_resolved = 0
                             )
@@ -414,7 +414,7 @@ def handle_message(event):
                             WHEN 'critical' THEN 2
                             WHEN 'warning' THEN 3
                             ELSE 4
-                        END, ah.created_at DESC;
+                        END, ah.created_time DESC;
                         """
                     )
                     abnormal_equipments = cursor.fetchall()
@@ -450,7 +450,7 @@ def handle_message(event):
             command_parts_zh = text.split(" ", 1)  # E701: 全形空格問題已在此解決
             if len(command_parts_zh) < 2 or not command_parts_zh[1].strip():
                 reply_message_obj = TextMessage(
-                    text="請指定設備名稱或ID，例如「設備詳情 黏晶機A1」或「設備詳情 DB001」"
+                    text="請指定設備名稱或ID，例如「設備詳情 切割機1」或「設備詳情 DB001」"
                 )
             else:
                 equipment_name = command_parts_zh[1].strip()
@@ -463,7 +463,7 @@ def handle_message(event):
                     cursor = conn.cursor()
                     cursor.execute(
                         """
-                        SELECT e.equipment_id, e.name, e.type, e.status,
+                        SELECT e.equipment_id, e.name, e.equipment_type, e.status,
                                e.location, e.last_updated
                         FROM equipment e
                         WHERE e.name LIKE ? OR e.equipment_id = ?;
@@ -476,7 +476,7 @@ def handle_message(event):
                             text=f"查無設備「{equipment_name}」的資料。"
                         )
                     else:
-                        eq_id, name_db, eq_type, status, location, last_updated_db = equipment
+                        eq_id, name_db, eq_type, status, location, created_time_db = equipment
                         type_name = {
                             "dicer": "切割機"
                         }.get(eq_type, eq_type)
@@ -484,29 +484,29 @@ def handle_message(event):
                             "normal": "✅", "warning": "⚠️", "critical": "🔴",
                             "emergency": "🚨", "offline": "⚫"
                         }.get(status, "❓")
-                        last_updated_str = (
-                            last_updated_db.strftime('%Y-%m-%d %H:%M:%S')
-                            if last_updated_db else '未記錄'
+                        created_time_str = (
+                            created_time_db.strftime('%Y-%m-%d %H:%M:%S')
+                            if created_time_db else '未記錄'
                         )
                         response_text = (
                             f"設備詳情： {name_db} ({eq_id})\n"
                             f"類型: {type_name}\n"
                             f"狀態: {status_emoji} {status}\n"
                             f"地點: {location or '未提供'}\n"
-                            f"最後更新: {last_updated_str}\n\n"
+                            f"最後更新: {created_time_str}\n\n"
                         )
                         cursor.execute(
                             """
                             WITH RankedMetrics AS (
                                 SELECT
-                                    em.metric_type, em.value, em.unit, em.timestamp,
+                                    em.metric_type, em.value, em.unit, em.last_updated,
                                     ROW_NUMBER() OVER(
-                                        PARTITION BY em.metric_type ORDER BY em.timestamp DESC
+                                        PARTITION BY em.metric_type ORDER BY em.last_updated DESC
                                     ) as rn
                                 FROM equipment_metrics em
                                 WHERE em.equipment_id = ?
                             )
-                            SELECT metric_type, value, unit, timestamp
+                            SELECT metric_type, value, unit, last_updated
                             FROM RankedMetrics
                             WHERE rn = 1
                             ORDER BY metric_type;
@@ -524,10 +524,10 @@ def handle_message(event):
                             response_text += "暫無最新監測指標。\n"
                         cursor.execute(
                             """
-                            SELECT TOP 3 alert_type, severity, created_at, message
+                            SELECT TOP 3 alert_type, severity, created_time, message
                             FROM alert_history
                             WHERE equipment_id = ? AND is_resolved = 0
-                            ORDER BY created_at DESC;
+                            ORDER BY created_time DESC;
                             """, (eq_id,)
                         )
                         alerts = cursor.fetchall()
