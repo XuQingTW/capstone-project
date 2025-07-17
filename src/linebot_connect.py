@@ -548,28 +548,7 @@ def handle_message(event):
                                 )
                         else:
                             response_text += "\n目前無未解決的警報。\n"
-                        cursor.execute(
-                            """
-                            SELECT TOP 1 operation_type, start_time, lot_id, product_id
-                            FROM equipment_operation_logs
-                            WHERE equipment_id = ? AND end_time IS NULL
-                            ORDER BY start_time DESC;
-                            """, (eq_id,)
-                        )
-                        operation = cursor.fetchone()
-                        if operation:
-                            op_t, start_t, lot, prod = operation
-                            response_text += "\n🔄 目前運行中的作業：\n"
-                            response_text += (
-                                f"  作業類型: {op_t}\n"
-                                f"  開始時間: {start_t.strftime('%Y-%m-%d %H:%M')}\n"
-                            )
-                            if lot:
-                                response_text += f"  批次: {lot}\n"
-                            if prod:
-                                response_text += f"  產品: {prod}\n"
-                        else:
-                            response_text += "\n目前無運行中的作業。\n"
+                        #請注意:這裡原本有equipment_operation_logs顯示訂單資訊，但無實體訂單所以刪除
                         reply_message_obj = TextMessage(text=response_text.strip())
             except pyodbc.Error as db_err:
                 logger.error(f"取得設備詳情失敗 (MS SQL Server): {db_err}")
