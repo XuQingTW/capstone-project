@@ -74,8 +74,8 @@ class Database:
 
                 # 4. user_equipment_subscriptions
                 user_equipment_subscriptions_cols = """
-                    [subscription_id] INT IDENTITY(1,1) NOT NULL,
-                    [user_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
+                    [subscription_id] INT IDENTITY(1,1) PRIMARY KEY,
+                    [user_id] NVARCHAR(255) NOT NULL,
                     [notification_level] NVARCHAR(50) NULL,
                     [subscribed_at] datetime2(2) NULL DEFAULT GETDATE(),
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
@@ -141,8 +141,8 @@ class Database:
                 # 8. error_logs
                 error_logs_cols = """
                     [log_date] DATE NOT NULL,
-                    [error_id] INT NOT NULL PRIMARY KEY,
-                    [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
+                    [error_id] INT NOT NULL,
+                    [equipment_id] NVARCHAR(255) NOT NULL PRIMARY KEY REFERENCES equipment(equipment_id),
                     [deformation_mm] FLOAT NOT NULL,
                     [rpm] INT NOT NULL,
                     [event_time] datetime2(2) NOT NULL,
