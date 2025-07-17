@@ -290,6 +290,8 @@ def handle_message(event):
         quick_reply = QuickReply(
             items=[
                 QuickReplyItem(action=MessageAction(label="查看報表", text="powerbi")),
+                QuickReplyItem(action=MessageAction(label="我的訂閱", text="我的訂閱")),
+                QuickReplyItem(action=MessageAction(label="訂閱設備", text="訂閱設備")),
                 QuickReplyItem(action=MessageAction(label="設備狀態", text="設備狀態")),
                 QuickReplyItem(action=MessageAction(label="使用說明", text="使用說明")),
             ]
@@ -307,6 +309,11 @@ def handle_message(event):
                     actions=[
                         MessageAction(label="試試問問題", text="如何建立一個簡單的網頁？")
                     ],
+                ),
+                CarouselColumn(
+                    title="設備訂閱功能",
+                    text="訂閱您需要監控的設備，接收警報並查看報表。",
+                    actions=[MessageAction(label="我的訂閱", text="我的訂閱")],
                 ),
                 CarouselColumn(
                     title="設備監控功能",
@@ -379,12 +386,10 @@ def handle_message(event):
                 if not stats:
                     reply_message_obj = TextMessage(text="目前尚未設定任何設備。")
                 else:
-                    response_text = "設備狀態摘要：\n\n"
+                    response_text = "📊 設備狀態摘要：\n\n"
                     for row in stats:
-                        eq_type_db, total, normal, warning, critical, emergency, offline = row
-                        type_name = {
-                            "dicer": "切割機"
-                        }.get(eq_type_db, eq_type_db)
+                        equipment_type_db, total, normal, warning, critical, emergency, offline = row
+                        type_name = {"dicer": "切割機"}.get(equipment_type_db, equipment_type_db)
                         response_text += f"{type_name}：總數 {total}, 正常 {normal}"
                         if warning > 0:
                             response_text += f", 警告 {warning}"
@@ -420,10 +425,10 @@ def handle_message(event):
                     abnormal_equipments = cursor.fetchall()
                     if abnormal_equipments:
                         response_text += "\n⚠️ 近期異常設備 (最多5筆)：\n\n"
-                        for name_db, eq_type, status, eq_id, alert_t, alert_time in abnormal_equipments:
+                        for name_db, equipment_type, status, eq_id, alert_t, alert_time in abnormal_equipments:
                             type_name = {
                                 "dicer": "切割機"
-                            }.get(eq_type, eq_type)
+                            }.get(equipment_type, equipment_type)
                             status_emoji = {
                                 "warning": "⚠️", "critical": "🔴", "emergency": "🚨"
                             }.get(status, "❓")
@@ -450,7 +455,7 @@ def handle_message(event):
             command_parts_zh = text.split(" ", 1)  # E701: 全形空格問題已在此解決
             if len(command_parts_zh) < 2 or not command_parts_zh[1].strip():
                 reply_message_obj = TextMessage(
-                    text="請指定設備名稱或ID，例如「設備詳情 切割機1」或「設備詳情 DB001」"
+                    text="請指定設備名稱或ID，例如「設備詳情 黏晶機A1」或「設備詳情 DB001」"
                 )
             else:
                 equipment_name = command_parts_zh[1].strip()
@@ -476,24 +481,24 @@ def handle_message(event):
                             text=f"查無設備「{equipment_name}」的資料。"
                         )
                     else:
-                        eq_id, name_db, eq_type, status, location, created_time_db = equipment
+                        eq_id, name_db, equipment_type, status, location, last_updated_db = equipment
                         type_name = {
                             "dicer": "切割機"
-                        }.get(eq_type, eq_type)
+                        }.get(equipment_type, equipment_type)
                         status_emoji = {
                             "normal": "✅", "warning": "⚠️", "critical": "🔴",
                             "emergency": "🚨", "offline": "⚫"
                         }.get(status, "❓")
-                        created_time_str = (
-                            created_time_db.strftime('%Y-%m-%d %H:%M:%S')
-                            if created_time_db else '未記錄'
+                        last_updated_str = (
+                            last_updated_db.strftime('%Y-%m-%d %H:%M:%S')
+                            if last_updated_db else '未記錄'
                         )
                         response_text = (
                             f"設備詳情： {name_db} ({eq_id})\n"
                             f"類型: {type_name}\n"
                             f"狀態: {status_emoji} {status}\n"
                             f"地點: {location or '未提供'}\n"
-                            f"最後更新: {created_time_str}\n\n"
+                            f"最後更新: {last_updated_str}\n\n"
                         )
                         cursor.execute(
                             """
@@ -543,28 +548,7 @@ def handle_message(event):
                                 )
                         else:
                             response_text += "\n目前無未解決的警報。\n"
-                        cursor.execute(
-                            """
-                            SELECT TOP 1 operation_type, start_time, lot_id, product_id
-                            FROM equipment_operation_logs
-                            WHERE equipment_id = ? AND end_time IS NULL
-                            ORDER BY start_time DESC;
-                            """, (eq_id,)
-                        )
-                        operation = cursor.fetchone()
-                        if operation:
-                            op_t, start_t, lot, prod = operation
-                            response_text += "\n🔄 目前運行中的作業：\n"
-                            response_text += (
-                                f"  作業類型: {op_t}\n"
-                                f"  開始時間: {start_t.strftime('%Y-%m-%d %H:%M')}\n"
-                            )
-                            if lot:
-                                response_text += f"  批次: {lot}\n"
-                            if prod:
-                                response_text += f"  產品: {prod}\n"
-                        else:
-                            response_text += "\n目前無運行中的作業。\n"
+                        # 請注意:這裡原本有equipment_operation_logs顯示訂單資訊，但無實體訂單所以刪除
                         reply_message_obj = TextMessage(text=response_text.strip())
             except pyodbc.Error as db_err:
                 logger.error(f"取得設備詳情失敗 (MS SQL Server): {db_err}")
@@ -573,10 +557,239 @@ def handle_message(event):
                 logger.error(f"處理設備詳情查詢時發生未知錯誤: {e}")
                 reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
 
-# NOTE: 這裡曾經有用戶訂閱功能
-#      詳情請在 PR -> del(equipment_monitor.py , equipment_scheduler.py) chare(linebot_connect.py) 移除我的訂閱以及切割機 項目中找回資料
-#      因為沒有廠商提供資料
-#      請每一個貢獻者都注意這個功能已經被移除
+    elif text_lower.startswith("訂閱設備") or text_lower.startswith("subscribe equipment"):
+        parts = text.split(" ", 1)
+        if len(parts) < 2 or not parts[1].strip():  # 指令為 "訂閱設備"
+            try:
+                with db._get_connection() as conn:  # 使用 MS SQL Server 連線
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT equipment_id, name, equipment_type, location "
+                        "FROM equipment ORDER BY equipment_type, name;"
+                    )
+                    equipments = cursor.fetchall()
+                    if not equipments:
+                        reply_message_obj = TextMessage(text="目前沒有可用的設備進行訂閱。")
+                    else:
+                        quick_reply_items = []
+                        response_text_header = (
+                            "請選擇要訂閱的設備 (或輸入 '訂閱設備 [設備ID]'):\n\n"
+                        )
+                        response_text_list = ""
+                        for eq_id, name_db, equipment_type, loc in equipments[:13]:  # LINE QuickReply 最多13個
+                            type_name = {
+                               "dicer": "切割機"
+                            }.get(equipment_type, equipment_type)
+                            label = f"{name_db} ({type_name})"
+                            quick_reply_items.append(
+                                QuickReplyItem(action=MessageAction(
+                                    label=label[:20], text=f"訂閱設備 {eq_id}"
+                                ))
+                            )
+                            response_text_list += (
+                                f"- {name_db} ({type_name}, {loc or 'N/A'}), "
+                                f"ID: {eq_id}\n"
+                            )
+                        if quick_reply_items:
+                            reply_message_obj = TextMessage(
+                                text=response_text_header + response_text_list,
+                                quick_reply=QuickReply(items=quick_reply_items)
+                            )
+                        else:
+                            reply_message_obj = TextMessage(
+                                text=(
+                                    f"{response_text_header}{response_text_list}\n"
+                                    "使用方式: 訂閱設備 [設備ID]\n例如: 訂閱設備 DB001"
+                                )
+                            )
+            except pyodbc.Error as db_err:
+                logger.error(f"獲取設備清單失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="獲取設備清單失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理訂閱設備列表時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+        else:  # 指令為 "訂閱設備 [ID]"
+            equipment_id_to_subscribe = parts[1].strip().upper()  # ID 通常大寫
+            try:
+                with db._get_connection() as conn:  # 使用 MS SQL Server 連線
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT name FROM equipment WHERE equipment_id = ?;",
+                        (equipment_id_to_subscribe,)
+                    )
+                    equipment = cursor.fetchone()
+                    if not equipment:
+                        reply_message_obj = TextMessage(
+                            text=f"查無設備 ID「{equipment_id_to_subscribe}」。請檢查 ID 是否正確。"
+                        )
+                    else:
+                        equipment_name_db = equipment[0]
+                        cursor.execute(
+                            "SELECT equipment_id FROM user_equipment_subscriptions "
+                            "WHERE user_id = ? AND equipment_id = ?;",
+                            (user_id, equipment_id_to_subscribe)
+                        )
+                        if cursor.fetchone():
+                            reply_message_obj = TextMessage(
+                                text=f"您已訂閱設備 {equipment_name_db} ({equipment_id_to_subscribe})。"
+                            )
+                        else:
+                            cursor.execute(
+                                "INSERT INTO user_equipment_subscriptions "
+                                "(user_id, equipment_id, notification_level) "
+                                "VALUES (?, ?, 'all');",
+                                (user_id, equipment_id_to_subscribe)
+                            )
+                            conn.commit()
+                            reply_message_obj = TextMessage(
+                                text=f"已成功訂閱設備 {equipment_name_db} ({equipment_id_to_subscribe})！"
+                            )
+            except pyodbc.IntegrityError:
+                logger.warning(
+                    f"嘗試重複訂閱設備 {equipment_id_to_subscribe} for user {user_id}"
+                )
+                reply_message_obj = TextMessage(
+                    text=f"您似乎已訂閱設備 {equipment_id_to_subscribe}。"
+                )
+            except pyodbc.Error as db_err:
+                logger.error(f"訂閱設備失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(
+                    text="訂閱設備失敗，資料庫操作錯誤，請稍後再試。"
+                )
+            except Exception as e:
+                logger.error(f"處理訂閱設備時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+
+    elif text_lower.startswith("取消訂閱") or text_lower.startswith("unsubscribe"):
+        parts = text.split(" ", 1)
+        if len(parts) < 2 or not parts[1].strip():  # 指令為 "取消訂閱"
+            try:
+                with db._get_connection() as conn:  # 使用 MS SQL Server 連線
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT s.equipment_id, e.name, e.equipment_type
+                        FROM user_equipment_subscriptions s
+                        JOIN equipment e ON s.equipment_id = e.equipment_id
+                        WHERE s.user_id = ?
+                        ORDER BY e.equipment_type, e.name;
+                        """, (user_id,)
+                    )
+                    subscriptions = cursor.fetchall()
+                    if not subscriptions:
+                        reply_message_obj = TextMessage(text="您目前沒有訂閱任何設備。")
+                    else:
+                        quick_reply_items = []
+                        response_text_header = (
+                            "您已訂閱的設備 (點擊取消訂閱或輸入 '取消訂閱 [設備ID]'):\n\n"
+                        )
+                        response_text_list = ""
+                        for eq_id, name_db, equipment_type in subscriptions[:13]:  # QuickReply上限
+                            type_name = {
+                                "dicer": "切割機"
+                            }.get(equipment_type, equipment_type)
+                            label = f"{name_db} ({type_name})"
+                            quick_reply_items.append(
+                                QuickReplyItem(action=MessageAction(
+                                    label=label[:20], text=f"取消訂閱 {eq_id}"
+                                ))
+                            )
+                            response_text_list += f"- {name_db} ({type_name}), ID: {eq_id}\n"
+                        if quick_reply_items:
+                            reply_message_obj = TextMessage(
+                                text=response_text_header + response_text_list,
+                                quick_reply=QuickReply(items=quick_reply_items)
+                            )
+                        else:
+                            reply_message_obj = TextMessage(
+                                text=(
+                                    f"{response_text_header}{response_text_list}\n"
+                                    "使用方式: 取消訂閱 [設備ID]\n例如: 取消訂閱 DB001"
+                                )
+                            )
+            except pyodbc.Error as db_err:
+                logger.error(f"獲取訂閱清單失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="獲取訂閱清單失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理取消訂閱列表時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+        else:  # 指令為 "取消訂閱 [ID]"
+            equipment_id_to_unsubscribe = parts[1].strip().upper()
+            try:
+                with db._get_connection() as conn:  # 使用 MS SQL Server 連線
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT name FROM equipment WHERE equipment_id = ?;",
+                        (equipment_id_to_unsubscribe,)
+                    )
+                    equipment_info = cursor.fetchone()
+                    if not equipment_info:
+                        reply_message_obj = TextMessage(
+                            text=f"查無設備 ID「{equipment_id_to_unsubscribe}」。"
+                        )
+                    else:
+                        # equipment_name_db = equipment_info[0] # 未使用
+                        cursor.execute(
+                            "DELETE FROM user_equipment_subscriptions "
+                            "WHERE user_id = ? AND equipment_id = ?;",
+                            (user_id, equipment_id_to_unsubscribe)
+                        )
+                        conn.commit()
+                        if cursor.rowcount > 0:
+                            reply_message_obj = TextMessage(
+                                text=f"已成功取消訂閱設備 {equipment_id_to_unsubscribe}。"
+                            )
+                        else:
+                            reply_message_obj = TextMessage(
+                                text=f"您並未訂閱設備 {equipment_id_to_unsubscribe}。"
+                            )
+            except pyodbc.Error as db_err:
+                logger.error(f"取消訂閱失敗 (MS SQL Server): {db_err}")
+                reply_message_obj = TextMessage(text="取消訂閱設備失敗，請稍後再試。")
+            except Exception as e:
+                logger.error(f"處理取消訂閱時發生未知錯誤: {e}")
+                reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+
+    elif text_lower in ["我的訂閱", "my subscriptions"]:
+        try:
+            with db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT s.equipment_id, e.name, e.equipment_type, e.location, e.status
+                    FROM user_equipment_subscriptions s
+                    JOIN equipment e ON s.equipment_id = e.equipment_id
+                    WHERE s.user_id = ?
+                    ORDER BY e.equipment_type, e.name;
+                    """, (user_id,)
+                )
+                subscriptions = cursor.fetchall()
+                if not subscriptions:
+                    response_text = (
+                        "您目前沒有訂閱任何設備。\n\n"
+                        "請使用「訂閱設備」指令查看可訂閱的設備列表。"
+                    )
+                else:
+                    response_text = "您已訂閱的設備：\n\n"
+                    for equipment_id, name_db, equipment_type, loc, status in subscriptions:
+                        type_name = {
+                            "dicer": "切割機"
+                        }.get(equipment_type, equipment_type)
+                        # 這裡原本有status_emoji，但沒有實機所以移除，之後可再改成停機，運作，或保養狀態
+                        response_text += (
+                            f"- {name_db} ({type_name}, {loc or 'N/A'}), "
+                            f"ID: {equipment_id}, 狀態: {status}\n"
+                        )
+                    response_text += (
+                        "\n管理訂閱:\n• 訂閱設備 [設備ID]\n• 取消訂閱 [設備ID]"
+                    )
+                reply_message_obj = TextMessage(text=response_text)
+        except pyodbc.Error as db_err:
+            logger.error(f"獲取我的訂閱清單失敗 (MS SQL Server): {db_err}")
+            reply_message_obj = TextMessage(text="獲取訂閱清單失敗，請稍後再試。")
+        except Exception as e:
+            logger.error(f"處理我的訂閱時發生未知錯誤: {e}")
+            reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
 
     else:  # 預設：從 OpenAI (main.py) 取得回應
         try:
