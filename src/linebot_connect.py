@@ -404,12 +404,12 @@ def handle_message(event):
                     cursor.execute(
                         """
                         SELECT TOP 5 e.name, e.equipment_type, e.status, e.equipment_id,
-                                     ah.alert_type, ah.created_at
+                                     ah.alert_type, ah.created_time
                         FROM equipment e
                         LEFT JOIN alert_history ah ON e.equipment_id = ah.equipment_id
                             AND ah.is_resolved = 0
-                            AND ah.id = (
-                                SELECT MAX(ah_inner.id)
+                            AND ah.equipment_id = (
+                                SELECT MAX(ah_inner.equipment_id)
                                 FROM alert_history ah_inner
                                 WHERE ah_inner.equipment_id = e.equipment_id AND ah_inner.is_resolved = 0
                             )
@@ -419,7 +419,7 @@ def handle_message(event):
                             WHEN 'critical' THEN 2
                             WHEN 'warning' THEN 3
                             ELSE 4
-                        END, ah.created_at DESC;
+                        END, ah.created_time DESC;
                         """
                     )
                     abnormal_equipments = cursor.fetchall()
@@ -504,14 +504,14 @@ def handle_message(event):
                             """
                             WITH RankedMetrics AS (
                                 SELECT
-                                    em.metric_type, em.value, em.unit, em.timestamp,
+                                    em.metric_type, em.value, em.unit, em.last_updated,
                                     ROW_NUMBER() OVER(
-                                        PARTITION BY em.metric_type ORDER BY em.timestamp DESC
+                                        PARTITION BY em.metric_type ORDER BY em.last_updated DESC
                                     ) as rn
                                 FROM equipment_metrics em
                                 WHERE em.equipment_id = ?
                             )
-                            SELECT metric_type, value, unit, timestamp
+                            SELECT metric_type, value, unit, last_updated
                             FROM RankedMetrics
                             WHERE rn = 1
                             ORDER BY metric_type;
@@ -529,10 +529,10 @@ def handle_message(event):
                             response_text += "暫無最新監測指標。\n"
                         cursor.execute(
                             """
-                            SELECT TOP 3 alert_type, severity, created_at, message
+                            SELECT TOP 3 alert_type, severity, created_time, message
                             FROM alert_history
                             WHERE equipment_id = ? AND is_resolved = 0
-                            ORDER BY created_at DESC;
+                            ORDER BY created_time DESC;
                             """, (eq_id,)
                         )
                         alerts = cursor.fetchall()
