@@ -568,6 +568,7 @@ __fuzzy_commands: List[Tuple[Callable[[str], bool], Callable[[str], TextMessage]
     (lambda text: text.startswith("設備詳情") or text.startswith("機台詳情"), __equipment_details),
 ]
 
+
 def __get_command(text: str) -> Callable[[str], TextMessage]:
     """根據輸入文字返回對應的命令函數"""
     if text in __commands:
