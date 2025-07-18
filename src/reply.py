@@ -19,6 +19,7 @@ import pyodbc
 
 logger = logging.getLogger(__name__)
 
+
 def __help() -> TextMessage:
     """顯示幫助訊息"""
     quick_reply = QuickReply(
@@ -33,7 +34,8 @@ def __help() -> TextMessage:
     return TextMessage(
         text="您可以選擇以下選項或直接輸入您的問題：", quick_reply=quick_reply
     )
-    
+
+
 def __guide() -> TextMessage:
     """顯示使用指南訊息"""
     carousel_template = CarouselTemplate(
@@ -67,6 +69,7 @@ def __guide() -> TextMessage:
     )
     return reply_message_obj
 
+
 def __about() -> TextMessage:
     """顯示關於訊息"""
     reply_message_obj = TextMessage(
@@ -77,7 +80,8 @@ def __about() -> TextMessage:
             )
         )
     return reply_message_obj
-    
+
+
 def __language() -> TextMessage:
     reply_message_obj = TextMessage(
             text=(
@@ -87,7 +91,8 @@ def __language() -> TextMessage:
         )
     return reply_message_obj
 
-def __set_language(text: str, db , user_id) -> TextMessage:
+
+def __set_language(text: str, db, user_id) -> TextMessage:
     """設置語言"""
     lang_code_input = text.split(":", 1)[1].strip().lower()
     valid_langs = {"zh-hant": "zh-Hant", "zh": "zh-Hant"}
@@ -106,6 +111,7 @@ def __set_language(text: str, db , user_id) -> TextMessage:
             text="不支援的語言代碼。目前支援：zh-Hant (繁體中文)"
         )
     return reply_message_obj
+
 
 def __equipment_status(db) -> TextMessage:
     """顯示設備狀態訊息"""
@@ -192,7 +198,8 @@ def __equipment_status(db) -> TextMessage:
         reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
     return reply_message_obj
 
-def __subscribe_equipment(text , db, user_id: str) -> TextMessage:
+
+def __subscribe_equipment(text, db, user_id: str) -> TextMessage:
     """訂閱設備"""
     parts = text.split(" ", 1)
     if len(parts) < 2 or not parts[1].strip():  # 指令為 "訂閱設備"
@@ -297,6 +304,7 @@ def __subscribe_equipment(text , db, user_id: str) -> TextMessage:
             reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
     return reply_message_obj
 
+
 def __unsubscribe_equipment(text: str, db, user_id: str) -> TextMessage:
     parts = text.split(" ", 1)
     if len(parts) < 2 or not parts[1].strip():  # 指令為 "取消訂閱"
@@ -388,6 +396,7 @@ def __unsubscribe_equipment(text: str, db, user_id: str) -> TextMessage:
             reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
     return reply_message_obj
 
+
 def __my_subscriptions(db, user_id: str) -> TextMessage:
     """顯示用戶訂閱"""
     try:
@@ -430,6 +439,7 @@ def __my_subscriptions(db, user_id: str) -> TextMessage:
         logger.error(f"處理我的訂閱時發生未知錯誤: {e}")
         reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
     return reply_message_obj
+
 
 def __equipment_details(text: str, db, user_id: str) -> TextMessage:
     command_parts = text.split(" ", 1)
@@ -540,7 +550,8 @@ def __equipment_details(text: str, db, user_id: str) -> TextMessage:
             logger.error(f"處理設備詳情查詢時發生未知錯誤: {e}")
             reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
         return reply_message_obj
-    
+
+
 __commands = {
     "help": __help, "幫助": __help, "選單": __help, "menu": __help,
     "使用說明": __guide, "說明": __guide, "教學": __guide, "指南": __guide, "guide": __guide,
@@ -550,7 +561,7 @@ __commands = {
     "我的訂閱": __my_subscriptions, "my subscriptions": __my_subscriptions,
 }
 
-__fuzzy_commands: List[Tuple[Callable[[str], bool], Callable[[str], TextMessage]]] =  [
+__fuzzy_commands: List[Tuple[Callable[[str], bool], Callable[[str], TextMessage]]] = [
     (lambda text: text.startswith("language:") or text.startswith("語言:"), __set_language),
     (lambda text: text.startswith("訂閱設備") or text.startswith("subscribe equipment"), __subscribe_equipment),
     (lambda text: text.startswith("取消訂閱") or text.startswith("unsubscribe"), __unsubscribe_equipment),
@@ -565,6 +576,7 @@ def __get_command(text: str) -> Callable[[str], TextMessage]:
         if condition(text):
             return command
     return None
+
 
 def dispatch_command(text: str, db, user_id: str):
     """根據輸入文字調度對應的命令函數，並返回 TextMessage物件"""
@@ -586,4 +598,3 @@ def dispatch_command(text: str, db, user_id: str):
         kwargs['user_id'] = user_id
 
     return cmd(**kwargs)
-
