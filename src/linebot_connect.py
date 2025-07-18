@@ -8,8 +8,6 @@ import time
 from collections import defaultdict
 import reply
 
-
-import pyodbc  # 引入 pyodbc 用於捕獲其特定的錯誤
 from flask import (
     Flask,
     abort,
@@ -24,16 +22,10 @@ from flask_talisman import Talisman
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import (
     ApiClient,
-    CarouselColumn,
-    CarouselTemplate,
     Configuration,
-    MessageAction,
     MessagingApi,
     PushMessageRequest,
-    QuickReply,
-    QuickReplyItem,
     ReplyMessageRequest,
-    TemplateMessage,
     TextMessage,
 )
 from linebot.v3.webhook import WebhookHandler

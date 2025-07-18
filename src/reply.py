@@ -5,16 +5,11 @@ Returns:
     TextMessage: 包含使用說明和快速回覆選項的 TextMessage 物件。
 """
 from linebot.v3.messaging import (
-    ApiClient,
     CarouselColumn,
     CarouselTemplate,
-    Configuration,
     MessageAction,
-    MessagingApi,
-    PushMessageRequest,
     QuickReply,
     QuickReplyItem,
-    ReplyMessageRequest,
     TemplateMessage,
     TextMessage,
 )
@@ -41,17 +36,34 @@ def __help() -> TextMessage:
     
 def __guide() -> TextMessage:
     """顯示使用指南訊息"""
-    quick_reply = QuickReply(
-        items=[
-            QuickReplyItem(action=MessageAction(label="查看報表", text="powerbi")),
-            QuickReplyItem(action=MessageAction(label="我的訂閱", text="我的訂閱")),
-            QuickReplyItem(action=MessageAction(label="訂閱設備", text="訂閱設備")),
-            QuickReplyItem(action=MessageAction(label="設備狀態", text="設備狀態")),
-            QuickReplyItem(action=MessageAction(label="使用說明", text="使用說明")),
+    carousel_template = CarouselTemplate(
+        columns=[
+            CarouselColumn(
+                title="如何使用聊天機器人",
+                text="直接輸入您的問題，AI 將為您提供解答。",
+                actions=[
+                    MessageAction(label="試試問問題", text="如何建立一個簡單的網頁？")
+                ],
+            ),
+            CarouselColumn(
+                title="設備訂閱功能",
+                text="訂閱您需要監控的設備，接收警報並查看報表。",
+                actions=[MessageAction(label="我的訂閱", text="我的訂閱")],
+            ),
+            CarouselColumn(
+                title="設備監控功能",
+                text="查看半導體設備的狀態和異常警告。",
+                actions=[MessageAction(label="查看設備狀態", text="設備狀態")],
+            ),
+            CarouselColumn(
+                title="語言設定",
+                text="輸入 'language:語言代碼' 更改語言。\n目前支援：\nlanguage:zh-Hant (繁中)",
+                actions=[MessageAction(label="設定為繁體中文", text="language:zh-Hant")],
+            ),
         ]
     )
-    reply_message_obj = TextMessage(
-        text="您可以選擇以下選項或直接輸入您的問題：", quick_reply=quick_reply
+    reply_message_obj = TemplateMessage(
+        alt_text="使用說明", template=carousel_template
     )
     return reply_message_obj
 
@@ -418,6 +430,116 @@ def __my_subscriptions(db, user_id: str) -> TextMessage:
         logger.error(f"處理我的訂閱時發生未知錯誤: {e}")
         reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
     return reply_message_obj
+
+def __equipment_details(text: str, db, user_id: str) -> TextMessage:
+    command_parts = text.split(" ", 1)
+    if len(command_parts) < 2 or not command_parts[1].strip():
+        command_parts_zh = text.split(" ", 1)  # E701: 全形空格問題已在此解決
+        if len(command_parts_zh) < 2 or not command_parts_zh[1].strip():
+            reply_message_obj = TextMessage(
+                text="請指定設備名稱或ID，例如「設備詳情 黏晶機A1」或「設備詳情 DB001」"
+            )
+            return reply_message_obj
+        else:
+            equipment_name = command_parts_zh[1].strip()
+    else:
+        equipment_name = command_parts[1].strip()
+
+    if equipment_name:  # 確保 equipment_name 已被賦值
+        try:
+            with db._get_connection() as conn:  # 使用 MS SQL Server 連線
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT e.equipment_id, e.name, e.equipment_type, e.status,
+                           e.location, e.last_updated
+                    FROM equipment e
+                    WHERE e.name LIKE ? OR e.equipment_id = ?;
+                    """,
+                    (f"%{equipment_name}%", equipment_name.upper())
+                )
+                equipment = cursor.fetchone()
+                if not equipment:
+                    reply_message_obj = TextMessage(
+                        text=f"查無設備「{equipment_name}」的資料。"
+                    )
+                else:
+                    eq_id, name_db, equipment_type, status, location, last_updated_db = equipment
+                    type_name = {
+                        "dicer": "切割機"
+                    }.get(equipment_type, equipment_type)
+                    status_emoji = {
+                        "normal": "✅", "warning": "⚠️", "critical": "🔴",
+                        "emergency": "🚨", "offline": "⚫"
+                    }.get(status, "❓")
+                    last_updated_str = (
+                        last_updated_db.strftime('%Y-%m-%d %H:%M:%S')
+                        if last_updated_db else '未記錄'
+                    )
+                    response_text = (
+                        f"設備詳情： {name_db} ({eq_id})\n"
+                        f"類型: {type_name}\n"
+                        f"狀態: {status_emoji} {status}\n"
+                        f"地點: {location or '未提供'}\n"
+                        f"最後更新: {last_updated_str}\n\n"
+                    )
+                    cursor.execute(
+                        """
+                        WITH RankedMetrics AS (
+                            SELECT
+                                em.metric_type, em.value, em.unit, em.last_updated,
+                                ROW_NUMBER() OVER(
+                                    PARTITION BY em.metric_type ORDER BY em.last_updated DESC
+                                ) as rn
+                            FROM equipment_metrics em
+                            WHERE em.equipment_id = ?
+                        )
+                        SELECT metric_type, value, unit, last_updated
+                        FROM RankedMetrics
+                        WHERE rn = 1
+                        ORDER BY metric_type;
+                        """, (eq_id,)
+                    )
+                    metrics = cursor.fetchall()
+                    if metrics:
+                        response_text += "📊 最新監測值：\n"
+                        for metric_t, val, unit, ts in metrics:
+                            response_text += (
+                                f"  {metric_t}: {val:.2f} {unit or ''} "
+                                f"({ts.strftime('%H:%M:%S')})\n"
+                            )
+                    else:
+                        response_text += "暫無最新監測指標。\n"
+                    cursor.execute(
+                        """
+                        SELECT TOP 3 alert_type, severity, created_time, message
+                        FROM alert_history
+                        WHERE equipment_id = ? AND is_resolved = 0
+                        ORDER BY created_time DESC;
+                        """, (eq_id,)
+                    )
+                    alerts = cursor.fetchall()
+                    if alerts:
+                        response_text += "\n⚠️ 未解決的警報：\n"
+                        for alert_t, severity, alert_time, _ in alerts:  # msg_content not used
+                            sev_emoji = {
+                                "warning": "⚠️", "critical": "🔴", "emergency": "🚨"
+                            }.get(severity, "ℹ️")
+                            response_text += (
+                                f"  {sev_emoji} {alert_t} ({severity}) "
+                                f"於 {alert_time.strftime('%Y-%m-%d %H:%M')}\n"
+                            )
+                    else:
+                        response_text += "\n目前無未解決的警報。\n"
+                    # 請注意:這裡原本有equipment_operation_logs顯示訂單資訊，但無實體訂單所以刪除
+                    reply_message_obj = TextMessage(text=response_text.strip())
+        except pyodbc.Error as db_err:
+            logger.error(f"取得設備詳情失敗 (MS SQL Server): {db_err}")
+            reply_message_obj = TextMessage(text="取得設備詳情失敗，請稍後再試。")
+        except Exception as e:
+            logger.error(f"處理設備詳情查詢時發生未知錯誤: {e}")
+            reply_message_obj = TextMessage(text="系統忙碌中，請稍候再試。")
+        return reply_message_obj
     
 __commands = {
     "help": __help, "幫助": __help, "選單": __help, "menu": __help,
@@ -432,6 +554,7 @@ __fuzzy_commands: List[Tuple[Callable[[str], bool], Callable[[str], TextMessage]
     (lambda text: text.startswith("language:") or text.startswith("語言:"), __set_language),
     (lambda text: text.startswith("訂閱設備") or text.startswith("subscribe equipment"), __subscribe_equipment),
     (lambda text: text.startswith("取消訂閱") or text.startswith("unsubscribe"), __unsubscribe_equipment),
+    (lambda text: text.startswith("設備詳情") or text.startswith("機台詳情"), __equipment_details),
 ]
 
 def __get_command(text: str) -> Callable[[str], TextMessage]:
@@ -448,18 +571,19 @@ def dispatch_command(text: str, db, user_id: str):
     cmd = __get_command(text)
     if cmd is None:
         return "GPT reply"
-    
-    # 懶指令（fuzzy）：需要 text, db, user_id
-    if isinstance(cmd, tuple):
-        func, kwargs = cmd
-        kwargs["db"] = db
-        kwargs["user_id"] = user_id
-        return func(**kwargs)
 
-    # 準確命令但需要 db/user_id（目前只有 my_subscriptions）
-    if cmd == __my_subscriptions:
-        return cmd(db, user_id)
-    
-    # 無參數函數
-    return cmd()
+    # A more robust way to dispatch commands by inspecting their signature
+    import inspect
+    sig = inspect.signature(cmd)
+
+    # Prepare arguments to pass to the command function
+    kwargs = {}
+    if 'text' in sig.parameters:
+        kwargs['text'] = text
+    if 'db' in sig.parameters:
+        kwargs['db'] = db
+    if 'user_id' in sig.parameters:
+        kwargs['user_id'] = user_id
+
+    return cmd(**kwargs)
 
