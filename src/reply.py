@@ -583,7 +583,7 @@ def dispatch_command(text: str, db, user_id: str):
     """根據輸入文字調度對應的命令函數，並返回 TextMessage物件"""
     cmd = __get_command(text)
     if cmd is None:
-        return "GPT reply"
+        return None
 
     # A more robust way to dispatch commands by inspecting their signature
     import inspect

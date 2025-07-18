@@ -279,7 +279,7 @@ def handle_message(event):
     reply_message_obj = reply.dispatch_command(
         text_lower, db, user_id
     )
-    if reply_message_obj == "GPT reply":
+    if reply_message_obj is None:
         try:
             from src.main import reply_message as main_reply_message
             response_text = main_reply_message(event)
