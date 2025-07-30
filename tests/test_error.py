@@ -39,10 +39,17 @@ def main():
         # 新增異常
         if action == "event":
             cur.execute("SELECT MAX(error_id) FROM error_logs")
-            max_id = cur.fetchval() # fetchval() 直接取得第一行第一欄的值
+            max_id = cur.fetchval()
             next_id = 1 if max_id is None else max_id + 1
             print(f"目前的ID最大值為: {max_id}，下一個將使用的ID為: {next_id}")
-            equipment_id = input("請輸入 equipment_id：")
+            ALLOWED_EQUIPMENT_IDS = ["EQ001", "EQ002", "EQ003", "EQ004"]
+            while True:
+                prompt_message = f"請輸入 equipment_id (僅限 {', '.join(ALLOWED_EQUIPMENT_IDS)}): "
+                equipment_id = input(prompt_message).strip().upper()
+                if equipment_id in ALLOWED_EQUIPMENT_IDS:
+                    break
+                else:
+                    print(f"錯誤：輸入的 ID '{equipment_id}' 無效，請重新輸入。")
             detected_anomaly_type = input("請輸入 detected_anomaly_type（轉速太低 或 刀具裂痕 或 刀具變形）：").strip()
 
             if detected_anomaly_type in ["刀具裂痕", "刀具變形"]:
