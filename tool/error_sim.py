@@ -64,7 +64,7 @@ def main():
                             break
                         except ValueError:
                             print("錯誤：請輸入有效的數值")
-                    rpm = 3000
+                    rpm = 30000  # 預設值
                 elif detected_anomaly_type == "轉速太低":
                     deformation_mm_val = 0
                     while True:
