@@ -22,6 +22,7 @@ def get_input_or_raise(prompt):
     return user_input
 
 # 主程式
+# 主程式
 def main():
     config = Config()
     conn = None
@@ -41,20 +42,36 @@ def main():
                 max_id = cur.fetchval()
                 next_id = 1 if max_id is None else max_id + 1
                 print(f"目前的ID最大值為: {max_id}，下一個將使用的ID為: {next_id}")
-
+                
                 while True:
-                # 提示使用者輸入
                     prompt_text = "請輸入有效的 equipment_id"
                     equipment_id = get_input_or_raise(prompt_text).upper()
                     query = "SELECT 1 FROM equipment WHERE equipment_id = ?"
                     cur.execute(query, (equipment_id,))
                     if cur.fetchone():
-                        print(f"ID '{equipment_id}' 驗證成功")
+                        print(f"ID '{equipment_id}' 驗證成功。")
                         break
                     else:
-                       print(f"錯誤：在 'equipment' 資料表中找不到 ID '{equipment_id}'，請重新輸入")
+                        print(f"錯誤：在 'equipment' 資料表中找不到 ID '{equipment_id}'，請重新輸入。")
 
-                detected_anomaly_type = get_input_or_raise("請輸入 detected_anomaly_type（轉速太低 或 刀具裂痕 或 刀具變形）")
+                # 建立數字與異常類型的對照字典
+                ANOMALY_MAP = {
+                    '1': '轉速太低',
+                    '2': '刀具裂痕',
+                    '3': '刀具變形'
+                }
+                print("\n請選擇偵測到的異常類型：")
+                for key, value in ANOMALY_MAP.items():
+                    print(f"  [{key}] {value}")
+                while True:
+                    user_choice = get_input_or_raise("請輸入選項數字")
+
+                    if user_choice in ANOMALY_MAP:
+                        detected_anomaly_type = ANOMALY_MAP[user_choice]
+                        print(f"您的選擇是: [{user_choice}] {detected_anomaly_type}")
+                        break
+                    else:
+                        print(f"錯誤：無效的選項 '{user_choice}'，請重新輸入。")
 
                 if detected_anomaly_type in ["刀具裂痕", "刀具變形"]:
                     while True:
@@ -64,7 +81,7 @@ def main():
                             break
                         except ValueError:
                             print("錯誤：請輸入有效的數值")
-                    rpm = 30000  # 預設值
+                    rpm = 30000 
                 elif detected_anomaly_type == "轉速太低":
                     deformation_mm_val = 0
                     while True:
@@ -75,8 +92,10 @@ def main():
                         except ValueError:
                             print("錯誤：請輸入有效的整數數值")
                 else:
+                    # 這個 else 理論上不會被執行到，因為我們已經驗證過輸入了，但保留著作為防呆
                     print("異常類型輸入錯誤，程式即將結束")
                     return
+                
                 notes = get_input_or_raise("請輸入 notes")
                 log_date = datetime.date.today()
                 event_time = datetime.datetime.now()
@@ -86,10 +105,9 @@ def main():
                 conn.commit()
                 print(f"\n已成功新增異常事件 error_id 為：{next_id}\n")
 
-            #填寫回復
+            # (elif action == "resolved" 部分不變)
             elif action == "resolved":
                 while True:
-                    # 提示使用者輸入
                     try:
                         error_id_str = get_input_or_raise("請輸入要回復的 error_id")
                         error_id = int(error_id_str)
