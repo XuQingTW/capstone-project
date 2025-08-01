@@ -17,6 +17,7 @@ from flask import (
     request,
     session,
     url_for,
+    jsonify
 )
 from flask_talisman import Talisman
 from linebot.v3.exceptions import InvalidSignatureError
@@ -32,7 +33,7 @@ from linebot.v3.webhook import WebhookHandler
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from database import db  # db 物件現在是 MS SQL Server 的接口
+from database import db,insert_alert_history  # db 物件現在是 MS SQL Server 的接口
 # F401: 下面兩個匯入在此檔案中未使用，通常在 app.py 中調用
 # from equipment_scheduler import start_scheduler
 # from initial_data import initialize_equipment_data
@@ -263,6 +264,17 @@ def register_routes(app_instance):  # 傳入 app 實例
         def now_func():
             return datetime.datetime.now()
         return dict(now=now_func)
+    
+    @app_instance.route("/alarms", methods=["GET"])
+    def alarms():
+        """接收警報訊息"""
+        data = request.get_json(force=True, silent=True)
+        key = ("equipment_id", "alert_type", "severity")
+        if all(k in data for k in key):
+            data["created_time"] = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            insert_alert_history(db, log_data=data)
+
+        logger.info("Received JSON from client:", data)
 
 
 register_routes(app)
