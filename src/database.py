@@ -549,6 +549,21 @@ class Database:
                 conn.close()
 
 
+    def get_subscribed_users(self, equipment_id: str):
+        """取得訂閱指定設備的所有使用者 ID"""
+        sql = (
+            "SELECT user_id FROM user_equipment_subscriptions WHERE equipment_id = ?;"
+        )
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql, (equipment_id,))
+                return [row[0] for row in cursor.fetchall()]
+        except pyodbc.Error as e:
+            logger.error(f"取得設備 {equipment_id} 訂閱者失敗: {e}")
+            return []
+
+
 # 在測試環境下避免連線到實際資料庫
 if os.environ.get("TESTING", "False").lower() != "true":
     db = Database()
