@@ -10,7 +10,7 @@ def send_json():
     }
 
     try:
-        resp = requests.get(url, json=payload, timeout=5, verify=False)
+        resp = requests.post(url, json=payload, timeout=5, verify=False)
         resp.raise_for_status()
     except requests.RequestException as e:
         print("Request failed:", e)
