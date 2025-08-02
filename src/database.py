@@ -513,7 +513,7 @@ class Database:
         """
         # 取得目前最大的 error_id，並加 1 作為新的 error_id
         sql_get_max = "SELECT ISNULL(MAX(error_id), 0) FROM alert_history;"
- 
+
         conn = None
         try:
             # 用傳進來的 db 去拿連線
@@ -529,7 +529,7 @@ class Database:
                            log_data["alert_type"],
                            log_data["severity"],
                            log_data["created_time"]
-            )
+                        )
             conn.commit()
             logger.info(f"成功寫入一筆異常紀錄，equipment_id: {log_data['equipment_id']}")
         except pyodbc.Error as ex:
