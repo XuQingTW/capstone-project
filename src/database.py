@@ -501,38 +501,34 @@ class Database:
                 "responsible_area": None
             }
 
-
-# insert_alert_history 函式
-    def insert_alert_history(self , log_data: dict):
+    def insert_alert_history(self, log_data: dict):
         """
         將單筆機台異常資料寫入 alert_history 表格。
         """
         sql = """
             INSERT INTO alert_history (
-                error_id, equipment_id, alert_type, 
+                error_id, equipment_id, alert_type,
                 severity, created_time
             ) VALUES (?, ?, ?, ?, ?);
         """
         # 取得目前最大的 error_id，並加 1 作為新的 error_id
         sql_get_max = "SELECT ISNULL(MAX(error_id), 0) FROM alert_history;"
-        
-        
+ 
         conn = None
         try:
-        # 用傳進來的 db 去拿連線
+            # 用傳進來的 db 去拿連線
             conn = db._get_connection()
             cursor = conn.cursor()
 
             cursor.execute(sql_get_max)
             latest_error_id = cursor.fetchone()[0] + 1
-        
-            cursor.execute(sql,
-                        latest_error_id,
-                        log_data["equipment_id"],
-                        log_data["alert_type"],
-                        log_data["severity"],
-                        log_data["created_time"]
 
+            cursor.execute(sql,
+                           latest_error_id,
+                           log_data["equipment_id"],
+                           log_data["alert_type"],
+                           log_data["severity"],
+                           log_data["created_time"]
             )
             conn.commit()
             logger.info(f"成功寫入一筆異常紀錄，equipment_id: {log_data['equipment_id']}")
@@ -547,7 +543,6 @@ class Database:
                 cursor.close()
             if conn:
                 conn.close()
-
 
     def get_subscribed_users(self, equipment_id: str):
         """取得訂閱指定設備的所有使用者 ID"""

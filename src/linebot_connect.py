@@ -264,7 +264,7 @@ def register_routes(app_instance):  # 傳入 app 實例
         def now_func():
             return datetime.datetime.now()
         return dict(now=now_func)
-    
+
     @app_instance.route("/alarms", methods=["POST"])
     def alarms():
         """接收警報訊息"""
