@@ -502,7 +502,7 @@ class Database:
             }
 
 
-    # insert_alert_history 函式
+# insert_alert_history 函式
     def insert_alert_history(self , log_data: dict):
         """
         將單筆機台異常資料寫入 alert_history 表格。
