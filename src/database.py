@@ -529,7 +529,7 @@ class Database:
                            log_data["alert_type"],
                            log_data["severity"],
                            log_data["created_time"]
-                        )
+                           )
             conn.commit()
             logger.info(f"成功寫入一筆異常紀錄，equipment_id: {log_data['equipment_id']}")
         except pyodbc.Error as ex:
