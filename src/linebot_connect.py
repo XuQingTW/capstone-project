@@ -274,6 +274,7 @@ def register_routes(app_instance):  # 傳入 app 實例
             data["created_time"] = str(
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             )
+            db.insert_alert_history(log_data=data)
             equipment_id = data["equipment_id"]
             subscribers = db.get_subscribed_users(equipment_id)
             if subscribers:
