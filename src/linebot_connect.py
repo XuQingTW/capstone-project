@@ -268,11 +268,42 @@ def register_routes(app_instance):  # 傳入 app 實例
     @app_instance.route("/alarms", methods=["POST"])
     def alarms():
         """接收警報訊息"""
-        data = request.get_json(force=True, silent=True)
-        key = ("equipment_id", "alert_type", "severity")
-        if all(k in data for k in key):
-            data["created_time"] = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            insert_alert_history(db, log_data=data)
+    try:
+        data = request.get_json()
+        if not data:
+            raise ValueError("Empty JSON body")
+    except Exception as e:
+        logger.error(f"接收到的請求不是有效的 JSON 格式: {e}")
+        return jsonify({"status": "error", "message": "Invalid or empty JSON payload"}), 400
+
+    # 必要的欄位
+    required_keys = ("equipment_id", "alert_type", "severity")
+    if all(key in data for key in required_keys):
+        try:
+            # 將資料庫操作放入try...except
+            success = db.insert_alert_history(log_data=data)
+            
+            if success:
+                logger.info(f"成功接收並儲存警報: {data}")
+                # 回傳成功回應
+                return jsonify({"status": "success", "message": "Alarm received and stored"}), 201
+            else:
+                # 此情況可能為資料庫內部邏輯回傳False
+                raise Exception("Database returned False on insert")
+
+        except Exception as e:
+            logger.error(f"儲存警報時發生資料庫或內部錯誤: {e}")
+            # 處理資料庫錯誤並回傳500
+            return jsonify({"status": "error", "message": "Internal server error while saving alarm"}), 500
+    else:
+        # 處理缺少欄位的錯誤並回傳400
+        missing_keys = [key for key in required_keys if key not in data]
+        logger.warning(f"收到的警報資料缺少必要欄位: {missing_keys}")
+        return jsonify({
+            "status": "error",
+            "message": "Missing required fields",
+            "missing": missing_keys
+        }), 400
 
         logger.info("Received JSON from client:", data)
 
