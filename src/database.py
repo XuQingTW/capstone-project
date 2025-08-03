@@ -95,7 +95,7 @@ class Database:
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     [alert_type] NVARCHAR(255) NULL,
                     [severity] NVARCHAR(255) NULL,
-                    [message] NVARCHAR(MAX) NULL,
+                    # 此處原有message欄位，因純粹為重複其他欄位內容，不須保留，所以移除
                     [is_resolved] BIT NULL DEFAULT 0,
                     [created_time] datetime2(2) NULL,
                     [resolved_time] datetime2(2) NULL,
@@ -500,6 +500,63 @@ class Database:
                 "is_admin": False,
                 "responsible_area": None
             }
+
+    def insert_alert_history(self, log_data: dict):
+        """
+        將單筆機台異常資料寫入 alert_history 表格。
+        """
+        sql = """
+            INSERT INTO alert_history (
+                error_id, equipment_id, alert_type,
+                severity, created_time
+            ) VALUES (?, ?, ?, ?, ?);
+        """
+        # 取得目前最大的 error_id，並加 1 作為新的 error_id
+        sql_get_max = "SELECT ISNULL(MAX(error_id), 0) FROM alert_history;"
+
+        conn = None
+        try:
+            # 用傳進來的 db 去拿連線
+            conn = db._get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute(sql_get_max)
+            latest_error_id = cursor.fetchone()[0] + 1
+
+            cursor.execute(sql,
+                           latest_error_id,
+                           log_data["equipment_id"],
+                           log_data["alert_type"],
+                           log_data["severity"],
+                           log_data["created_time"]
+                           )
+            conn.commit()
+            logger.info(f"成功寫入一筆異常紀錄，equipment_id: {log_data['equipment_id']}")
+        except pyodbc.Error as ex:
+            logger.error(f"資料庫寫入時發生錯誤: {ex}")
+            if conn:
+                conn.rollback()
+                logger.warning("交易已回滾。")
+            raise
+        finally:
+            if "cursor" in locals() and cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def get_subscribed_users(self, equipment_id: str):
+        """取得訂閱指定設備的所有使用者 ID"""
+        sql = (
+            "SELECT user_id FROM user_equipment_subscriptions WHERE equipment_id = ?;"
+        )
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql, (equipment_id,))
+                return [row[0] for row in cursor.fetchall()]
+        except pyodbc.Error as e:
+            logger.error(f"取得設備 {equipment_id} 訂閱者失敗: {e}")
+            return []
 
 
 # 在測試環境下避免連線到實際資料庫
