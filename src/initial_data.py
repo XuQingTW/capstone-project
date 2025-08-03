@@ -50,7 +50,6 @@ TABLE_CONFIGS = [
             row.get('equipment_id'),
             row.get('alert_type'),
             row.get('severity'),
-            #此處原有message欄位，依照database.py移除欄位
             row.get('is_resolved'),
             pd.to_datetime(row.get('created_time')) if pd.notna(row.get('created_time')) else None,
             pd.to_datetime(row.get('resolved_time')) if pd.notna(row.get('resolved_time')) else None,
