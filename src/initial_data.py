@@ -42,7 +42,7 @@ TABLE_CONFIGS = [
     {
         "excel_sheet_name": "alert_history",
         "sql_table_name": "alert_history",
-        "sql_columns": ["error_id", "equipment_id", "alert_type", "severity", "message",
+        "sql_columns": ["error_id", "equipment_id", "alert_type", "severity",
                         "is_resolved", "created_time", "resolved_time",
                         "resolved_by", "resolution_notes"],
         "transform_row_data": lambda row: (
@@ -50,7 +50,6 @@ TABLE_CONFIGS = [
             row.get('equipment_id'),
             row.get('alert_type'),
             row.get('severity'),
-            str(row.get('message')) if pd.notna(row.get('message')) else None,
             row.get('is_resolved'),
             pd.to_datetime(row.get('created_time')) if pd.notna(row.get('created_time')) else None,
             pd.to_datetime(row.get('resolved_time')) if pd.notna(row.get('resolved_time')) else None,
