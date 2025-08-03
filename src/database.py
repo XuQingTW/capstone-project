@@ -95,7 +95,7 @@ class Database:
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     [alert_type] NVARCHAR(255) NULL,
                     [severity] NVARCHAR(255) NULL,
-                    [message] NVARCHAR(MAX) NULL,
+                    # 此處原有message欄位，因純粹為重複其他欄位內容，不須保留，所以移除
                     [is_resolved] BIT NULL DEFAULT 0,
                     [created_time] datetime2(2) NULL,
                     [resolved_time] datetime2(2) NULL,
