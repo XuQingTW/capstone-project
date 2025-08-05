@@ -279,7 +279,7 @@ def register_routes(app_instance):  # 傳入 app 實例
             subscribers = db.get_subscribed_users(equipment_id)
             if subscribers:
                 message_text = (
-                    f"設備 {equipment_id} 發生 {data['alert_type']} 警報，"
+                    f"設備 {equipment_id} 在 {data['created_time']} 時發生 {data['alert_type']} 警報，"  # 新增發生異常時間
                     f"嚴重程度 {data['severity']}"
                 )
                 for user in subscribers:
