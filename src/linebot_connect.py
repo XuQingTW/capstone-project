@@ -290,6 +290,42 @@ def register_routes(app_instance):  # 傳入 app 實例
         logger.info("Received JSON from client:", data)
         return jsonify({"status": "success"}), 200
 
+    @app_instance.route("/resolvealarms", methods=["POST"])
+    def resolve_alarms():
+        """接收警報解決訊息"""
+        data = request.get_json(force=True, silent=True)
+        key = ("error_id", "resolved_by",)
+        try:
+            db.resolve_alert_history(log_data=data)
+            # 用 error_id 反向查詢 equipment_id 以便發送通知
+            alert_info = db.get_alert_info(data['error_id'])
+            if alert_info:
+                equipment_id = alert_info['equipment_id']
+                alert_type = alert_info['alert_type']
+                data["resolved_time"] = str(
+                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+                # 查找訂閱者並發送解決通知
+                subscribers = db.get_subscribed_users(equipment_id)
+                if subscribers:
+                    # 建立新的通知訊息
+                    message_text = (
+                    f"設備 {equipment_id} 發生 {alert_type} 警報，"
+                    f"在 {data['resolved_time']} 由 {data['resolved_by']} 解決。"
+                    f"解決說明: {data.get('resolution_notes') or '無'}"
+                    )
+                    for user in subscribers:
+                        send_notification(user, message_text)
+                else:
+                    logger.info(f"No subscribers found for equipment {equipment_id}")
+            else:
+                # 錯誤回報
+                logger.warning(f"無法為已解決的 error_id: {data['error_id']} 找到對應的設備資訊。")
+            return jsonify({"status": "success", "message": "Alarm resolved."}), 200
+
+        except Exception as e:
+            logger.error(f"處理警報解決請求時發生錯誤: {e}")
+            return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 register_routes(app)
 

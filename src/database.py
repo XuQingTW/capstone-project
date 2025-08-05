@@ -543,6 +543,64 @@ class Database:
                 cursor.close()
             if conn:
                 conn.close()
+    
+    def get_alert_info(self, error_id: int):
+        """用 error_id 取得單筆警報的資訊"""
+        sql = "SELECT equipment_id, alert_type FROM alert_history WHERE error_id = ?;"
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql, error_id)
+                row = cursor.fetchone()
+                if row:
+                    return {"equipment_id": row[0], "alert_type": row[1]}
+                return None
+        except pyodbc.Error as e:
+            logger.error(f"查詢警報資訊 (error_id: {error_id}) 失敗: {e}")
+            return None
+
+    def resolve_alert_history(self, log_data: dict):
+        """
+        將指定的警報紀錄更新為已解決狀態
+        """
+        # 更新指定 alert_history 欄位內容，依照error_id作為條件
+        sql = """
+            UPDATE alert_history
+               SET is_resolved = 1,
+                   resolved_time = GETDATE(),
+                   resolved_by = ?,
+                   resolution_notes = ?
+             WHERE error_id = ?;
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            # 確保 log_data 包含必要欄位
+            cursor.execute(sql,
+                           log_data["resolved_by"],
+                           log_data.get("resolution_notes"),
+                           log_data["error_id"]
+                           )
+
+            if cursor.rowcount == 0:
+                logger.warning(f"嘗試更新警報，但找不到對應的 error_id: {log_data['error_id']}。沒有任何資料被修改。")  # 無資料被修改警示
+            else:
+                conn.commit()
+
+        except pyodbc.Error as ex:
+            error_id_val = log_data.get('error_id', 'N/A')   # 取得 error_id 或預設N/A'
+            logger.error(f"更新警報 (error_id: {error_id_val}) 時發生資料庫錯誤: {ex}") 
+            if conn:
+                conn.rollback()
+                logger.warning("交易已回滾。")
+            raise
+
+        finally:
+            if "cursor" in locals() and cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
     def get_subscribed_users(self, equipment_id: str):
         """取得訂閱指定設備的所有使用者 ID"""
