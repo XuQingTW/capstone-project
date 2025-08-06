@@ -326,7 +326,9 @@ def register_routes(app_instance):  # 傳入 app 實例
             logger.error(f"處理警報解決請求時發生錯誤: {e}")
             return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
+
 register_routes(app)
+
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
