@@ -543,7 +543,7 @@ class Database:
                 cursor.close()
             if conn:
                 conn.close()
-    
+
     def get_alert_info(self, error_id: int):
         """用 error_id 取得單筆警報的資訊"""
         sql = "SELECT equipment_id, alert_type FROM alert_history WHERE error_id = ?;"
@@ -590,7 +590,7 @@ class Database:
 
         except pyodbc.Error as ex:
             error_id_val = log_data.get('error_id', 'N/A')   # 取得 error_id 或預設N/A'
-            logger.error(f"更新警報 (error_id: {error_id_val}) 時發生資料庫錯誤: {ex}") 
+            logger.error(f"更新警報 (error_id: {error_id_val}) 時發生資料庫錯誤: {ex}")
             if conn:
                 conn.rollback()
                 logger.warning("交易已回滾。")
