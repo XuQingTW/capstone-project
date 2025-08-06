@@ -294,7 +294,6 @@ def register_routes(app_instance):  # 傳入 app 實例
     def resolve_alarms():
         """接收警報解決訊息"""
         data = request.get_json(force=True, silent=True)
-        key = ("error_id", "resolved_by",)
         try:
             db.resolve_alert_history(log_data=data)
             # 用 error_id 反向查詢 equipment_id 以便發送通知
@@ -310,9 +309,9 @@ def register_routes(app_instance):  # 傳入 app 實例
                 if subscribers:
                     # 建立新的通知訊息
                     message_text = (
-                    f"設備 {equipment_id} 發生 {alert_type} 警報，"
-                    f"在 {data['resolved_time']} 由 {data['resolved_by']} 解決。"
-                    f"解決說明: {data.get('resolution_notes') or '無'}"
+                        f"設備 {equipment_id} 發生 {alert_type} 警報，"
+                        f"在 {data['resolved_time']} 由 {data['resolved_by']} 解決。"
+                        f"解決說明: {data.get('resolution_notes') or '無'}"
                     )
                     for user in subscribers:
                         send_notification(user, message_text)
@@ -328,7 +327,6 @@ def register_routes(app_instance):  # 傳入 app 實例
             return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 register_routes(app)
-
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
