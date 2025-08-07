@@ -294,38 +294,51 @@ def register_routes(app_instance):  # 傳入 app 實例
     def resolve_alarms():
         """接收警報解決訊息"""
         data = request.get_json(force=True, silent=True)
-        key = ("error_id", "resolved_by", "resolution_notes")
-        if data and all(k in data for k in key):
-            data["resolved_time"] = str(
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 新增解決時間(同寫入資料庫時間)
-            )
+        if not data:
+            return jsonify({"status": "error", "message": "No JSON data received."}), 400
+        # 檢查必要的 key
+        required_keys = ("error_id", "resolved_by")
+        if not all(k in data for k in required_keys):
+            return jsonify({"status": "error", "message": "Missing required keys: error_id, resolved_by."}), 400
         try:
-            db.resolve_alert_history(log_data=data)
-            # 用 error_id 反向查詢 equipment_id 以便發送通知
-            alert_info = db.get_alert_info(data['error_id'])
-            if alert_info:
-                equipment_id = alert_info['equipment_id']
-                alert_type = alert_info['alert_type']
-                data["resolved_time"] = str(
-                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                )
-                # 查找訂閱者並發送解決通知
-                subscribers = db.get_subscribed_users(equipment_id)
-                if subscribers:
-                    # 建立新的通知訊息
-                    message_text = (
-                        f"設備 {equipment_id} 發生 {alert_type} 警報，"
-                        f"在 {data['resolved_time']} 由 {data['resolved_by']} 解決。"
-                        f"解決說明: {data.get('resolution_notes') or '無'}"
-                    )
-                    for user in subscribers:
-                        send_notification(user, message_text)
-                else:
-                    logger.info(f"No subscribers found for equipment {equipment_id}")
+            # 呼叫 database.py 中 resolve_alert_history 函式，會回傳三種可能的結果
+            db_result = db.resolve_alert_history(log_data=data)
+            
+            # 情況1:error_id 不存在，直接回傳錯誤
+            if db_result is None:
+                logger.warning(f"嘗試解決警報失敗，找不到 error_id: {data['error_id']}。")
+                return jsonify({"status": "error", "message": f"Alarm with error_id {data['error_id']} not found."}), 404
+            # 情況2:警報先前已被解決，不發送通知
+            elif isinstance(db_result, tuple):
+                logger.info(f"警報 {data['error_id']} 先前已被解決，不發送通知。")
+                return jsonify({"status": "success", "message": "Alarm was already resolved. No notification sent."}), 200
+            # 情況3:成功更新警報，只有這種情況才發送通知
             else:
-                # 錯誤回報
-                logger.warning(f"無法為已解決的 error_id: {data['error_id']} 找到對應的設備資訊。")
-            return jsonify({"status": "success", "message": "Alarm resolved."}), 200
+                resolved_time = db_result
+                # 準備訊息內容
+                alert_info = db.get_alert_info(data['error_id'])
+                if alert_info:
+                    equipment_id = alert_info['equipment_id']
+                    alert_type = alert_info['alert_type']
+                
+                    # 查找訂閱者
+                    subscribers = db.get_subscribed_users(equipment_id)
+                    if subscribers:
+                        # 建立新的通知訊息
+                        message_text = (
+                            f"設備 {equipment_id} 發生 {alert_type} 警報，"
+                            f"在 {data['resolved_time']} 由 {data['resolved_by']} 解決。"
+                            f"解決說明: {data.get('resolution_notes') or '無'}"
+                        )
+                        # 發送通知
+                        for user in subscribers:
+                            send_notification(user, message_text)
+                    else:
+                        logger.info(f"No subscribers found for equipment {equipment_id}")
+                else:
+                    # 錯誤回報
+                    logger.warning(f"無法為已解決的 error_id: {data['error_id']} 找到對應的設備資訊。")
+                return jsonify({"status": "success", "message": "Alarm resolved and notification sent."}), 200
 
         except Exception as e:
             logger.error(f"處理警報解決請求時發生錯誤: {e}")
