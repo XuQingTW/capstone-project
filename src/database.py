@@ -550,9 +550,9 @@ class Database:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(sql, error_id)
-                row = cursor.fetchone()
-                if row:
+                cursor.execute(sql, error_id)  # 執行SQL查詢 並將error_id作為參數傳入
+                row = cursor.fetchone()  # 從查詢結果中取出唯一一筆資料
+                if row:  # 檢查是否有成功取回資料
                     return {"equipment_id": row[0], "alert_type": row[1]}
                 return None
         except pyodbc.Error as e:
