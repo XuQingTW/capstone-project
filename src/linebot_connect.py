@@ -303,24 +303,27 @@ def register_routes(app_instance):  # 傳入 app 實例
         try:
             # 呼叫 database.py 中 resolve_alert_history 函式，會回傳三種可能的結果
             db_result = db.resolve_alert_history(log_data=data)
-            
+
             # 情況1:error_id 不存在，直接回傳錯誤
             if db_result is None:
                 logger.warning(f"嘗試解決警報失敗，找不到 error_id: {data['error_id']}。")
-                return jsonify({"status": "error", "message": f"Alarm with error_id {data['error_id']} not found."}), 404
+                return jsonify({
+                    "status": "error", "message": f"Alarm with error_id {data['error_id']} not found."
+                }), 404
             # 情況2:警報先前已被解決，不發送通知
             elif isinstance(db_result, tuple):
                 logger.info(f"警報 {data['error_id']} 先前已被解決，不發送通知。")
-                return jsonify({"status": "success", "message": "Alarm was already resolved. No notification sent."}), 200
+                return jsonify({
+                    "status": "success", "message": "Alarm was already resolved. No notification sent."
+                }), 200
             # 情況3:成功更新警報，只有這種情況才發送通知
             else:
-                resolved_time = db_result
                 # 準備訊息內容
                 alert_info = db.get_alert_info(data['error_id'])
                 if alert_info:
                     equipment_id = alert_info['equipment_id']
                     alert_type = alert_info['alert_type']
-                
+
                     # 查找訂閱者
                     subscribers = db.get_subscribed_users(equipment_id)
                     if subscribers:
