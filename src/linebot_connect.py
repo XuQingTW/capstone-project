@@ -294,10 +294,10 @@ def register_routes(app_instance):  # 傳入 app 實例
     def resolve_alarms():
         """接收警報解決訊息"""
         data = request.get_json(force=True, silent=True)
-        key = ("error_id", "resolved_by","resolution_notes")
+        key = ("error_id", "resolved_by","resolution_notes") 
         if data and all(k in data for k in key):
             data["resolved_time"] = str(
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 新增解決時間(同寫入資料庫時間)
             )
         try:
             db.resolve_alert_history(log_data=data)
