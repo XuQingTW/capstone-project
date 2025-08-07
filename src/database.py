@@ -576,10 +576,13 @@ class Database:
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
+            notes = log_data.get("resolution_notes")
+            if notes == "":
+                notes = None
             # 確保 log_data 包含必要欄位
             cursor.execute(sql,
                            log_data["resolved_by"],
-                           log_data.get("resolution_notes"),
+                           notes,
                            log_data["error_id"]
                            )
 
