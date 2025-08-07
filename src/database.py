@@ -565,12 +565,13 @@ class Database:
         """
         # 更新指定 alert_history 欄位內容，依照error_id作為條件
         sql = """
-            UPDATE alert_history
-               SET is_resolved = 1,
-                   resolved_time = GETDATE(),
-                   resolved_by = ?,
-                   resolution_notes = ?
-             WHERE error_id = ?;
+        UPDATE alert_history
+           SET is_resolved = 1,
+               resolved_time = GETDATE(),
+               resolved_by = ?,
+               resolution_notes = ?
+        OUTPUT inserted.resolved_time
+         WHERE error_id = ? AND (is_resolved = 0);
         """
         conn = None
         try:
@@ -586,10 +587,26 @@ class Database:
                            log_data["error_id"]
                            )
 
-            if cursor.rowcount == 0:
-                logger.warning(f"嘗試更新警報，但找不到對應的 error_id: {log_data['error_id']}。沒有任何資料被修改。")  # 無資料被修改警示
-            else:
+            newly_resolved_time = cursor.fetchone()  # 取得更新後 OUTPUT 的時間
+            if newly_resolved_time:
+               # 成功更新這筆警報
                 conn.commit()
+                logger.info(f"成功將 error_id: {log_data['error_id']} 的警報標示為已解決。")
+                return newly_resolved_time[0]
+            else:
+                # 檢查這筆警報是否是已解決
+                check_sql = "SELECT resolved_time FROM alert_history WHERE error_id = ? AND is_resolved = 1;"
+                cursor.execute(check_sql, log_data['error_id'])
+                already_resolved_time = cursor.fetchone()
+            
+                if already_resolved_time:
+                    # 警報先前已是解決狀態
+                    logger.info(f"嘗試解決的 error_id: {log_data['error_id']} 先前已被解決。")
+                    return (already_resolved_time[0], "already_resolved")
+                else:
+                    # 資料庫不存在這筆 error_id
+                    logger.warning(f"嘗試更新警報，但找不到對應的 error_id: {log_data['error_id']}。")
+                    return None
 
         except pyodbc.Error as ex:
             error_id_val = log_data.get('error_id', 'N/A')   # 取得 error_id 或預設N/A'
