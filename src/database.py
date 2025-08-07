@@ -589,7 +589,7 @@ class Database:
 
             newly_resolved_time = cursor.fetchone()  # 取得更新後 OUTPUT 的時間
             if newly_resolved_time:
-               # 成功更新這筆警報
+                # 成功更新這筆警報
                 conn.commit()
                 logger.info(f"成功將 error_id: {log_data['error_id']} 的警報標示為已解決。")
                 return newly_resolved_time[0]
@@ -598,7 +598,7 @@ class Database:
                 check_sql = "SELECT resolved_time FROM alert_history WHERE error_id = ? AND is_resolved = 1;"
                 cursor.execute(check_sql, log_data['error_id'])
                 already_resolved_time = cursor.fetchone()
-            
+
                 if already_resolved_time:
                     # 警報先前已是解決狀態
                     logger.info(f"嘗試解決的 error_id: {log_data['error_id']} 先前已被解決。")
