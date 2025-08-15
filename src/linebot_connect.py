@@ -308,7 +308,11 @@ def register_routes(app_instance):  # 傳入 app 實例
 
             # 情況1:找不到對應的 error_id 和 alert_type 和 equipment_id，直接回傳錯誤
             if db_result is None:
-                logger.warning(f"嘗試解決警報失敗，找不到 error_id: {data['error_id']} / alert_type: {data['alert_type']} / equipment_id: {data['equipment_id']}。")
+                logger.warning(
+                    f"嘗試解決警報失敗，找不到 error_id: {data['error_id']} / "
+                    f"alert_type: {data['alert_type']} / "
+                    f"quipment_id: {data['equipment_id']}。"
+                )
                 return jsonify({
                     "status": "error",
                     "message": (
@@ -328,7 +332,6 @@ def register_routes(app_instance):  # 傳入 app 實例
             # 情況3:成功更新警報，只有這種情況才發送通知
             else:
                 # 準備訊息內容
-                resolved_time = db_result.strftime('%Y-%m-%d %H:%M:%S')
                 equipment_id = data['equipment_id']
                 alert_type = data['alert_type']
 
