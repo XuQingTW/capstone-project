@@ -328,6 +328,7 @@ def register_routes(app_instance):  # 傳入 app 實例
             # 情況3:成功更新警報，只有這種情況才發送通知
             else:
                 # 準備訊息內容
+                resolved_time = db_result.strftime('%Y-%m-%d %H:%M:%S')
                 equipment_id = data['equipment_id']
                 alert_type = data['alert_type']
 
