@@ -563,7 +563,7 @@ class Database:
         """
         將指定的警報紀錄更新為已解決狀態
         """
-        # 更新指定 alert_history 欄位內容，依照 error_id 跟 alert_type 作為條件
+        # 更新指定 alert_history 欄位內容，依照 error_id 跟 alert_type 跟 equipment_id 作為條件
         sql = """
         UPDATE alert_history
            SET is_resolved = 1,
@@ -571,7 +571,7 @@ class Database:
                resolved_by = ?,
                resolution_notes = ?
         OUTPUT inserted.resolved_time
-         WHERE error_id = ? AND alert_type = ? AND (is_resolved = 0);
+         WHERE error_id = ? AND alert_type = ? AND equipment_id = ? AND (is_resolved = 0);
         """
         conn = None
         try:
@@ -585,42 +585,50 @@ class Database:
                            log_data["resolved_by"],
                            notes,
                            log_data["error_id"],
-                           log_data["alert_type"]
+                           log_data["alert_type"],
+                           log_data["equipment_id"]
                            )
 
             newly_resolved_time = cursor.fetchone()  # 取得更新後 OUTPUT 的時間
             if newly_resolved_time:
                 # 成功更新這筆警報
                 conn.commit()
-                logger.info(f"成功將 error_id: {log_data['error_id']} 的警報標示為已解決。")
+                logger.info(
+                    f"成功將 error_id: {log_data['error_id']} / "
+                    f"alert_type: {log_data['alert_type']} / "
+                    f"equipment_id: {log_data['equipment_id']} 的警報標示為已解決。"
+                )
                 return newly_resolved_time[0]
             else:
                 # 檢查這筆警報是否是已解決
                 check_sql = (
                     "SELECT resolved_time FROM alert_history "
-                    "WHERE error_id = ? AND alert_type = ? AND is_resolved = 1;"
+                    "WHERE error_id = ? AND alert_type = ? AND equipment_id = ? AND is_resolved = 1;"
                 )
-                cursor.execute(check_sql, log_data['error_id'], log_data['alert_type'])
+                cursor.execute(check_sql, log_data['error_id'], log_data['alert_type'], log_data['equipment_id'])
                 already_resolved_time = cursor.fetchone()
 
                 if already_resolved_time:
                     # 警報先前已是解決狀態
                     logger.info(
                         f"嘗試解決的 error_id: {log_data['error_id']} / "
+                        f"equipment_id: {log_data['equipment_id']} / "
                         f"alert_type: {log_data['alert_type']} 先前已被解決。"
                     )
                     return (already_resolved_time[0], "already_resolved")
                 else:
                     # 資料庫不存在這筆 error_id
                     logger.warning(
-                        f"嘗試更新警報，但找不到對應的 error_id: {log_data['error_id']} "
-                        f"和 alert_type: {log_data['alert_type']}。"
+                        f"嘗試更新警報，但找不到對應的 error_id: {log_data['error_id']} /"
+                        f"alert_type: {log_data['alert_type']}。"
+                        f"和equipment_id: {log_data['equipment_id']}。"
                     )
                     return None
 
         except pyodbc.Error as ex:
             error_id_val = log_data.get('error_id', 'N/A')   # 取得 error_id 或預設N/A'
             alert_type_val = log_data.get('alert_type', 'N/A')  # 取得 alert_type 或預設N/A'
+            equipment_id_val = log_data.get('equipment_id', 'N/A')  # 取得 equipment_id 或預設N/A'
             logger.error(f"更新警報 (error_id: {error_id_val}), alert_type: {alert_type_val}) 時發生資料庫錯誤: {ex}")
             if conn:
                 conn.rollback()
