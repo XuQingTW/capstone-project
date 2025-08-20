@@ -1,6 +1,7 @@
 import logging
 import os
 import pyodbc
+import datetime
 from config import Config
 
 
@@ -540,7 +541,7 @@ class Database:
                            log_data["severity"],
                            event_time
                            )
-            
+     
             # 寫入 error_logs
             cursor.execute(sql_error_log,
                            event_time.date(),
