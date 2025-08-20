@@ -541,7 +541,7 @@ class Database:
                            log_data["severity"],
                            event_time
                            )
-     
+ 
             # 寫入 error_logs
             cursor.execute(sql_error_log,
                            event_time.date(),
