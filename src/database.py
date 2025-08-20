@@ -548,7 +548,7 @@ class Database:
                            latest_error_id,
                            log_data["equipment_id"],
                            log_data.get("deformation_mm", 0),
-                           log_data.get("rpm", 0),
+                           log_data.get("rpm", 30000),  # 預設30000
                            event_time,
                            log_data["alert_type"],
                            log_data["severity"]
