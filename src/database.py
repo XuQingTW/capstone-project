@@ -503,13 +503,20 @@ class Database:
 
     def insert_alert_history(self, log_data: dict):
         """
-        將單筆機台異常資料寫入 alert_history 表格。
+        在單筆紀錄中，同時新增警報到 alert_history 和日誌到 error_logs。
         """
-        sql = """
+        sql_alert_history = """
             INSERT INTO alert_history (
                 error_id, equipment_id, alert_type,
                 severity, created_time
             ) VALUES (?, ?, ?, ?, ?);
+        """
+        # 新增 error_log 寫入統計資料
+        sql_error_log = """
+            INSERT INTO error_logs (
+                log_date, error_id, equipment_id, deformation_mm,
+                rpm, event_time, detected_anomaly_type, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
         # 取得目前最大的 error_id，並加 1 作為新的 error_id
         sql_get_max = "SELECT ISNULL(MAX(error_id), 0) FROM alert_history;"
@@ -520,18 +527,35 @@ class Database:
             conn = db._get_connection()
             cursor = conn.cursor()
 
+            # 共用 error_id 和 event_time
             cursor.execute(sql_get_max)
             latest_error_id = cursor.fetchone()[0] + 1
+            event_time = datetime.datetime.now()  # 原使用GETDATE()，改成datetime.now
 
-            cursor.execute(sql,
+            # 寫入 alert_history
+            cursor.execute(sql_alert_history,
                            latest_error_id,
                            log_data["equipment_id"],
                            log_data["alert_type"],
                            log_data["severity"],
-                           log_data["created_time"]
+                           event_time
                            )
+            
+            # 寫入 error_logs
+            cursor.execute(sql_error_log,
+                           event_time.date(),
+                           latest_error_id,
+                           log_data["equipment_id"],
+                           log_data.get("deformation_mm", 0),
+                           log_data.get("rpm", 0),
+                           event_time,
+                           log_data["alert_type"],
+                           log_data["severity"]
+                           )
+
             conn.commit()
             logger.info(f"成功寫入一筆異常紀錄，equipment_id: {log_data['equipment_id']}")
+            return {"error_id": latest_error_id, "created_time": event_time}
         except pyodbc.Error as ex:
             logger.error(f"資料庫寫入時發生錯誤: {ex}")
             if conn:
