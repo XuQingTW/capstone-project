@@ -29,7 +29,7 @@ def send_json():
         嚴重程度:
         warning:範圍 0.01~0.05
         critical:範圍 0.05~.01
-        emergency:範圍 >.01
+        emergency:範圍 >.1
         """
         payload["rpm"] = 30000  # RPM 固定為 30000
         payload["deformation_mm"] = 0.8  # 填入實際變形值
