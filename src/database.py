@@ -589,7 +589,7 @@ class Database:
         將指定的警報紀錄更新為已解決狀態
         """
         # 更新指定 alert_history 欄位內容，依照 error_id 跟 alert_type 跟 equipment_id 作為條件
-        sql = """
+        sql_alert_history = """
         UPDATE alert_history
            SET is_resolved = 1,
                resolved_time = GETDATE(),
@@ -597,6 +597,13 @@ class Database:
                resolution_notes = ?
         OUTPUT inserted.resolved_time
          WHERE error_id = ? AND alert_type = ? AND equipment_id = ? AND (is_resolved = 0);
+        """
+        # 更新指定 error_logs 欄位內容
+        sql_error_log = """
+        UPDATE error_logs
+           SET resolved_time = GETDATE(),
+               downtime_sec = DATEDIFF(second, event_time, GETDATE())
+         WHERE error_id = ?;
         """
         conn = None
         try:
@@ -606,7 +613,7 @@ class Database:
             if notes == "":
                 notes = None
             # 確保 log_data 包含必要欄位
-            cursor.execute(sql,
+            cursor.execute(sql_alert_history,
                            log_data["resolved_by"],
                            notes,
                            log_data["error_id"],
@@ -616,6 +623,8 @@ class Database:
 
             newly_resolved_time = cursor.fetchone()  # 取得更新後 OUTPUT 的時間
             if newly_resolved_time:
+                # alert_history 成功更新，才更新 error_logs
+                cursor.execute(sql_error_log, log_data["error_id"])
                 # 成功更新這筆警報
                 conn.commit()
                 logger.info(
