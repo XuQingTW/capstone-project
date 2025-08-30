@@ -311,7 +311,7 @@ def register_routes(app_instance):  # 傳入 app 實例
                 logger.warning(
                     f"嘗試解決警報失敗，找不到 error_id: {data['error_id']} / "
                     f"alert_type: {data['alert_type']} / "
-                    f"quipment_id: {data['equipment_id']}。"
+                    f"equipment_id: {data['equipment_id']}。"
                 )
                 return jsonify({
                     "status": "error",
@@ -341,15 +341,15 @@ def register_routes(app_instance):  # 傳入 app 實例
                 if subscribers:
                     # 建立新的通知訊息
                     message_text = (
-                    f"設備 {equipment_id} 發生 {alert_type} 警報，"
-                    f"在 {resolved_time_from_db.strftime('%Y-%m-%d %H:%M:%S')} 由 {data['resolved_by']} 解決。"
-                    f"解決說明: {data.get('resolution_notes') or '無'}"
+                        f"設備 {equipment_id} 發生 {alert_type} 警報，"
+                        f"在 {resolved_time_from_db.strftime('%Y-%m-%d %H:%M:%S')} 由 {data['resolved_by']} 解決。"
+                        f"解決說明: {data.get('resolution_notes') or '無'}"
                     )
                     # 發送通知
                     for user in subscribers:
                         send_notification(user, message_text)
-                    else:
-                        logger.info(f"No subscribers found for equipment {equipment_id}")
+                else:
+                    logger.info(f"No subscribers found for equipment {equipment_id}")
 
                 return jsonify({"status": "success", "message": "Alarm resolved and notification sent."}), 200
 
