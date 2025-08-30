@@ -334,15 +334,16 @@ def register_routes(app_instance):  # 傳入 app 實例
                 # 準備訊息內容
                 equipment_id = data['equipment_id']
                 alert_type = data['alert_type']
+                resolved_time_from_db = db_result
 
                 # 查找訂閱者
                 subscribers = db.get_subscribed_users(equipment_id)
                 if subscribers:
                     # 建立新的通知訊息
                     message_text = (
-                        f"設備 {equipment_id} 發生 {alert_type} 警報，"
-                        f"在 {data['resolved_time']} 由 {data['resolved_by']} 解決。"
-                        f"解決說明: {data.get('resolution_notes') or '無'}"
+                    f"設備 {equipment_id} 發生 {alert_type} 警報，"
+                    f"在 {resolved_time_from_db.strftime('%Y-%m-%d %H:%M:%S')} 由 {data['resolved_by']} 解決。"
+                    f"解決說明: {data.get('resolution_notes') or '無'}"
                     )
                     # 發送通知
                     for user in subscribers:
