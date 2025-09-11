@@ -45,7 +45,6 @@ class Database:
                     [responsible_area] NVARCHAR(255) NULL,
                     [created_at] datetime2(2) NULL,
                     [display_name] NVARCHAR(255) NULL,
-                    [email] NVARCHAR(255) NULL UNIQUE,
                     [last_active] datetime2(2) NULL
                 """
                 self._create_table_if_not_exists(init_cur, "user_preferences", user_preferences_cols)
@@ -56,7 +55,6 @@ class Database:
                     [equipment_id] NVARCHAR(255) NOT NULL PRIMARY KEY,
                     [name] NVARCHAR(255) NOT NULL,
                     [equipment_type] NVARCHAR(255) NULL,
-                    [location] NVARCHAR(255) NULL,
                     [status] NVARCHAR(255) NULL,
                     [last_updated] datetime2(2) NULL
                 """

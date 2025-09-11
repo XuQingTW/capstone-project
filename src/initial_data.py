@@ -28,13 +28,12 @@ TABLE_CONFIGS = [
     {
         "excel_sheet_name": "equipment",
         "sql_table_name": "equipment",
-        "sql_columns": ["id", "equipment_id", "name", "equipment_type", "location", "status", "last_updated"],
+        "sql_columns": ["id", "equipment_id", "name", "equipment_type", "status", "last_updated"],
         "transform_row_data": lambda row: (
             row.get('id'),
             row.get('equipment_id'),
             row.get('name'),
             row.get('equipment_type'),
-            row.get('location'),
             row.get('status'),
             pd.to_datetime(row.get('last_updated')) if pd.notna(row.get('last_updated')) else None
         )
