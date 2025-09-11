@@ -279,7 +279,7 @@ def register_routes(app_instance):  # 傳入 app 實例
             subscribers = db.get_subscribed_users(equipment_id)
             if subscribers:
                 message_text = (
-                    f"設備 {equipment_id} 發生 {data['alert_type']} 警報，"
+                    f"設備 {equipment_id} 在 {data['created_time']} 時發生 {data['alert_type']} 警報，"  # 新增發生異常時間
                     f"嚴重程度 {data['severity']}"
                 )
                 for user in subscribers:
@@ -289,6 +289,73 @@ def register_routes(app_instance):  # 傳入 app 實例
 
         logger.info("Received JSON from client:", data)
         return jsonify({"status": "success"}), 200
+
+    @app_instance.route("/resolvealarms", methods=["POST"])
+    def resolve_alarms():
+        """接收警報解決訊息"""
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"status": "error", "message": "No JSON data received."}), 400
+        # 檢查必要的 key (新增alert_type 跟 equipment_id 讓定位更加準確)
+        required_keys = ("error_id", "alert_type", "equipment_id", "resolved_by")
+        if not all(k in data for k in required_keys):
+            return jsonify({
+                "status": "error", "message": "Missing required keys: error_id, alert_type, equipment_id, resolved_by."
+            }), 400
+        try:
+            # 呼叫 database.py 中 resolve_alert_history 函式，會回傳三種可能的結果
+            db_result = db.resolve_alert_history(log_data=data)
+
+            # 情況1:找不到對應的 error_id 和 alert_type 和 equipment_id，直接回傳錯誤
+            if db_result is None:
+                logger.warning(
+                    f"嘗試解決警報失敗，找不到 error_id: {data['error_id']} / "
+                    f"alert_type: {data['alert_type']} / "
+                    f"equipment_id: {data['equipment_id']}。"
+                )
+                return jsonify({
+                    "status": "error",
+                    "message": (
+                        f"Alarm with error_id {data['error_id']} "
+                        f"and alert_type {data['alert_type']} "
+                        f"and equipment_id {data['equipment_id']} not found."
+                    )
+                }), 404
+            # 情況2:警報先前已被解決，不發送通知
+            elif isinstance(db_result, tuple):
+                logger.info(
+                    f"警報 {data['error_id']} / alert_type: {data['alert_type']} / "
+                    f"equipment_id: {data['equipment_id']} 先前已被解決，不發送通知。")
+                return jsonify({
+                    "status": "success", "message": "Alarm was already resolved. No notification sent."
+                }), 200
+            # 情況3:成功更新警報，只有這種情況才發送通知
+            else:
+                # 準備訊息內容
+                equipment_id = data['equipment_id']
+                alert_type = data['alert_type']
+                resolved_time_from_db = db_result
+
+                # 查找訂閱者
+                subscribers = db.get_subscribed_users(equipment_id)
+                if subscribers:
+                    # 建立新的通知訊息
+                    message_text = (
+                        f"設備 {equipment_id} 發生 {alert_type} 警報，"
+                        f"在 {resolved_time_from_db.strftime('%Y-%m-%d %H:%M:%S')} 由 {data['resolved_by']} 解決。"
+                        f"解決說明: {data.get('resolution_notes') or '無'}"
+                    )
+                    # 發送通知
+                    for user in subscribers:
+                        send_notification(user, message_text)
+                else:
+                    logger.info(f"No subscribers found for equipment {equipment_id}")
+
+                return jsonify({"status": "success", "message": "Alarm resolved and notification sent."}), 200
+
+        except Exception as e:
+            logger.error(f"處理警報解決請求時發生錯誤: {e}")
+            return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 
 register_routes(app)

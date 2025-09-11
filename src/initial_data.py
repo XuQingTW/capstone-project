@@ -99,7 +99,7 @@ TABLE_CONFIGS = [
         "sql_columns": ["log_date", "error_id", "equipment_id",
                         "deformation_mm", "rpm", "event_time",
                         "detected_anomaly_type", "resolved_time",
-                        "downtime_min", "downtime_sec", "notes"],
+                        "downtime_sec", "notes"],
         "transform_row_data": lambda row: (
             pd.to_datetime(row.get('log_date')),
             int(row.get('error_id')),
@@ -109,7 +109,6 @@ TABLE_CONFIGS = [
             pd.to_datetime(row.get('event_time')),
             str(row.get('detected_anomaly_type')),
             pd.to_datetime(row.get('resolved_time')),
-            int(row.get('downtime_min')) if pd.notna(row.get('downtime_min')) else None,
             int(row.get('downtime_sec')) if pd.notna(row.get('downtime_sec')) else None,
             str(row.get('notes')) if pd.notna(row.get('notes')) else None
         )

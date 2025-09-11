@@ -1,6 +1,7 @@
 import logging
 import os
 import pyodbc
+import datetime
 from config import Config
 
 
@@ -95,13 +96,13 @@ class Database:
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     [alert_type] NVARCHAR(255) NULL,
                     [severity] NVARCHAR(255) NULL,
-                    # 此處原有message欄位，因純粹為重複其他欄位內容，不須保留，所以移除
                     [is_resolved] BIT NULL DEFAULT 0,
                     [created_time] datetime2(2) NULL,
                     [resolved_time] datetime2(2) NULL,
                     [resolved_by] NVARCHAR(255) NULL,
                     [resolution_notes] NVARCHAR(MAX) NULL
                 """
+                # 此表欄位原有message欄位，因純粹為重複其他欄位內容，不須保留，所以移除
                 self._create_table_if_not_exists(init_cur, "alert_history", alert_history_cols)
 
                 # 6. equipment_metrics
@@ -147,7 +148,6 @@ class Database:
                     [rpm] INT NOT NULL,
                     [event_time] datetime2(2) NOT NULL,
                     [detected_anomaly_type] NVARCHAR(MAX) NOT NULL,
-                    [downtime_min] INT NULL,
                     [downtime_sec] INT NULL,
                     [resolved_time] datetime2(2) NULL,
                     [notes] NVARCHAR(MAX) NULL
@@ -503,13 +503,20 @@ class Database:
 
     def insert_alert_history(self, log_data: dict):
         """
-        將單筆機台異常資料寫入 alert_history 表格。
+        在單筆紀錄中，同時新增警報到 alert_history 和日誌到 error_logs。
         """
-        sql = """
+        sql_alert_history = """
             INSERT INTO alert_history (
                 error_id, equipment_id, alert_type,
                 severity, created_time
             ) VALUES (?, ?, ?, ?, ?);
+        """
+        # 新增 error_log 寫入統計資料
+        sql_error_log = """
+            INSERT INTO error_logs (
+                log_date, error_id, equipment_id, deformation_mm,
+                rpm, event_time, detected_anomaly_type, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
         # 取得目前最大的 error_id，並加 1 作為新的 error_id
         sql_get_max = "SELECT ISNULL(MAX(error_id), 0) FROM alert_history;"
@@ -520,24 +527,147 @@ class Database:
             conn = db._get_connection()
             cursor = conn.cursor()
 
+            # 共用 error_id 和 event_time
             cursor.execute(sql_get_max)
             latest_error_id = cursor.fetchone()[0] + 1
+            event_time = datetime.datetime.now()  # 原使用GETDATE()，改成datetime.now
 
-            cursor.execute(sql,
+            # 寫入 alert_history
+            cursor.execute(sql_alert_history,
                            latest_error_id,
                            log_data["equipment_id"],
                            log_data["alert_type"],
                            log_data["severity"],
-                           log_data["created_time"]
+                           event_time
                            )
+
+            # 寫入 error_logs
+            cursor.execute(sql_error_log,
+                           event_time.date(),
+                           latest_error_id,
+                           log_data["equipment_id"],
+                           log_data.get("deformation_mm", 0),
+                           log_data.get("rpm", 30000),  # 預設30000
+                           event_time,
+                           log_data["alert_type"],
+                           log_data["severity"]
+                           )
+
             conn.commit()
             logger.info(f"成功寫入一筆異常紀錄，equipment_id: {log_data['equipment_id']}")
+            return {"error_id": latest_error_id, "created_time": event_time}
         except pyodbc.Error as ex:
             logger.error(f"資料庫寫入時發生錯誤: {ex}")
             if conn:
                 conn.rollback()
                 logger.warning("交易已回滾。")
             raise
+        finally:
+            if "cursor" in locals() and cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def get_alert_info(self, error_id: int, alert_type: str):
+        """用 error_id 跟 alert_type 取得單筆警報的資訊"""
+        sql = "SELECT equipment_id, alert_type FROM alert_history WHERE error_id = ? AND alert_type =  ?;"
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql, error_id, alert_type)  # 執行SQL查詢 並將 error_id 跟 alert_type 作為參數傳入
+                row = cursor.fetchone()  # 從查詢結果中取出唯一一筆資料
+                if row:  # 檢查是否有成功取回資料
+                    return {"equipment_id": row[0]}
+                return None
+        except pyodbc.Error as e:
+            logger.error(f"查詢警報資訊 (error_id: {error_id}), alert_type: {alert_type}) 失敗: {e}")
+            return None
+
+    def resolve_alert_history(self, log_data: dict):
+        """
+        將指定的警報紀錄更新為已解決狀態
+        """
+        # 更新指定 alert_history 欄位內容，依照 error_id 跟 alert_type 跟 equipment_id 作為條件
+        sql_alert_history = """
+        UPDATE alert_history
+           SET is_resolved = 1,
+               resolved_time = GETDATE(),
+               resolved_by = ?,
+               resolution_notes = ?
+        OUTPUT inserted.resolved_time
+         WHERE error_id = ? AND alert_type = ? AND equipment_id = ? AND (is_resolved = 0);
+        """
+        # 更新指定 error_logs 欄位內容
+        sql_error_log = """
+        UPDATE error_logs
+           SET resolved_time = GETDATE(),
+               downtime_sec = DATEDIFF(second, event_time, GETDATE())
+         WHERE error_id = ?;
+        """
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            notes = log_data.get("resolution_notes")
+            if notes == "":
+                notes = None
+            # 確保 log_data 包含必要欄位
+            cursor.execute(sql_alert_history,
+                           log_data["resolved_by"],
+                           notes,
+                           log_data["error_id"],
+                           log_data["alert_type"],
+                           log_data["equipment_id"]
+                           )
+
+            newly_resolved_time = cursor.fetchone()  # 取得更新後 OUTPUT 的時間
+            if newly_resolved_time:
+                # alert_history 成功更新，才更新 error_logs
+                cursor.execute(sql_error_log, log_data["error_id"])
+                # 成功更新這筆警報
+                conn.commit()
+                logger.info(
+                    f"成功將 error_id: {log_data['error_id']} / "
+                    f"alert_type: {log_data['alert_type']} / "
+                    f"equipment_id: {log_data['equipment_id']} 的警報標示為已解決。"
+                )
+                return newly_resolved_time[0]
+            else:
+                # 檢查這筆警報是否是已解決
+                check_sql = (
+                    "SELECT resolved_time FROM alert_history "
+                    "WHERE error_id = ? AND alert_type = ? AND equipment_id = ? AND is_resolved = 1;"
+                )
+                cursor.execute(check_sql, log_data['error_id'], log_data['alert_type'], log_data['equipment_id'])
+                already_resolved_time = cursor.fetchone()
+
+                if already_resolved_time:
+                    # 警報先前已是解決狀態
+                    logger.info(
+                        f"嘗試解決的 error_id: {log_data['error_id']} / "
+                        f"equipment_id: {log_data['equipment_id']} / "
+                        f"alert_type: {log_data['alert_type']} 先前已被解決。"
+                    )
+                    return (already_resolved_time[0], "already_resolved")
+                else:
+                    # 資料庫不存在這筆 error_id
+                    logger.warning(
+                        f"嘗試更新警報，但找不到對應的 error_id: {log_data['error_id']} /"
+                        f"alert_type: {log_data['alert_type']}。"
+                        f"和equipment_id: {log_data['equipment_id']}。"
+                    )
+                    return None
+
+        except pyodbc.Error as ex:
+            error_id_val = log_data.get('error_id', 'N/A')   # 取得 error_id 或預設N/A'
+            alert_type_val = log_data.get('alert_type', 'N/A')  # 取得 alert_type 或預設N/A'
+            equipment_id_val = log_data.get('equipment_id', 'N/A')  # 取得 equipment_id 或預設N/A'
+            logger.error(f"更新警報 (error_id: {error_id_val}), alert_type: {alert_type_val}) 時發生資料庫錯誤: {ex}")
+            if conn:
+                conn.rollback()
+                logger.warning("交易已回滾。")
+            raise
+
         finally:
             if "cursor" in locals() and cursor:
                 cursor.close()
