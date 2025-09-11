@@ -80,7 +80,7 @@ class Database:
                     [equipment_id] NVARCHAR(255) NOT NULL FOREIGN KEY REFERENCES equipment(equipment_id),
                     CONSTRAINT FK_subscriptions_user FOREIGN KEY (user_id) REFERENCES user_preferences(user_id),
                     CONSTRAINT FK_subscriptions_equipment FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id),
-                    CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id) 
+                    CONSTRAINT UQ_user_equipment UNIQUE(user_id, equipment_id)
                 """
                 self._create_table_if_not_exists(
                     init_cur,
