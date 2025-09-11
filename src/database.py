@@ -42,6 +42,7 @@ class Database:
                     [language] VARCHAR(50) NULL,
                     [role] NVARCHAR(50) NULL,
                     [is_admin] BIT NULL,
+                    [responsible_area] NVARCHAR(255) NULL,
                     [created_at] datetime2(2) NULL,
                     [display_name] NVARCHAR(255) NULL,
                     [last_active] datetime2(2) NULL
